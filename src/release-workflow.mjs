@@ -2,7 +2,7 @@ import { WorkflowEntrypoint } from 'cloudflare:workers'
 import { mirrorApkToFirebaseAppDistribution } from './lib/firebase_app_distribution'
 import { decodeWorkflowPayload } from './lib/workflow_payload.mjs'
 
-const TAG_RE = /^v\d+\.\d+\.\d+$/
+const TAG_RE = /^v\d+\.\d+\.\d+\+[1-9]\d*$/
 const VERSION_RE = /^\d+\.\d+\.\d+$/
 const DEFAULT_WORKER_URL = 'https://petersmartlink.com'
 const OFFICIAL_RELEASE_HOSTS = new Set(['petersmartlink.com', 'www.petersmartlink.com'])
@@ -32,16 +32,31 @@ function normalizeWorkerUrl(value) {
   return url.origin
 }
 
+function immutableApkUrl(workerUrl, abi, tag) {
+  return `${workerUrl}/apk/${abi}?tag=${encodeURIComponent(tag)}`
+}
+
 function normalizePayload(raw = {}) {
   const tag = requireString(raw.tag, 'tag')
   const version = requireString(raw.version, 'version')
-  if (!TAG_RE.test(tag)) throw new Error('tag must match vX.Y.Z')
+  if (!TAG_RE.test(tag)) throw new Error('tag must match vX.Y.Z+BUILD')
   if (!VERSION_RE.test(version)) throw new Error('version must match X.Y.Z')
-  if (tag !== `v${version}`) throw new Error('tag and version do not match')
+
+  const tagIdentity = tag.slice(1)
+  const separator = tagIdentity.lastIndexOf('+')
+  const tagVersion = tagIdentity.slice(0, separator)
+  const tagBuild = Number(tagIdentity.slice(separator + 1))
+  if (tagVersion !== version) throw new Error('tag version and public version do not match')
+  if (!Number.isSafeInteger(tagBuild) || tagBuild <= 0) {
+    throw new Error('tag build must be a positive integer')
+  }
 
   const versionCode = Number(raw.versionCode ?? raw.version_code)
   if (!Number.isSafeInteger(versionCode) || versionCode <= 0) {
     throw new Error('versionCode must be a positive integer')
+  }
+  if (tagBuild !== versionCode) {
+    throw new Error('tag build and versionCode do not match')
   }
 
   const arm64Key = requireString(
@@ -163,8 +178,8 @@ export class OtyaReleaseWorkflow extends WorkflowEntrypoint {
           release.changelog,
           release.forceUpdate ? 1 : 0,
           `${release.workerUrl}/download/otya-player`,
-          `${release.workerUrl}/apk/arm64`,
-          `${release.workerUrl}/apk/arm32`,
+          immutableApkUrl(release.workerUrl, 'arm64', release.tag),
+          immutableApkUrl(release.workerUrl, 'arm32', release.tag),
           release.minSdk,
           release.targetSdk,
         ).run()
@@ -173,14 +188,15 @@ export class OtyaReleaseWorkflow extends WorkflowEntrypoint {
 
       const metadata = await step.do('publish version metadata', async () => {
         const value = {
+          tag: release.tag,
           version: release.version,
           versionCode: release.versionCode,
           date: new Date().toISOString(),
           arm64: release.arm64Key,
           arm32: release.arm32Key,
           latestAliases: {
-            arm64: 'OtyaPlayer-arm64.apk',
-            arm32: 'OtyaPlayer-arm32.apk',
+            arm64: 'Otya-arm64.apk',
+            arm32: 'Otya-arm32.apk',
           },
           changelog: release.changelog || `OTYA Player ${release.version} is now available.`,
           minSdk: release.minSdk,
@@ -189,6 +205,8 @@ export class OtyaReleaseWorkflow extends WorkflowEntrypoint {
           downloads: {
             arm64: `${release.workerUrl}/apk/arm64`,
             arm32: `${release.workerUrl}/apk/arm32`,
+            exactArm64: immutableApkUrl(release.workerUrl, 'arm64', release.tag),
+            exactArm32: immutableApkUrl(release.workerUrl, 'arm32', release.tag),
             auto: `${release.workerUrl}/download/otya-player`,
             page: `${release.workerUrl}/download/otya-player`,
           },

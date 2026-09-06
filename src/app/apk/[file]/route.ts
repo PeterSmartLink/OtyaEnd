@@ -6,6 +6,8 @@ const LATEST_MAP: Record<string, string> = {
   arm64: 'Otya-arm64.apk',
   arm32: 'Otya-arm32.apk',
 }
+const LEGACY_VERSION_RE = /^\d+\.\d+\.\d+$/
+const BUILD_TAG_RE = /^v\d+\.\d+\.\d+\+[1-9]\d*$/
 const DOWNLOAD_RATE_WINDOW_SECONDS = 60
 
 type DownloadKV = {
@@ -79,14 +81,29 @@ export async function GET(
     return new NextResponse('Not found', { status: 404 })
   }
 
+  // New immutable releases use a full build tag so multiple builds can share
+  // the same public version without colliding. Keep the old `v=X.Y.Z` lookup
+  // only for historical links that predate build-specific tags.
+  const tag = req.nextUrl.searchParams.get('tag')
   const version = req.nextUrl.searchParams.get('v')
+  if (tag && version) {
+    return new NextResponse('Choose either tag or version, not both', { status: 400 })
+  }
 
   let key: string
-  if (version) {
-    if (!/^\d+\.\d+\.\d+$/.test(version)) {
+  let releaseIdentity = 'latest'
+  if (tag) {
+    if (!BUILD_TAG_RE.test(tag)) {
+      return new NextResponse('Invalid release tag', { status: 400 })
+    }
+    key = `releases/${tag}/Otya-${file}.apk`
+    releaseIdentity = tag
+  } else if (version) {
+    if (!LEGACY_VERSION_RE.test(version)) {
       return new NextResponse('Invalid version', { status: 400 })
     }
     key = `releases/v${version}/Otya-${file}.apk`
+    releaseIdentity = `v${version}`
   } else {
     key = LATEST_MAP[file]
   }
@@ -123,7 +140,7 @@ export async function GET(
           'INSERT INTO downloads (abi, version, ip, user_agent) VALUES (?, ?, ?, ?)'
         ).bind(
           file,
-          version ?? 'latest',
+          releaseIdentity,
           requestIp(req),
           (req.headers.get('user-agent') ?? '').slice(0, 250)
         ).run()
@@ -137,7 +154,7 @@ export async function GET(
     if (object.size > 0) headers.set('Content-Length', String(object.size))
     headers.set(
       'Cache-Control',
-      version
+      releaseIdentity !== 'latest'
         ? 'public, max-age=31536000, immutable'
         : 'public, max-age=300, must-revalidate',
     )
