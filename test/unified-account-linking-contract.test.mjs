@@ -11,7 +11,7 @@ const account = read('src/app/account/page.tsx')
 const proxy = read('src/app/api/account-session/[...path]/route.ts')
 
 test('Telegram-first Otya identities can add a unique primary email without replacing an existing one', () => {
-  assert.match(profile, /const allowed = \['email'/)
+  assert.match(profile, /const allowed = \[\s*'email'/)
   assert.match(profile, /EMAIL_IN_USE/)
   assert.match(profile, /EMAIL_CHANGE_REQUIRES_VERIFICATION/)
   assert.match(profile, /updates\.push\('email = \?', 'is_verified = 0'\)/)

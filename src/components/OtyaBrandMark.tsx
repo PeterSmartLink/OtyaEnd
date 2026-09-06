@@ -11,12 +11,12 @@ type Props = {
 /**
  * Canonical Otya identity component.
  *
- * Every product surface, including Next, uses the exact approved Otya mark
- * synced from the OtyaPlayer app. Thinking state may animate the same mark;
- * it never swaps to a second logo or alternate identity.
+ * Every Otya product surface uses the exact approved mark synced from the app.
+ * Admin-assistant thinking state may animate that same mark, but it never swaps
+ * to a second public logo or alternate color identity.
  */
 export function OtyaBrandMark({ size = 36, thinking = false, ai = false, className = '', label }: Props) {
-  const accessibleLabel = label ?? (ai ? "Next, Otya's assistant" : '')
+  const accessibleLabel = label ?? (ai ? "Otya assistant" : '')
   return <img
     src="/otya-mark-current.png"
     width={size}

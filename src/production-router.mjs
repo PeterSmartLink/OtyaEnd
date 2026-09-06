@@ -1,5 +1,6 @@
 import openNextWorker from '../.open-next/worker.js'
 import backendWorker from './telegram-entrypoint.mjs'
+import { handleTogetherControl } from './together-control.mjs'
 export { OtyaReleaseWorkflow } from './telegram-entrypoint.mjs'
 
 const APP_HOST = 'petersmartlink.com'
@@ -21,6 +22,37 @@ const CANONICAL_CSP = [
   "frame-ancestors 'none'",
   'upgrade-insecure-requests',
 ].join('; ')
+
+function json(data, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: {
+      'Content-Type': 'application/json; charset=utf-8',
+      'Cache-Control': 'no-store',
+      'X-Content-Type-Options': 'nosniff',
+    },
+  })
+}
+
+async function authenticateTogetherUser(request, env) {
+  const authorization = request.headers.get('Authorization') || ''
+  if (!authorization.startsWith('Bearer ') || !env.AUTH?.fetch) return null
+
+  try {
+    const response = await env.AUTH.fetch(new Request('https://otya-auth/auth/verify', {
+      method: 'GET',
+      headers: { Authorization: authorization },
+    }))
+    const data = await response.json().catch(() => ({}))
+    if (!response.ok || data?.ok !== true || !data?.user_id) return null
+    return {
+      id: String(data.user_id),
+      email: typeof data.email === 'string' ? data.email.toLowerCase() : null,
+    }
+  } catch {
+    return null
+  }
+}
 
 function redirectToHost(url, hostname, pathname) {
   const target = new URL(url)
@@ -130,6 +162,14 @@ export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url)
     const host = url.hostname.toLowerCase()
+
+    if (url.pathname.startsWith('/api/together/')) {
+      if (!env.KV || !env.AUTH?.fetch) {
+        return json({ error: 'Together control plane unavailable' }, 503)
+      }
+      const user = await authenticateTogetherUser(request, env)
+      return handleTogetherControl(request, env, user)
+    }
 
     if (isCoreBackendRoute(url.pathname)) return backendWorker.fetch(request, env, ctx)
 

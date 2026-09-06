@@ -5,6 +5,8 @@
 CREATE TABLE IF NOT EXISTS users (
   id                         TEXT PRIMARY KEY,
   otya_id                    TEXT,
+  username                   TEXT,
+  username_changed_at        TEXT,
   email                      TEXT UNIQUE,
   password_hash              TEXT,
   google_id                  TEXT UNIQUE,
@@ -26,6 +28,7 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE INDEX IF NOT EXISTS idx_users_email  ON users(email);
 CREATE INDEX IF NOT EXISTS idx_users_google ON users(google_id);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_users_otya_id ON users(otya_id) WHERE otya_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username_ci ON users(lower(username)) WHERE username IS NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_users_phone ON users(phone_number) WHERE phone_number IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS user_products (

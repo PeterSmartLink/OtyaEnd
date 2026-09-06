@@ -64,3 +64,22 @@ test('website brand tokens match the approved Otya cyan and blue identity', () =
   assert.doesNotMatch(css, /#2979FF/i)
   assert.doesNotMatch(css, /#FFD60A/i)
 })
+
+test('website, install surfaces and build pipeline use one Otya mark and name', () => {
+  const component = read('src/components/OtyaBrandMark.tsx')
+  const sync = read('scripts/sync-brand-assets.mjs')
+  const manifest = JSON.parse(read('public/manifest.json'))
+  const brandReadme = read('public/brand/README.md')
+  const layout = read('src/app/layout.tsx')
+
+  assert.match(component, /src="\/otya-mark-current\.png"/)
+  assert.match(sync, /assets\/branding\/otya_mark_current\.png/)
+  assert.match(sync, /public\/otya-mark-current\.png/)
+  assert.equal(manifest.name, 'Otya Player')
+  assert.equal(manifest.short_name, 'Otya')
+  assert.match(manifest.description, /nearby Send/)
+  assert.match(brandReadme, /^# Otya Brand Templates/m)
+  assert.doesNotMatch(brandReadme, /^# OTYA/m)
+  assert.match(layout, /Otya Player by PeterSmart Link/)
+  assert.match(layout, /nearby Send/)
+})

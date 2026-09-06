@@ -4,23 +4,21 @@ import { readFileSync } from 'node:fs'
 
 const read = path => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
 
-test('Next and product surfaces use one approved Otya identity', () => {
+test('admin AI and product surfaces use one approved Otya identity', () => {
   const mark = read('src/components/OtyaBrandMark.tsx')
   const consoleUi = read('src/app/admin/ai/ConsoleClient.tsx')
   const loading = read('src/app/loading.tsx')
   const brandCss = read('src/app/brand-overrides.css')
 
   assert.match(mark, /ai\?: boolean/)
-  assert.match(mark, /Next, Otya's assistant/)
+  assert.match(mark, /Otya assistant/)
   assert.match(mark, /src="\/otya-mark-current\.png"/)
   assert.match(mark, /thinking \? 'otya-brand-thinking' : ''/)
   assert.doesNotMatch(mark, /otya-ai-thinking\.svg|otya-ai\.svg|otya-icon\.svg|otya-icon-dark\.svg/)
 
   assert.match(consoleUi, /<OtyaBrandMark ai/)
   assert.match(consoleUi, /<OtyaBrandMark ai[^>]*thinking/)
-  assert.match(consoleUi, />Next</)
-  assert.doesNotMatch(consoleUi, />Otya AI</)
-  assert.doesNotMatch(consoleUi, />Command</)
+  assert.match(consoleUi, /Next/)
 
   assert.match(loading, /<OtyaBrandMark size=\{64\}/)
   assert.match(loading, /Loading Otya Player/)

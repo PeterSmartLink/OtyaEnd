@@ -18,7 +18,7 @@ export const metadata: Metadata = {
     template: '%s | PeterSmart Link',
   },
   description:
-    'Otya Player by PeterSmart Link is an offline-first Android music and video player for local media, nearby Transfer, Private media and practical media tools.',
+    'Otya Player by PeterSmart Link is an offline-first Android music and video player for local media, nearby Send, Private media and practical media tools.',
   keywords: [
     'Otya Player',
     'Otya Player Android',
@@ -54,7 +54,7 @@ export const metadata: Metadata = {
     siteName: 'PeterSmart Link',
     title: 'Otya Player — Offline Music & Video Player for Android',
     description:
-      'Official Otya Player by PeterSmart Link for local Android music and video, offline playback, nearby Transfer and Private media.',
+      'Official Otya Player by PeterSmart Link for local Android music and video, offline playback, nearby Send and Private media.',
     images: [
       {
         url: OTYA_MARK,
@@ -115,7 +115,7 @@ const schemaOrg = {
       author: { '@id': `${SITE_URL}/#organization` },
       publisher: { '@id': `${SITE_URL}/#organization` },
       description:
-        'Offline-first Android music and video player for local media, nearby Transfer, Private media, playlists, subtitles and practical media tools.',
+        'Offline-first Android music and video player for local media, nearby Send, Private media, playlists, subtitles and practical media tools.',
       image: `${SITE_URL}${OTYA_MARK}`,
       featureList: [
         'Local music playback',
@@ -124,7 +124,7 @@ const schemaOrg = {
         'Playlists',
         'Subtitles',
         'Picture-in-Picture',
-        'Nearby media transfer',
+        'Nearby media sending',
         'Private media',
       ],
     },

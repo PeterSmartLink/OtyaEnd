@@ -77,7 +77,7 @@ requireMatch('Next live analytics dataset', next, /^dataset\s*=\s*"otya-next-ana
 requireMatch('Next Browser Run binding', next, /^\[browser\]\s*\nbinding\s*=\s*"BROWSER"$/m)
 requireMatch('Next AI Search binding', next, /\[\[ai_search\]\][\s\S]*?binding\s*=\s*"AI_SEARCH"[\s\S]*?instance_name\s*=\s*"otya-knowledge"/m)
 requireMatch('Next gateway id must use canonical name', next, /^AI_GATEWAY_ID\s*=\s*"otya-next-gateway"$/m)
-requireMatch('Next product name must be canonical', next, /^APP_NAME\s*=\s*"Next by OTYA"$/m)
+requireMatch('admin assistant product name must use canonical Otya casing', next, /^APP_NAME\s*=\s*"Next by Otya"$/m)
 requireMatch('Next guest model remains low-cost default', next, /^AI_GUEST_MODEL\s*=\s*"llama-fast"$/m)
 requireMatch('Next physical v1 D1 name must remain unchanged during cutover', next, /^database_name\s*=\s*"otya-store-db"$/m)
 requireMatch('Next Gmail OAuth must use the verified Web client id', next, /^GMAIL_GOOGLE_CLIENT_ID\s*=\s*"82776565585-obr8k53b8n6djsggissv8qne81cm3u5u\.apps\.googleusercontent\.com"$/m)

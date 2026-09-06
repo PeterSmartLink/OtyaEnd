@@ -6,7 +6,7 @@ import { OtyaBrandMark } from '@/components/OtyaBrandMark'
 
 export const metadata: Metadata = {
   title: 'Help | Otya Player',
-  description: 'Quick help for Otya Player accounts, local music and video, Transfer, Private and Android playback.',
+  description: 'Quick help for Otya Player accounts, local music and video, Send, Private and Android playback.',
   alternates: { canonical: 'https://petersmartlink.com/help' },
 }
 
@@ -16,7 +16,7 @@ const quickHelp = [
   ['I did not receive a password-reset email', 'Request one fresh reset code and check spam or promotions. Avoid repeatedly requesting codes because only the newest valid reset request should be used.'],
   ['Music or videos are missing in the Android app', 'Allow the media permissions requested by Android, then refresh or rescan the local library. Local media scanning does not require an Otya account.'],
   ['Playback stops in the background', 'Otya Player uses Android media-session controls for playback. If playback is interrupted, review Android battery or background restrictions for Otya Player. Ordinary product or marketing notification permission is separate from starting local playback.'],
-  ['Transfer is not connecting', 'Keep both devices on the same Wi-Fi or hotspot and start Transfer from Me. Nearby Transfer is local-network only and does not require mobile data or a cloud relay.'],
+  ['Send is not connecting', 'Keep both devices on the same Wi-Fi or hotspot and start Send from Me. Nearby Send is local-network only and does not require mobile data or a cloud relay.'],
   ['How does Private work?', 'Private keeps supported local media inside Otya Player app-private storage until you restore it. Keep a separate backup of important files before moving or changing device storage.'],
   ['Security and safe downloads', 'Install Otya Player only from the official download page. Never share passwords, one-time codes, recovery codes, API keys, secret tokens or signing credentials.'],
 ] as const
@@ -29,17 +29,17 @@ export default function HelpPage() {
         <header className="mb-8">
           <div className="text-[11px] font-black uppercase tracking-[.15em] otya-muted">Otya Player Help</div>
           <h1 className="mt-2 text-3xl sm:text-5xl font-black tracking-[-.055em]">How can we help?</h1>
-          <p className="mt-3 text-sm sm:text-base leading-6 otya-muted">Quick answers first. Open Next when you want a conversation.</p>
+          <p className="mt-3 text-sm sm:text-base leading-6 otya-muted">Start with quick answers, your Otya account, or the official documentation.</p>
         </header>
 
         <div className="grid sm:grid-cols-2 gap-3 mb-7">
-          <Link href="/ask" className="rounded-[24px] border border-black/[.06] dark:border-white/[.08] bg-white/75 dark:bg-white/[.025] p-5 min-h-28 flex flex-col justify-between">
-            <OtyaBrandMark ai size={40}/>
-            <span><strong className="block text-base">Next</strong><span className="text-xs otya-muted">Describe the problem or question in your own words</span></span>
-          </Link>
           <Link href="/sign-in" className="rounded-[24px] border border-black/[.06] dark:border-white/[.08] bg-white/75 dark:bg-white/[.025] p-5 min-h-28 flex flex-col justify-between">
             <OtyaBrandMark size={40}/>
             <span><strong className="block text-base">Otya Account</strong><span className="text-xs otya-muted">Sign in, create an account or recover access</span></span>
+          </Link>
+          <Link href="https://docs.petersmartlink.com" className="rounded-[24px] border border-black/[.06] dark:border-white/[.08] bg-white/75 dark:bg-white/[.025] p-5 min-h-28 flex flex-col justify-between">
+            <OtyaBrandMark size={40}/>
+            <span><strong className="block text-base">Documentation</strong><span className="text-xs otya-muted">Read official Otya setup, playback, Send and account guidance</span></span>
           </Link>
         </div>
 

@@ -17,7 +17,7 @@ head_sampling_rate = 0.05
 
 [vars]
 ENVIRONMENT = "production"
-APP_NAME = "Next by OTYA"
+APP_NAME = "Next by Otya"
 WEBSITE_URL = "https://petersmartlink.com"
 ADMIN_REPORT_EMAIL = "petersmartlink@gmail.com"
 ADMIN_CRASH_ALERT_THRESHOLD = "5"

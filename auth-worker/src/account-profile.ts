@@ -6,6 +6,23 @@ interface Env {
   AUTH_JWT_SECRET: string
 }
 
+const USERNAME_MIN_LENGTH = 3
+const USERNAME_MAX_LENGTH = 24
+const USERNAME_CHANGE_COOLDOWN_MS = 30 * 24 * 60 * 60 * 1000
+const RESERVED_USERNAMES = new Set([
+  'admin',
+  'administrator',
+  'api',
+  'help',
+  'moderator',
+  'official',
+  'otya',
+  'security',
+  'staff',
+  'support',
+  'system',
+])
+
 function json(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), {
     status,
@@ -28,6 +45,19 @@ const clean = (value: unknown, max: number): string | null => {
   if (typeof value !== 'string') return null
   const normalized = value.trim().slice(0, max)
   return normalized || null
+}
+
+function normalizeUsername(value: unknown): string | null {
+  if (typeof value !== 'string') return null
+  const withoutAt = value.trim().replace(/^@+/, '').toLowerCase()
+  return withoutAt || null
+}
+
+function validUsername(value: string | null): value is string {
+  if (!value) return false
+  if (value.length < USERNAME_MIN_LENGTH || value.length > USERNAME_MAX_LENGTH) return false
+  if (!/^[a-z][a-z0-9_]*$/.test(value)) return false
+  return !RESERVED_USERNAMES.has(value)
 }
 
 function validEmail(value: string | null): value is string {
@@ -56,6 +86,39 @@ function validTimezone(value: string | null): boolean {
   }
 }
 
+function uniqueConstraint(error: unknown): boolean {
+  const message = String(error).toLowerCase()
+  return message.includes('unique constraint') ||
+    message.includes('constraint failed') ||
+    message.includes('sqlite_constraint')
+}
+
+async function lookupPublicUsername(
+  usernameQuery: string,
+  env: Env,
+): Promise<Response> {
+  const username = normalizeUsername(usernameQuery)
+  if (!validUsername(username)) {
+    return json({
+      error: 'Enter a valid Otya username.',
+      code: 'INVALID_USERNAME',
+    }, 400)
+  }
+
+  const user = await env.AUTH_DB.prepare(`
+    SELECT otya_id, username, name, avatar_url
+    FROM users
+    WHERE lower(username) = lower(?)
+    LIMIT 1
+  `).bind(username).first<Record<string, unknown>>()
+
+  if (!user) {
+    return json({ error: 'Otya user not found.', code: 'USERNAME_NOT_FOUND' }, 404)
+  }
+
+  return json({ ok: true, user })
+}
+
 export async function handleAccountProfile(request: Request, env: Env): Promise<Response | null> {
   const url = new URL(request.url)
   if (url.pathname !== '/auth/account') return null
@@ -78,11 +141,25 @@ export async function handleAccountProfile(request: Request, env: Env): Promise<
   }
 
   try {
+    const lookupUsername = url.searchParams.get('lookup_username')
+    if (request.method === 'GET' && lookupUsername !== null) {
+      return lookupPublicUsername(lookupUsername, env)
+    }
+
     if (request.method === 'PATCH') {
       const body = await request.json().catch(() => null) as Record<string, unknown> | null
       if (!body) return json({ error: 'Invalid JSON body' }, 400)
 
-      const allowed = ['email', 'name', 'avatar_url', 'recovery_email', 'country_code', 'locale', 'timezone'] as const
+      const allowed = [
+        'email',
+        'username',
+        'name',
+        'avatar_url',
+        'recovery_email',
+        'country_code',
+        'locale',
+        'timezone',
+      ] as const
       if (!allowed.some(key => Object.prototype.hasOwnProperty.call(body, key))) {
         return json({ error: 'No supported profile fields supplied' }, 400)
       }
@@ -109,12 +186,53 @@ export async function handleAccountProfile(request: Request, env: Env): Promise<
 
         const owner = await getUserByEmail(env.AUTH_DB, email)
         if (owner && owner.id !== userId) {
-          return json({ error: 'That email is already connected to another OTYA account.', code: 'EMAIL_IN_USE' }, 409)
+          return json({ error: 'That email is already connected to another Otya account.', code: 'EMAIL_IN_USE' }, 409)
         }
 
         if (!currentEmail) {
           updates.push('email = ?', 'is_verified = 0')
           values.push(email)
+        }
+      }
+
+      if ('username' in body) {
+        const username = normalizeUsername(body.username)
+        if (!validUsername(username)) {
+          return json({
+            error: 'Username must be 3–24 characters, start with a letter, and use only letters, numbers or underscore.',
+            code: 'INVALID_USERNAME',
+          }, 400)
+        }
+
+        const current = await env.AUTH_DB.prepare(`
+          SELECT username, username_changed_at
+          FROM users WHERE id = ? LIMIT 1
+        `).bind(userId).first<{ username?: string | null; username_changed_at?: string | null }>()
+        if (!current) return json({ error: 'Account not found. Please sign in again.' }, 404)
+
+        const existing = current.username?.trim().toLowerCase() ?? null
+        if (existing !== username) {
+          const changedAt = current.username_changed_at ? Date.parse(current.username_changed_at) : Number.NaN
+          if (existing && Number.isFinite(changedAt)) {
+            const availableAtMs = changedAt + USERNAME_CHANGE_COOLDOWN_MS
+            if (Date.now() < availableAtMs) {
+              return json({
+                error: 'Your Otya username can be changed once every 30 days.',
+                code: 'USERNAME_CHANGE_COOLDOWN',
+                available_at: new Date(availableAtMs).toISOString(),
+              }, 429)
+            }
+          }
+
+          const owner = await env.AUTH_DB.prepare(`
+            SELECT id FROM users WHERE lower(username) = lower(?) LIMIT 1
+          `).bind(username).first<{ id: string }>()
+          if (owner && owner.id !== userId) {
+            return json({ error: 'That Otya username is already taken.', code: 'USERNAME_TAKEN' }, 409)
+          }
+
+          updates.push('username = ?', "username_changed_at = datetime('now')")
+          values.push(username)
         }
       }
 
@@ -154,13 +272,21 @@ export async function handleAccountProfile(request: Request, env: Env): Promise<
       }
 
       values.push(userId)
-      await env.AUTH_DB.prepare(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`).bind(...values).run()
+      try {
+        await env.AUTH_DB.prepare(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`).bind(...values).run()
+      } catch (error) {
+        if (uniqueConstraint(error) && 'username' in body) {
+          return json({ error: 'That Otya username is already taken.', code: 'USERNAME_TAKEN' }, 409)
+        }
+        throw error
+      }
     }
 
     const user = await env.AUTH_DB.prepare(`
-      SELECT id, otya_id, email, name, avatar_url, is_verified, phone_number, phone_verified_at,
-             phone_verification_method, recovery_email, recovery_email_verified_at,
-             country_code, locale, timezone, created_at, updated_at
+      SELECT id, otya_id, username, username_changed_at, email, name, avatar_url, is_verified,
+             phone_number, phone_verified_at, phone_verification_method,
+             recovery_email, recovery_email_verified_at, country_code, locale,
+             timezone, created_at, updated_at
       FROM users WHERE id = ?
     `).bind(userId).first<Record<string, unknown>>()
     if (!user) return json({ error: 'Account not found. Please sign in again.' }, 404)

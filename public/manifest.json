@@ -1,7 +1,7 @@
 {
   "name": "Otya Player",
   "short_name": "Otya",
-  "description": "Otya Player — offline-first music and video, nearby Transfer, Private media and practical media tools.",
+  "description": "Otya Player — offline-first music and video, nearby Send, Private media and practical media tools.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#050812",
