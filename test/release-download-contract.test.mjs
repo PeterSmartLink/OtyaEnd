@@ -25,6 +25,18 @@ test('generic release downloads never silently select ARM64', () => {
   assert.doesNotMatch(downloadPage, /\/android\/i\.test\(ua\) \? 'arm64' : 'unknown'/)
 })
 
+test('release workflow binds immutable build tag to public version and Android version code', () => {
+  const workflow = read('src/release-workflow.mjs')
+
+  assert.match(workflow, /const TAG_RE = \/\^v\\d\+\\\.\\d\+\\\.\\d\+\\\+\[1-9\]\\d\*\$\//)
+  assert.match(workflow, /const tagVersion = tagIdentity\.slice\(0, separator\)/)
+  assert.match(workflow, /const tagBuild = Number\(tagIdentity\.slice\(separator \+ 1\)\)/)
+  assert.match(workflow, /tagVersion !== version/)
+  assert.match(workflow, /tagBuild !== versionCode/)
+  assert.match(workflow, /tag build and versionCode do not match/)
+  assert.doesNotMatch(workflow, /tag !== `v\$\{version\}`/)
+})
+
 test('a different release tag cannot reuse or decrease the Android version code', () => {
   const workflow = read('src/release-workflow.mjs')
   assert.match(workflow, /latest\.tag !== release\.tag/)
