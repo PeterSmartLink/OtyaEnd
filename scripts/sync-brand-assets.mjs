@@ -1,10 +1,12 @@
-import { mkdir, writeFile } from 'node:fs/promises'
+import { mkdir, rm, writeFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 
-const APPROVED_APP_COMMIT = '49348d06f1bb2d6e59ddcb186f9be5e06f86475d'
-const SOURCE = `https://raw.githubusercontent.com/PeterSmartLink/OtyaPlayer/${APPROVED_APP_COMMIT}/assets/branding/otya_mark_current.png`
-const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
-const TARGETS = [
+// This commit contains the owner-approved, decoded cyan/blue Otya WebP. Keep
+// the source immutable so website builds cannot silently drift to another logo.
+const APPROVED_APP_COMMIT = '63be1b59f1a261c853aab786cef584a70e29989d'
+const SOURCE = `https://raw.githubusercontent.com/PeterSmartLink/OtyaPlayer/${APPROVED_APP_COMMIT}/assets/branding/otya_app_icon.webp`
+const TARGET = 'public/otya-app-icon.webp'
+const RETIRED_GENERATED_TARGETS = [
   'public/otya-mark-current.png',
   'public/android-chrome-192x192.png',
   'public/android-chrome-512x512.png',
@@ -14,6 +16,12 @@ const TARGETS = [
   'public/web-app-manifest-192x192.png',
   'public/web-app-manifest-512x512.png',
 ]
+
+function isWebP(bytes) {
+  return bytes.length >= 12
+    && bytes.subarray(0, 4).toString('ascii') === 'RIFF'
+    && bytes.subarray(8, 12).toString('ascii') === 'WEBP'
+}
 
 async function sync() {
   const response = await fetch(SOURCE, {
@@ -25,17 +33,22 @@ async function sync() {
   }
 
   const bytes = Buffer.from(await response.arrayBuffer())
-  if (bytes.length < 4096 || !bytes.subarray(0, 8).equals(PNG_SIGNATURE)) {
-    throw new Error('Approved Otya mark did not resolve to a valid PNG asset.')
+  if (bytes.length < 4096 || !isWebP(bytes)) {
+    throw new Error('Approved Otya mark did not resolve to the expected WebP asset.')
   }
 
-  for (const target of TARGETS) {
-    const destination = resolve(process.cwd(), target)
-    await mkdir(dirname(destination), { recursive: true })
-    await writeFile(destination, bytes)
-  }
+  const destination = resolve(process.cwd(), TARGET)
+  await mkdir(dirname(destination), { recursive: true })
+  await writeFile(destination, bytes)
 
-  console.log(`Synced approved Otya mark from OtyaPlayer@${APPROVED_APP_COMMIT} to ${TARGETS.length} web icon paths.`)
+  // Old builds generated one malformed PNG into many public icon names. Remove
+  // those generated files on every build so they cannot shadow the canonical
+  // WebP or be accidentally deployed from a dirty workspace.
+  await Promise.all(
+    RETIRED_GENERATED_TARGETS.map(target => rm(resolve(process.cwd(), target), { force: true })),
+  )
+
+  console.log(`Synced canonical Otya WebP from OtyaPlayer@${APPROVED_APP_COMMIT} to ${TARGET}.`)
 }
 
 await sync()
