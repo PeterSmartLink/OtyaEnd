@@ -32,6 +32,10 @@ function normalizeWorkerUrl(value) {
   return url.origin
 }
 
+function immutableApkUrl(workerUrl, abi, tag) {
+  return `${workerUrl}/apk/${abi}?tag=${encodeURIComponent(tag)}`
+}
+
 function normalizePayload(raw = {}) {
   const tag = requireString(raw.tag, 'tag')
   const version = requireString(raw.version, 'version')
@@ -174,8 +178,8 @@ export class OtyaReleaseWorkflow extends WorkflowEntrypoint {
           release.changelog,
           release.forceUpdate ? 1 : 0,
           `${release.workerUrl}/download/otya-player`,
-          `${release.workerUrl}/apk/arm64`,
-          `${release.workerUrl}/apk/arm32`,
+          immutableApkUrl(release.workerUrl, 'arm64', release.tag),
+          immutableApkUrl(release.workerUrl, 'arm32', release.tag),
           release.minSdk,
           release.targetSdk,
         ).run()
@@ -184,14 +188,15 @@ export class OtyaReleaseWorkflow extends WorkflowEntrypoint {
 
       const metadata = await step.do('publish version metadata', async () => {
         const value = {
+          tag: release.tag,
           version: release.version,
           versionCode: release.versionCode,
           date: new Date().toISOString(),
           arm64: release.arm64Key,
           arm32: release.arm32Key,
           latestAliases: {
-            arm64: 'OtyaPlayer-arm64.apk',
-            arm32: 'OtyaPlayer-arm32.apk',
+            arm64: 'Otya-arm64.apk',
+            arm32: 'Otya-arm32.apk',
           },
           changelog: release.changelog || `OTYA Player ${release.version} is now available.`,
           minSdk: release.minSdk,
@@ -200,6 +205,8 @@ export class OtyaReleaseWorkflow extends WorkflowEntrypoint {
           downloads: {
             arm64: `${release.workerUrl}/apk/arm64`,
             arm32: `${release.workerUrl}/apk/arm32`,
+            exactArm64: immutableApkUrl(release.workerUrl, 'arm64', release.tag),
+            exactArm32: immutableApkUrl(release.workerUrl, 'arm32', release.tag),
             auto: `${release.workerUrl}/download/otya-player`,
             page: `${release.workerUrl}/download/otya-player`,
           },
