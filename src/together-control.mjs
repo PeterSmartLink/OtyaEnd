@@ -2,8 +2,17 @@ const ROOM_PREFIX = 'together:room:'
 const SIGNAL_PREFIX = 'together:signal:'
 const ROOM_TTL_SECONDS = 8 * 60 * 60
 const SIGNAL_TTL_SECONDS = 5 * 60
+const TURN_CREDENTIAL_TTL_SECONDS = ROOM_TTL_SECONDS
 const MAX_SIGNAL_BYTES = 24 * 1024
 const ALLOWED_SIGNAL_TYPES = new Set(['offer', 'answer', 'ice', 'bye'])
+const DEFAULT_ICE_SERVERS = Object.freeze([
+  Object.freeze({
+    urls: Object.freeze([
+      'stun:stun.cloudflare.com:3478',
+      'stun:stun.cloudflare.com:53',
+    ]),
+  }),
+])
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -129,6 +138,87 @@ function roleFor(room, userId) {
   if (room.hostUserId === userId) return 'host'
   if (room.guestUserId === userId) return 'guest'
   return null
+}
+
+function sanitizeIceServers(value) {
+  if (!Array.isArray(value)) return []
+  const clean = []
+
+  for (const candidate of value) {
+    if (!candidate || typeof candidate !== 'object') continue
+    const rawUrls = Array.isArray(candidate.urls) ? candidate.urls : [candidate.urls]
+    const urls = rawUrls
+      .filter(url => typeof url === 'string')
+      .map(url => url.trim())
+      .filter(url => /^(stun|turn|turns):/i.test(url))
+      .slice(0, 12)
+    if (!urls.length) continue
+
+    const server = { urls }
+    if (typeof candidate.username === 'string' && candidate.username) {
+      server.username = candidate.username
+    }
+    if (typeof candidate.credential === 'string' && candidate.credential) {
+      server.credential = candidate.credential
+    }
+    clean.push(server)
+    if (clean.length >= 4) break
+  }
+
+  return clean
+}
+
+async function getIceServers(env, user, roomId) {
+  const room = await readRoom(env, roomId)
+  if (!room || room.status === 'closed') {
+    return json({ error: 'Together room not found or expired.', code: 'ROOM_NOT_FOUND' }, 404)
+  }
+  if (!roleFor(room, user.id)) return json({ error: 'Not a participant in this room.' }, 403)
+
+  const turnKeyId = String(env.TURN_KEY_ID || '').trim()
+  const turnApiToken = String(env.TURN_KEY_API_TOKEN || '').trim()
+  if (!turnKeyId || !turnApiToken) {
+    return json({
+      ok: true,
+      relay_available: false,
+      expires_in: TURN_CREDENTIAL_TTL_SECONDS,
+      ice_servers: DEFAULT_ICE_SERVERS,
+    })
+  }
+
+  try {
+    const response = await fetch(
+      `https://rtc.live.cloudflare.com/v1/turn/keys/${encodeURIComponent(turnKeyId)}/credentials/generate-ice-servers`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${turnApiToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ ttl: TURN_CREDENTIAL_TTL_SECONDS }),
+      },
+    )
+    const data = await response.json().catch(() => ({}))
+    const generated = sanitizeIceServers(data?.iceServers ?? data?.ice_servers)
+    if (response.ok && generated.length) {
+      return json({
+        ok: true,
+        relay_available: generated.some(server => server.urls.some(url => /^turns?:/i.test(url))),
+        expires_in: TURN_CREDENTIAL_TTL_SECONDS,
+        ice_servers: generated,
+      })
+    }
+  } catch {}
+
+  // A temporary TURN control-plane outage must not break direct WebRTC. STUN
+  // remains free and sufficient on networks where a direct peer path exists.
+  return json({
+    ok: true,
+    relay_available: false,
+    degraded: true,
+    expires_in: TURN_CREDENTIAL_TTL_SECONDS,
+    ice_servers: DEFAULT_ICE_SERVERS,
+  })
 }
 
 async function createRoom(request, env, user) {
@@ -306,7 +396,7 @@ export async function handleTogetherControl(request, env, user) {
   }
 
   const parts = url.pathname.split('/').filter(Boolean)
-  // /api/together/rooms/:roomId[/join|signals]
+  // /api/together/rooms/:roomId[/join|signals|ice]
   if (parts.length < 4 || parts[0] !== 'api' || parts[1] !== 'together' || parts[2] !== 'rooms') {
     return json({ error: 'Not found' }, 404)
   }
@@ -318,6 +408,7 @@ export async function handleTogetherControl(request, env, user) {
   if (action === 'join' && request.method === 'POST') return joinRoom(request, env, user, roomId)
   if (action === 'signals' && request.method === 'POST') return postSignal(request, env, user, roomId)
   if (action === 'signals' && request.method === 'GET') return getSignals(url, env, user, roomId)
+  if (action === 'ice' && request.method === 'GET') return getIceServers(env, user, roomId)
 
   return json({ error: 'Method not allowed' }, 405)
 }

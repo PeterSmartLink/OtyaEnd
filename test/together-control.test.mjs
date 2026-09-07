@@ -196,6 +196,36 @@ test('signaling is short-lived recipient-specific setup data only', async () => 
   assert.equal(chatAttempt.status, 400)
 })
 
+test('ICE configuration is participant-scoped and defaults to Cloudflare STUN', async () => {
+  const env = { KV: new MemoryKv(), AUTH: authBinding() }
+  const created = await createRoom(env)
+  const roomId = created.room.room_id
+
+  const hostResponse = await handleTogetherControl(
+    request(`/api/together/rooms/${roomId}/ice`, { token: 'host' }),
+    env,
+    { id: 'host-private' },
+  )
+  assert.equal(hostResponse.status, 200)
+  const hostBody = await hostResponse.json()
+  assert.equal(hostBody.ok, true)
+  assert.equal(hostBody.relay_available, false)
+  assert.equal(hostBody.ice_servers.length, 1)
+  assert.deepEqual(hostBody.ice_servers[0].urls, [
+    'stun:stun.cloudflare.com:3478',
+    'stun:stun.cloudflare.com:53',
+  ])
+  assert.equal(hostBody.ice_servers[0].username, undefined)
+  assert.equal(hostBody.ice_servers[0].credential, undefined)
+
+  const strangerResponse = await handleTogetherControl(
+    request(`/api/together/rooms/${roomId}/ice`, { token: 'stranger' }),
+    env,
+    { id: 'stranger-private' },
+  )
+  assert.equal(strangerResponse.status, 403)
+})
+
 test('non-participants cannot inspect room metadata', async () => {
   const env = { KV: new MemoryKv(), AUTH: authBinding() }
   const created = await createRoom(env)
