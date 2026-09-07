@@ -12,7 +12,7 @@ test('admin AI and product surfaces use one approved Otya identity', () => {
 
   assert.match(mark, /ai\?: boolean/)
   assert.match(mark, /Otya assistant/)
-  assert.match(mark, /src="\/otya-mark-current\.png"/)
+  assert.match(mark, /src="\/otya-app-icon\.webp"/)
   assert.match(mark, /thinking \? 'otya-brand-thinking' : ''/)
   assert.doesNotMatch(mark, /otya-ai-thinking\.svg|otya-ai\.svg|otya-icon\.svg|otya-icon-dark\.svg/)
 
@@ -21,7 +21,8 @@ test('admin AI and product surfaces use one approved Otya identity', () => {
   assert.match(consoleUi, /Next/)
 
   assert.match(loading, /<OtyaBrandMark size=\{64\}/)
-  assert.match(loading, /Loading Otya Player/)
+  assert.match(loading, /Loading Otya/)
+  assert.doesNotMatch(loading, /Loading Otya Player/)
   assert.match(brandCss, /@keyframes otya-brand-thinking/)
   assert.match(brandCss, /prefers-reduced-motion: reduce/)
 })
@@ -34,7 +35,7 @@ test('website metadata and visual tokens match the approved app brand', () => {
   const sync = read('scripts/sync-brand-assets.mjs')
 
   assert.match(layout, /const APP_VERSION = '1\.0\.0'/)
-  assert.match(layout, /const OTYA_MARK = '\/otya-mark-current\.png'/)
+  assert.match(layout, /const OTYA_MARK = '\/otya-app-icon\.webp'/)
   assert.match(layout, /import '\.\/brand-overrides\.css'/)
   assert.match(layout, /#050812/)
 
@@ -46,12 +47,14 @@ test('website metadata and visual tokens match the approved app brand', () => {
     '--otya-surface: #0A1020',
   ]) assert.match(brand, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'))
 
-  assert.match(manifest, /otya-mark-current\.png/)
+  assert.match(manifest, /otya-app-icon\.webp/)
   assert.match(manifest, /#050812/)
-  assert.match(secondaryManifest, /otya-mark-current\.png/)
+  assert.match(secondaryManifest, /otya-app-icon\.webp/)
   assert.match(secondaryManifest, /#050812/)
 
-  assert.match(sync, /OtyaPlayer\/\$\{APPROVED_APP_COMMIT\}\/assets\/branding\/otya_mark_current\.png/)
-  assert.match(sync, /49348d06f1bb2d6e59ddcb186f9be5e06f86475d/)
+  assert.match(sync, /OtyaPlayer\/\$\{APPROVED_APP_COMMIT\}\/assets\/branding\/otya_app_icon\.webp/)
+  assert.match(sync, /63be1b59f1a261c853aab786cef584a70e29989d/)
+  assert.match(sync, /EXPECTED_WIDTH = 512/)
+  assert.match(sync, /EXPECTED_HEIGHT = 512/)
   assert.doesNotMatch(brand, /--otya-red:|--otya-yellow:|--otya-blue: #2979FF/i)
 })
