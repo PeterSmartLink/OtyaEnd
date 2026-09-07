@@ -14,7 +14,7 @@ interface ResendResponse { id?: string; message?: string; name?: string; statusC
 interface TemplateSelection { id: string; variables: Record<string, string | number> }
 
 const OTYA_SUPPORT_EMAIL = 'support@petersmartlink.com'
-const OTYA_LOGO_URL = 'https://petersmartlink.com/otya-mark-current.png'
+const OTYA_LOGO_URL = 'https://petersmartlink.com/otya-app-icon.webp'
 
 function escapeHtml(value: string): string {
   return value.replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#039;')
