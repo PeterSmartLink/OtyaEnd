@@ -9,7 +9,7 @@ const manrope = Manrope({ subsets: ['latin'], display: 'swap', variable: '--font
 const SITE_URL = 'https://petersmartlink.com'
 const APP_VERSION = '1.0.0'
 const ADSENSE_ID = 'ca-pub-2517163652161686'
-const OTYA_MARK = '/otya-mark-current.png'
+const OTYA_MARK = '/otya-app-icon.webp'
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -61,7 +61,7 @@ export const metadata: Metadata = {
         width: 1024,
         height: 1024,
         alt: 'Otya Player by PeterSmart Link',
-        type: 'image/png',
+        type: 'image/webp',
       },
     ],
   },
@@ -72,8 +72,7 @@ export const metadata: Metadata = {
     images: [OTYA_MARK],
   },
   icons: {
-    icon: [{ url: OTYA_MARK, sizes: '1024x1024', type: 'image/png' }],
-    apple: [{ url: OTYA_MARK, sizes: '1024x1024', type: 'image/png' }],
+    icon: [{ url: OTYA_MARK, sizes: '1024x1024', type: 'image/webp' }],
     shortcut: OTYA_MARK,
   },
   manifest: '/manifest.json',
