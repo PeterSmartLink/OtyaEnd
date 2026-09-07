@@ -11,9 +11,9 @@ test('organization navigation identifies PeterSmart Link while Otya uses the syn
 
   assert.match(nav, /PeterSmart Link/)
   assert.match(nav, /\['Otya', '\/otya-player'\]/)
-  assert.match(mark, /otya-mark-current\.png/)
-  assert.doesNotMatch(mark, /otya-icon\.svg|otya-icon-dark\.svg|otya-ai\.svg/)
-  assert.match(sync, /assets\/branding\/otya_mark_current\.png/)
+  assert.match(mark, /otya-app-icon\.webp/)
+  assert.doesNotMatch(mark, /otya-mark-current\.png|otya-icon\.svg|otya-icon-dark\.svg|otya-ai\.svg/)
+  assert.match(sync, /assets\/branding\/otya_app_icon\.webp/)
   assert.match(sync, /APPROVED_APP_COMMIT/)
   assert.doesNotMatch(nav, /web-app-manifest-192x192\.png/)
 })
