@@ -1,7 +1,7 @@
 {
-  "name": "Otya Player",
+  "name": "Otya",
   "short_name": "Otya",
-  "description": "Otya Player — offline-first music and video, nearby Send, Private media and practical media tools.",
+  "description": "Otya — offline-first music and video, nearby Send, Private media and practical media tools.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#050812",
@@ -9,9 +9,9 @@
   "orientation": "portrait",
   "icons": [
     {
-      "src": "/otya-mark-current.png",
-      "sizes": "1024x1024",
-      "type": "image/png",
+      "src": "/otya-app-icon.webp",
+      "sizes": "512x512",
+      "type": "image/webp",
       "purpose": "any maskable"
     }
   ]
