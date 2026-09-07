@@ -42,5 +42,6 @@ jobs:
           fix/canonical-brand-source-20260906|56eb3be8be382921055220e2c7a1bf9f2c909956
           fix/final-otya-hardening-20260907|6c42d37b4efe47b6b65abf50ef9b7bee11485bc8
           integrate/anywhere-together-transport-20260907|e1dce6eaa6ed66f32b58df85140df2155d4aeb70
+          dependabot/npm_and_yarn/auth-worker/auth-worker-dependencies-b7ceb5d816|d6915abab27f4299e57c245b7755e74865ed0fab
           EOF
           exit "$failed"
