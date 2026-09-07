@@ -1,10 +1,14 @@
-import { mkdir, writeFile } from 'node:fs/promises'
+import { mkdir, rm, writeFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 
-const APPROVED_APP_COMMIT = '49348d06f1bb2d6e59ddcb186f9be5e06f86475d'
-const SOURCE = `https://raw.githubusercontent.com/PeterSmartLink/OtyaPlayer/${APPROVED_APP_COMMIT}/assets/branding/otya_mark_current.png`
-const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
-const TARGETS = [
+// Immutable owner-approved cyan/blue Otya identity. Website builds fetch the
+// exact app asset rather than regenerating or recoloring a second logo.
+const APPROVED_APP_COMMIT = '63be1b59f1a261c853aab786cef584a70e29989d'
+const SOURCE = `https://raw.githubusercontent.com/PeterSmartLink/OtyaPlayer/${APPROVED_APP_COMMIT}/assets/branding/otya_app_icon.webp`
+const TARGET = 'public/otya-app-icon.webp'
+const EXPECTED_WIDTH = 512
+const EXPECTED_HEIGHT = 512
+const RETIRED_GENERATED_TARGETS = [
   'public/otya-mark-current.png',
   'public/android-chrome-192x192.png',
   'public/android-chrome-512x512.png',
@@ -14,6 +18,28 @@ const TARGETS = [
   'public/web-app-manifest-192x192.png',
   'public/web-app-manifest-512x512.png',
 ]
+
+function readVp8Dimensions(bytes) {
+  // Canonical Otya asset is a lossy VP8 WebP. Width/height are the 14-bit
+  // little-endian values immediately after the 0x9d012a frame marker.
+  if (bytes.length < 30 || bytes.subarray(12, 16).toString('ascii') !== 'VP8 ') {
+    return null
+  }
+  const marker = bytes.indexOf(Buffer.from([0x9d, 0x01, 0x2a]), 20)
+  if (marker < 0 || marker + 7 > bytes.length) return null
+  return {
+    width: bytes.readUInt16LE(marker + 3) & 0x3fff,
+    height: bytes.readUInt16LE(marker + 5) & 0x3fff,
+  }
+}
+
+function isCanonicalWebP(bytes) {
+  if (bytes.length < 4096) return false
+  if (bytes.subarray(0, 4).toString('ascii') !== 'RIFF') return false
+  if (bytes.subarray(8, 12).toString('ascii') !== 'WEBP') return false
+  const dimensions = readVp8Dimensions(bytes)
+  return dimensions?.width === EXPECTED_WIDTH && dimensions?.height === EXPECTED_HEIGHT
+}
 
 async function sync() {
   const response = await fetch(SOURCE, {
@@ -25,17 +51,21 @@ async function sync() {
   }
 
   const bytes = Buffer.from(await response.arrayBuffer())
-  if (bytes.length < 4096 || !bytes.subarray(0, 8).equals(PNG_SIGNATURE)) {
-    throw new Error('Approved Otya mark did not resolve to a valid PNG asset.')
+  if (!isCanonicalWebP(bytes)) {
+    throw new Error('Approved Otya mark did not resolve to the expected 512x512 WebP asset.')
   }
 
-  for (const target of TARGETS) {
-    const destination = resolve(process.cwd(), target)
-    await mkdir(dirname(destination), { recursive: true })
-    await writeFile(destination, bytes)
-  }
+  const destination = resolve(process.cwd(), TARGET)
+  await mkdir(dirname(destination), { recursive: true })
+  await writeFile(destination, bytes)
 
-  console.log(`Synced approved Otya mark from OtyaPlayer@${APPROVED_APP_COMMIT} to ${TARGETS.length} web icon paths.`)
+  // Old builds generated malformed PNG bytes into many icon paths. Remove all
+  // retired generated names so a dirty workspace cannot publish stale branding.
+  await Promise.all(
+    RETIRED_GENERATED_TARGETS.map(target => rm(resolve(process.cwd(), target), { force: true })),
+  )
+
+  console.log(`Synced canonical Otya WebP from OtyaPlayer@${APPROVED_APP_COMMIT} to ${TARGET}.`)
 }
 
 await sync()

@@ -9,19 +9,20 @@ const manrope = Manrope({ subsets: ['latin'], display: 'swap', variable: '--font
 const SITE_URL = 'https://petersmartlink.com'
 const APP_VERSION = '1.0.0'
 const ADSENSE_ID = 'ca-pub-2517163652161686'
-const OTYA_MARK = '/otya-mark-current.png'
+const OTYA_MARK = '/otya-app-icon.webp'
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: 'Otya Player — Offline Music & Video Player for Android | PeterSmart Link',
+    default: 'Otya — Offline Music & Video for Android | PeterSmart Link',
     template: '%s | PeterSmart Link',
   },
   description:
-    'Otya Player by PeterSmart Link is an offline-first Android music and video player for local media, nearby Send, Private media and practical media tools.',
+    'Otya by PeterSmart Link is an offline-first Android music and video app for local media, nearby Send, Private media and practical media tools.',
   keywords: [
+    'Otya',
     'Otya Player',
-    'Otya Player Android',
+    'Otya Android',
     'PeterSmart Link',
     'offline music player',
     'offline video player',
@@ -34,7 +35,7 @@ export const metadata: Metadata = {
   authors: [{ name: 'PeterSmart Link', url: SITE_URL }],
   creator: 'PeterSmart Link',
   publisher: 'PeterSmart Link',
-  applicationName: 'Otya Player',
+  applicationName: 'Otya',
   category: 'multimedia',
   robots: {
     index: true,
@@ -52,32 +53,32 @@ export const metadata: Metadata = {
     locale: 'en_UG',
     url: SITE_URL,
     siteName: 'PeterSmart Link',
-    title: 'Otya Player — Offline Music & Video Player for Android',
+    title: 'Otya — Offline Music & Video for Android',
     description:
-      'Official Otya Player by PeterSmart Link for local Android music and video, offline playback, nearby Send and Private media.',
+      'Official Otya by PeterSmart Link for local Android music and video, offline playback, nearby Send and Private media.',
     images: [
       {
         url: OTYA_MARK,
-        width: 1024,
-        height: 1024,
-        alt: 'Otya Player by PeterSmart Link',
-        type: 'image/png',
+        width: 512,
+        height: 512,
+        alt: 'Otya by PeterSmart Link',
+        type: 'image/webp',
       },
     ],
   },
   twitter: {
     card: 'summary',
-    title: 'Otya Player — Offline Music & Video Player for Android',
-    description: 'Official Otya Player by PeterSmart Link for local Android media.',
+    title: 'Otya — Offline Music & Video for Android',
+    description: 'Official Otya by PeterSmart Link for local Android media.',
     images: [OTYA_MARK],
   },
   icons: {
-    icon: [{ url: OTYA_MARK, sizes: '1024x1024', type: 'image/png' }],
-    apple: [{ url: OTYA_MARK, sizes: '1024x1024', type: 'image/png' }],
+    icon: [{ url: OTYA_MARK, sizes: '512x512', type: 'image/webp' }],
+    apple: [{ url: OTYA_MARK, sizes: '512x512', type: 'image/webp' }],
     shortcut: OTYA_MARK,
   },
   manifest: '/manifest.json',
-  appleWebApp: { capable: true, title: 'Otya Player', statusBarStyle: 'black-translucent' },
+  appleWebApp: { capable: true, title: 'Otya', statusBarStyle: 'black-translucent' },
 }
 
 export const viewport: Viewport = {
@@ -102,8 +103,8 @@ const schemaOrg = {
     {
       '@type': 'SoftwareApplication',
       '@id': `${SITE_URL}/#otya-player`,
-      name: 'Otya Player',
-      alternateName: 'Otya',
+      name: 'Otya',
+      alternateName: 'Otya Player',
       identifier: 'com.otyaplayer.app',
       operatingSystem: 'Android',
       applicationCategory: 'MultimediaApplication',
@@ -115,7 +116,7 @@ const schemaOrg = {
       author: { '@id': `${SITE_URL}/#organization` },
       publisher: { '@id': `${SITE_URL}/#organization` },
       description:
-        'Offline-first Android music and video player for local media, nearby Send, Private media, playlists, subtitles and practical media tools.',
+        'Offline-first Android music and video app for local media, nearby Send, Private media, playlists, subtitles and practical media tools.',
       image: `${SITE_URL}${OTYA_MARK}`,
       featureList: [
         'Local music playback',
@@ -133,7 +134,7 @@ const schemaOrg = {
       '@id': `${SITE_URL}/#website`,
       url: SITE_URL,
       name: 'PeterSmart Link',
-      alternateName: 'Otya Player',
+      alternateName: 'Otya',
       publisher: { '@id': `${SITE_URL}/#organization` },
     },
   ],

@@ -7,12 +7,13 @@ import { SiteFooter } from '@/components/SiteFooter'
 import { getKV } from '@/lib/d1'
 
 export const metadata: Metadata = {
-  title: 'Otya Player — Offline Music & Video Player for Android',
+  title: 'Otya — Offline Music & Video for Android',
   description:
-    'Otya Player by PeterSmart Link is an offline-first Android music and video player for local media, nearby Send, Private media, playlists, subtitles and practical media tools.',
+    'Otya by PeterSmart Link is an offline-first Android music and video app for local media, nearby Send, Private media, playlists, subtitles and practical media tools.',
   keywords: [
+    'Otya',
     'Otya Player',
-    'Otya Player Android',
+    'Otya Android',
     'offline music player Android',
     'offline video player Android',
     'local music player Android',
@@ -24,23 +25,24 @@ export const metadata: Metadata = {
   openGraph: {
     type: 'website',
     url: 'https://petersmartlink.com/otya-player',
-    title: 'Otya Player — Offline Music & Video Player for Android',
+    title: 'Otya — Offline Music & Video for Android',
     description:
-      'Play local music and video offline, send supported media nearby, protect Private media and use practical media tools with Otya Player by PeterSmart Link.',
+      'Play local music and video offline, send supported media nearby, protect Private media and use practical media tools with Otya by PeterSmart Link.',
     images: [
       {
-        url: '/otya-mark-current.png',
-        width: 1024,
-        height: 1024,
-        alt: 'Otya Player by PeterSmart Link',
+        url: '/otya-app-icon.webp',
+        width: 512,
+        height: 512,
+        alt: 'Otya by PeterSmart Link',
+        type: 'image/webp',
       },
     ],
   },
   twitter: {
     card: 'summary',
-    title: 'Otya Player — Offline Music & Video Player for Android',
-    description: 'Official Otya Player by PeterSmart Link for local Android music and video.',
-    images: ['/otya-mark-current.png'],
+    title: 'Otya — Offline Music & Video for Android',
+    description: 'Official Otya by PeterSmart Link for local Android music and video.',
+    images: ['/otya-app-icon.webp'],
   },
 }
 
@@ -66,16 +68,16 @@ export default async function OtyaPlayerPage() {
     <main className="flex-1 pb-24 md:pb-0">
       <section className="otya-shell py-11 sm:py-18 grid lg:grid-cols-[.9fr_1.1fr] gap-9 lg:gap-14 items-center">
         <div>
-          <div className="otya-kicker mb-4">Official Otya Player · Android · v{appVersion} · PeterSmart Link</div>
-          <h1 className="text-4xl sm:text-6xl lg:text-7xl font-extrabold tracking-[-.06em] leading-[.94]">Otya Player.<br/><span style={{ color: 'var(--cosmos-primary)' }}>Your media. Still yours.</span></h1>
-          <p className="mt-5 max-w-xl text-base sm:text-lg otya-muted">Otya Player is an offline-first Android music and video player for the media already on your device. Play local files, send supported media nearby and protect Private media without requiring an account or internet connection for core playback.</p>
+          <div className="otya-kicker mb-4">Official Otya · Android · v{appVersion} · PeterSmart Link</div>
+          <h1 className="text-4xl sm:text-6xl lg:text-7xl font-extrabold tracking-[-.06em] leading-[.94]">Otya.<br/><span style={{ color: 'var(--cosmos-primary)' }}>Your media. Still yours.</span></h1>
+          <p className="mt-5 max-w-xl text-base sm:text-lg otya-muted">Otya is an offline-first Android music and video app for the media already on your device. Play local files, send supported media nearby and protect Private media without requiring an account or internet connection for core playback.</p>
           <div className="mt-7 flex flex-col sm:flex-row gap-3">
-            <Link href="/download/otya-player" className="cosmos-button rounded-full px-6 py-3.5 text-sm font-extrabold text-center">Download Otya Player</Link>
+            <Link href="/download/otya-player" className="cosmos-button rounded-full px-6 py-3.5 text-sm font-extrabold text-center">Download Otya</Link>
             <Link href="/help" className="otya-quiet-button rounded-full px-6 py-3.5 text-sm font-bold text-center">Help & support</Link>
           </div>
           <div className="mt-6 flex flex-wrap gap-x-5 gap-y-2 text-xs otya-muted"><span>Offline-first</span><span>Local music & video</span><span>Nearby Send</span><span>Sign-in optional</span></div>
         </div>
-        <Image src="/brand/otya-app-preview.svg" alt="Otya Player Android interface showing Video, Music and Me" width={1200} height={820} priority className="w-full h-auto rounded-[30px] drop-shadow-2xl" />
+        <Image src="/brand/otya-app-preview.svg" alt="Otya Android interface showing Video, Music and Me" width={1200} height={820} priority className="w-full h-auto rounded-[30px] drop-shadow-2xl" />
       </section>
 
       <section className="border-y" style={{ borderColor: 'var(--cosmos-divider)', background: 'linear-gradient(120deg,color-mix(in srgb,var(--cosmos-primary) 7%,var(--cosmos-surface)),color-mix(in srgb,var(--cosmos-cyan) 6%,var(--cosmos-surface)))' }}>
@@ -94,8 +96,8 @@ export default async function OtyaPlayerPage() {
           {FEATURES.map(([title,text]) => <div key={title} className="modern-card p-5"><h3 className="font-extrabold">{title}</h3><p className="mt-2 text-sm leading-relaxed otya-muted">{text}</p></div>)}
         </div>
         <div className="mt-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-t pt-6" style={{ borderColor: 'var(--cosmos-divider)' }}>
-          <div><div className="font-extrabold">The internet is an enhancement, not a requirement.</div><div className="mt-1 text-sm otya-muted">Local playback, library access and nearby sending remain at the center of Otya Player.</div></div>
-          <Link href="/download/otya-player" className="cosmos-button rounded-full px-6 py-3 text-sm font-extrabold text-center shrink-0">Download Otya Player v{appVersion}</Link>
+          <div><div className="font-extrabold">The internet is an enhancement, not a requirement.</div><div className="mt-1 text-sm otya-muted">Local playback, library access and nearby sending remain at the center of Otya.</div></div>
+          <Link href="/download/otya-player" className="cosmos-button rounded-full px-6 py-3 text-sm font-extrabold text-center shrink-0">Download Otya v{appVersion}</Link>
         </div>
       </section>
     </main>

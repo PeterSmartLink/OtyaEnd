@@ -241,8 +241,9 @@ img[src='/android-chrome-192x192.png'],
 img[src='/otya-icon.svg'],
 img[src='/otya-icon-dark.svg'],
 img[src='/otya-ai.svg'],
-img[src='/otya-ai-thinking.svg'] {
-  content: url('/otya-mark-current.png');
+img[src='/otya-ai-thinking.svg'],
+img[src='/otya-ai-thinking-light.svg'] {
+  content: url('/otya-app-icon.webp');
   object-fit: contain !important;
   background: transparent !important;
 }
