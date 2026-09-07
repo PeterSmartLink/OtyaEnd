@@ -1,0 +1,46 @@
+name: One-shot audited branch cleanup
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/one-shot-audited-branch-cleanup.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete only audited unchanged branches
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          failed=0
+          while IFS='|' read -r branch expected; do
+            [ -n "$branch" ] || continue
+            current="$(gh api "repos/$REPO/git/ref/heads/$branch" --jq '.object.sha' 2>/dev/null || true)"
+            if [ -z "$current" ]; then
+              echo "ALREADY_GONE|$branch"
+              continue
+            fi
+            if [ "$current" != "$expected" ]; then
+              echo "REFUSED_CHANGED|$branch|expected=$expected|current=$current"
+              failed=1
+              continue
+            fi
+            gh api -X DELETE "repos/$REPO/git/refs/heads/$branch" >/dev/null
+            echo "DELETED|$branch|$current"
+          done <<'EOF'
+          dependabot/github_actions/github-actions-31a3c093bd|40725d2c36d21bbed96220c67580a8eb29a77764
+          dependabot/npm_and_yarn/backend-dependencies-7ebaaf5a8b|e8c82db6785b3d58dac49856e9e033a0987f48fb
+          feat/anywhere-together-transport-20260907|fd36450733009242a89b1a41fa151e9129401329
+          fix/canonical-brand-source-20260906|56eb3be8be382921055220e2c7a1bf9f2c909956
+          fix/final-otya-hardening-20260907|6c42d37b4efe47b6b65abf50ef9b7bee11485bc8
+          integrate/anywhere-together-transport-20260907|e1dce6eaa6ed66f32b58df85140df2155d4aeb70
+          EOF
+          exit "$failed"
