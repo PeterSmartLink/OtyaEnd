@@ -8,17 +8,11 @@ type Props = {
   label?: string
 }
 
-/**
- * Canonical Otya identity component.
- *
- * Every Otya product surface uses the exact approved mark synced from the app.
- * Admin-assistant thinking state may animate that same mark, but it never swaps
- * to a second public logo or alternate color identity.
- */
+/** Canonical Otya identity shared with the Android app. */
 export function OtyaBrandMark({ size = 36, thinking = false, ai = false, className = '', label }: Props) {
-  const accessibleLabel = label ?? (ai ? "Otya assistant" : '')
+  const accessibleLabel = label ?? (ai ? 'Otya assistant' : '')
   return <img
-    src="/otya-mark-current.png"
+    src="/otya-app-icon.webp"
     width={size}
     height={size}
     alt={accessibleLabel}
