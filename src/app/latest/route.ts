@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getCloudflareContext } from '@opennextjs/cloudflare'
 import { getKV, getR2 } from '@/lib/d1'
 
-// GET /latest — returns the current public release state.
+// GET /latest — the single public release authority used by Otya clients.
 // Before the first approved release it deliberately returns HTTP 200 with
 // published:false rather than inventing version metadata or treating the clean
 // pre-release R2 bucket as an operational error.
@@ -11,13 +11,20 @@ const KV_TTL        = 300 // 5 minutes
 const DOWNLOAD_PAGE = 'https://petersmartlink.com/download/otya-player'
 const ARM64_APK     = 'https://petersmartlink.com/apk/arm64'
 const ARM32_APK     = 'https://petersmartlink.com/apk/arm32'
+const BUILD_TAG_RE  = /^v\d+\.\d+\.\d+\+[1-9]\d*$/
 
-function releaseDownloads() {
-  return {
+function releaseDownloads(tag?: unknown) {
+  const downloads: Record<string, string> = {
     arm64: ARM64_APK,
     arm32: ARM32_APK,
     auto: DOWNLOAD_PAGE,
+    page: DOWNLOAD_PAGE,
   }
+  if (typeof tag === 'string' && BUILD_TAG_RE.test(tag)) {
+    downloads.exactArm64 = `${ARM64_APK}?tag=${encodeURIComponent(tag)}`
+    downloads.exactArm32 = `${ARM32_APK}?tag=${encodeURIComponent(tag)}`
+  }
+  return downloads
 }
 
 function noPublicRelease() {
@@ -57,13 +64,14 @@ export async function GET(_req: NextRequest) {
         const info = JSON.parse(latestRaw) as Record<string, unknown>
         const data: Record<string, unknown> = {
           published: true,
+          tag:         info.tag,
           version:     info.version,
           versionCode: info.build_number ?? info.versionCode,
           changelog:   info.release_notes ?? info.changelog ?? '',
           date:        info.date,
           minSdk:      info.minSdk ?? 21,
           targetSdk:   info.targetSdk ?? 36,
-          downloads:   releaseDownloads(),
+          downloads:   releaseDownloads(info.tag),
         }
         return new NextResponse(JSON.stringify(data), {
           headers: {
@@ -71,6 +79,7 @@ export async function GET(_req: NextRequest) {
             'Cache-Control':               `public, max-age=${KV_TTL}`,
             'Access-Control-Allow-Origin': '*',
             'X-Source':                    'kv-latest-build-info',
+            'X-OTYA-Release-State':        'published',
           },
         })
       }
@@ -85,6 +94,7 @@ export async function GET(_req: NextRequest) {
           'Cache-Control':               `public, max-age=${KV_TTL}`,
           'Access-Control-Allow-Origin': '*',
           'X-Cache':                     'HIT',
+          'X-OTYA-Release-State':        'published',
         },
       })
     }
@@ -97,13 +107,12 @@ export async function GET(_req: NextRequest) {
     const data = JSON.parse(text) as Record<string, unknown>
     data.published = true
 
-    if (data.downloads && typeof data.downloads === 'object') {
-      const dl = data.downloads as Record<string, string>
-      dl.arm64 = ARM64_APK
-      dl.arm32 = ARM32_APK
-      dl.auto  = DOWNLOAD_PAGE
-    } else {
-      data.downloads = releaseDownloads()
+    const existingDownloads = data.downloads && typeof data.downloads === 'object'
+      ? data.downloads as Record<string, unknown>
+      : {}
+    data.downloads = {
+      ...existingDownloads,
+      ...releaseDownloads(data.tag),
     }
 
     const body = JSON.stringify(data)
@@ -115,6 +124,7 @@ export async function GET(_req: NextRequest) {
         'Cache-Control':               `public, max-age=${KV_TTL}`,
         'Access-Control-Allow-Origin': '*',
         'X-Cache':                     'MISS',
+        'X-OTYA-Release-State':        'published',
       },
     })
   } catch {
