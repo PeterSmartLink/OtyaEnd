@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Next is thinking">
   <g transform-origin="256px 256px">
     <animateTransform attributeName="transform" type="rotate" from="0 256 256" to="360 256 256" dur="1.6s" repeatCount="indefinite"/>
-    <image href="/otya-mark-current.png" x="0" y="0" width="512" height="512" preserveAspectRatio="xMidYMid meet"/>
+    <image href="/otya-app-icon.webp" x="0" y="0" width="512" height="512" preserveAspectRatio="xMidYMid meet"/>
   </g>
 </svg>
