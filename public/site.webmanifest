@@ -1,9 +1,9 @@
 {
-  "name": "OTYA Player",
-  "short_name": "OTYA Player",
+  "name": "Otya Player",
+  "short_name": "Otya",
   "description": "Free offline-first music and video player for Android by PeterSmart Link.",
   "icons": [
-    { "src": "/otya-mark-current.png", "sizes": "1024x1024", "type": "image/png", "purpose": "any maskable" }
+    { "src": "/otya-app-icon.webp", "sizes": "1024x1024", "type": "image/webp", "purpose": "any maskable" }
   ],
   "theme_color": "#050812",
   "background_color": "#050812",
