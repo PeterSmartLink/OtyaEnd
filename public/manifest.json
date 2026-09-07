@@ -9,9 +9,9 @@
   "orientation": "portrait",
   "icons": [
     {
-      "src": "/otya-mark-current.png",
+      "src": "/otya-app-icon.webp",
       "sizes": "1024x1024",
-      "type": "image/png",
+      "type": "image/webp",
       "purpose": "any maskable"
     }
   ]
