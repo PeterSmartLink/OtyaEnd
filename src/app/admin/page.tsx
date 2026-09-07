@@ -108,9 +108,9 @@ function AdminGate({ configured, accountAdmin, checkError, onRetry, onSuccess }:
   return <main className="min-h-screen grid place-items-center px-4 py-10" style={{ background: 'var(--cosmos-scaffold)' }}>
     <div className="w-full max-w-sm rounded-3xl border p-6 sm:p-8" style={surfaceStyle()}>
       <div className="mx-auto mb-4 h-16 w-16 overflow-hidden rounded-2xl border" style={{ borderColor: 'var(--cosmos-divider)' }}>
-        <img src="/android-chrome-192x192.png" alt="OTYA" className="h-full w-full object-cover" />
+        <img src="/otya-app-icon.webp" alt="Otya" className="h-full w-full object-cover" />
       </div>
-      <h1 className="text-center text-2xl font-black">OTYA Admin</h1>
+      <h1 className="text-center text-2xl font-black">Otya Admin</h1>
       <p className="mt-2 text-center text-sm" style={{ color: 'var(--cosmos-text-secondary)' }}>
         Admin uses your existing Otya sign-in. Owner controls are unlocked with fresh email and Telegram verification, not a second account login.
       </p>
@@ -259,14 +259,14 @@ export default function AdminPage() {
     } catch (e) { setMessage((e as Error).message) } finally { setBusy(false) }
   }
 
-  if (session.loading) return <div className="min-h-screen grid place-items-center">Loading OTYA Admin…</div>
+  if (session.loading) return <div className="min-h-screen grid place-items-center">Loading Otya Admin…</div>
   if (!session.authenticated) return <AdminGate configured={session.configured} accountAdmin={session.accountAdmin} checkError={session.checkError} onRetry={refreshSession} onSuccess={refreshSession} />
 
   return <div className="min-h-screen" style={{ background: 'var(--cosmos-scaffold)', color: 'var(--cosmos-text-primary)' }}>
     <header className="sticky top-0 z-40 border-b" style={{ background: 'var(--cosmos-surface)', borderColor: 'var(--cosmos-divider)' }}>
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
         <div className="flex items-center gap-3">
-          <img src="/android-chrome-192x192.png" alt="OTYA" className="h-9 w-9 rounded-xl" />
+          <img src="/otya-app-icon.webp" alt="Otya" className="h-9 w-9 rounded-xl" />
           <div><div className="text-sm font-black">OTYA Admin</div><div className="text-[11px]" style={{ color: 'var(--cosmos-text-secondary)' }}>Control center</div></div>
         </div>
         <div className="flex gap-2"><a href="/admin/ai" className="rounded-lg border px-3 py-2 text-xs font-bold" style={{ borderColor: 'var(--cosmos-divider)' }}>Admin AI</a><button onClick={logout} className="rounded-lg border px-3 py-2 text-xs font-bold text-red-400 border-red-400/30">Sign out</button></div>
@@ -311,9 +311,9 @@ function ReleasePanel({ api, latest, onMessage }: { api: (url: string, init?: Re
     e.preventDefault(); onMessage('')
     const versionCode = Number(code)
     if (!version.trim() || !Number.isInteger(versionCode) || versionCode < 1) { onMessage('Enter a valid version and version code.'); return }
-    const res = await api('/api/admin/release', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tag: `v${version.trim()}`, version: version.trim(), version_code: versionCode, changelog: changelog.trim(), force_update: force }) })
+    const res = await api('/api/admin/release', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tag: `v${version.trim()}+${versionCode}`, version: version.trim(), version_code: versionCode, changelog: changelog.trim(), force_update: force }) })
     const body = await res.json().catch(() => ({})) as { error?: string }
-    onMessage(res.ok ? `Release ${version.trim()} metadata published.` : body.error ?? `Release HTTP ${res.status}`)
+    onMessage(res.ok ? `Release ${version.trim()}+${versionCode} metadata published.` : body.error ?? `Release HTTP ${res.status}`)
   }
   return <form onSubmit={publish} className={`${card} space-y-3`} style={surfaceStyle()}><h2 className="font-black">Publish release metadata</h2><p className="text-xs" style={{ color: 'var(--cosmos-text-secondary)' }}>Use this after validated APKs are uploaded. This does not fabricate an APK.</p><div className="grid gap-3 sm:grid-cols-2"><input className={input} style={surfaceStyle()} value={version} onChange={e => setVersion(e.target.value)} placeholder="Version, e.g. 1.0.0" /><input className={input} style={surfaceStyle()} value={code} onChange={e => setCode(e.target.value)} inputMode="numeric" placeholder="Version code" /></div><textarea className={`${input} min-h-32`} style={surfaceStyle()} value={changelog} onChange={e => setChangelog(e.target.value)} placeholder="Release notes" /><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={force} onChange={e => setForce(e.target.checked)} /> Force update only when an older build is unsafe</label><button className="rounded-xl bg-violet-500 px-4 py-2.5 text-sm font-black text-white">Publish metadata</button></form>
 }
