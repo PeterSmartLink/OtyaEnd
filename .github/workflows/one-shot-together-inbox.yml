@@ -20,6 +20,7 @@ jobs:
           set -euo pipefail
           python3 <<'PY'
           from pathlib import Path
+          import re
 
           source = Path('src/together-control.mjs')
           text = source.read_text()
@@ -31,14 +32,8 @@ jobs:
                   1,
               )
 
-          write_anchor = """async function writeRoom(env, room) {
-            await env.KV.put(`${ROOM_PREFIX}${room.id}`, JSON.stringify(room), {
-              expirationTtl: ROOM_TTL_SECONDS,
-            })
-          }
-          """
           if "async function getPendingInvites" not in text:
-              addition = """
+              helper = """
 
           function inviteKey(username, roomId) {
             return `${INVITE_PREFIX}${String(username || '').trim().toLowerCase()}:${roomId}`
@@ -65,7 +60,7 @@ jobs:
               const roomId = item.name.slice(prefix.length)
               const room = await readRoom(env, roomId)
               if (!room || room.status === 'closed' || room.guest?.username !== identity.username) {
-                await env.KV.delete?.(item.name)
+                if (typeof env.KV.delete === 'function') await env.KV.delete(item.name)
                 continue
               }
               invites.push(publicRoom(room))
@@ -75,107 +70,74 @@ jobs:
             return json({ ok: true, invites })
           }
           """
-              if write_anchor not in text:
+              match = re.search(r"async function writeRoom\(env, room\) \{.*?\n\}", text, flags=re.S)
+              if not match:
                   raise SystemExit('writeRoom anchor changed')
-              text = text.replace(write_anchor, write_anchor + addition, 1)
+              text = text[:match.end()] + helper + text[match.end():]
 
-          create_anchor = """  await writeRoom(env, room)
-            return json({
-              ok: true,
-              room: publicRoom(room),
-              invite_token: inviteToken,
-            }, 201)
-          }
-          """
           if "inviteKey(guest.username, room.id)" not in text:
-              replacement = """  await writeRoom(env, room)
-            await env.KV.put(inviteKey(guest.username, room.id), JSON.stringify({
-              room_id: room.id,
-              created_at: room.createdAt,
-            }), { expirationTtl: ROOM_TTL_SECONDS })
-            return json({
-              ok: true,
-              room: publicRoom(room),
-              invite_token: inviteToken,
-            }, 201)
-          }
-          """
-              if create_anchor not in text:
+              text, count = re.subn(
+                  r"(  await writeRoom\(env, room\)\n)(  return json\(\{\n    ok: true,\n    room: publicRoom\(room\),\n    invite_token: inviteToken,)",
+                  r"\1  await env.KV.put(inviteKey(guest.username, room.id), JSON.stringify({\n    room_id: room.id,\n    created_at: room.createdAt,\n  }), { expirationTtl: ROOM_TTL_SECONDS })\n\2",
+                  text,
+                  count=1,
+              )
+              if count != 1:
                   raise SystemExit('createRoom return anchor changed')
-              text = text.replace(create_anchor, replacement, 1)
 
-          token_anchor = """  const body = await request.json().catch(() => null)
-            const inviteToken = typeof body?.invite_token === 'string' ? body.invite_token : ''
-            if (!inviteToken || await sha256(inviteToken) !== room.inviteTokenHash) {
+          if "INVITE_NOT_PENDING" not in text:
+              text, count = re.subn(
+                  r"  const body = await request\.json\(\)\.catch\(\(\) => null\)\n  const inviteToken = typeof body\?\.invite_token === 'string' \? body\.invite_token : ''\n  if \(!inviteToken \|\| await sha256\(inviteToken\) !== room\.inviteTokenHash\) \{\n    return json\(\{ error: 'Invalid or expired Together invite\.', code: 'INVALID_INVITE' \}, 403\)\n  \}",
+                  """  const body = await request.json().catch(() => null)
+          const inviteToken = typeof body?.invite_token === 'string' ? body.invite_token : ''
+          if (inviteToken) {
+            if (await sha256(inviteToken) !== room.inviteTokenHash) {
               return json({ error: 'Invalid or expired Together invite.', code: 'INVALID_INVITE' }, 403)
             }
-          """
-          token_replacement = """  const body = await request.json().catch(() => null)
-            const inviteToken = typeof body?.invite_token === 'string' ? body.invite_token : ''
-            if (inviteToken) {
-              if (await sha256(inviteToken) !== room.inviteTokenHash) {
-                return json({ error: 'Invalid or expired Together invite.', code: 'INVALID_INVITE' }, 403)
-              }
-            } else {
-              const pending = await env.KV.get(inviteKey(identity.username, room.id))
-              if (!pending) {
-                return json({ error: 'This Together invite is no longer pending.', code: 'INVITE_NOT_PENDING' }, 403)
-              }
+          } else {
+            const pending = await env.KV.get(inviteKey(identity.username, room.id))
+            if (!pending) {
+              return json({ error: 'This Together invite is no longer pending.', code: 'INVITE_NOT_PENDING' }, 403)
             }
-          """
-          if token_anchor in text:
-              text = text.replace(token_anchor, token_replacement, 1)
-          elif "INVITE_NOT_PENDING" not in text:
-              raise SystemExit('join token anchor changed')
+          }""",
+                  text,
+                  count=1,
+              )
+              if count != 1:
+                  raise SystemExit('join token anchor changed')
 
-          join_anchor = """  room.guestUserId = user.id
-            room.status = 'connected'
-            room.guest = identity
-            await writeRoom(env, room)
-            return json({ ok: true, room: publicRoom(room) })
-          """
-          join_replacement = """  room.guestUserId = user.id
-            room.status = 'connected'
-            room.guest = identity
-            await writeRoom(env, room)
-            await env.KV.delete?.(inviteKey(identity.username, room.id))
-            return json({ ok: true, room: publicRoom(room) })
-          """
-          if join_anchor in text:
-              text = text.replace(join_anchor, join_replacement, 1)
-          elif "delete?.(inviteKey(identity.username, room.id))" not in text:
-              raise SystemExit('join write anchor changed')
+          if "delete(inviteKey(identity.username, room.id))" not in text:
+              text, count = re.subn(
+                  r"(  room\.guestUserId = user\.id\n  room\.status = 'connected'\n  room\.guest = identity\n  await writeRoom\(env, room\)\n)",
+                  r"\1  if (typeof env.KV.delete === 'function') await env.KV.delete(inviteKey(identity.username, room.id))\n",
+                  text,
+                  count=1,
+              )
+              if count != 1:
+                  raise SystemExit('join write anchor changed')
 
-          close_anchor = """  room.status = 'closed'
-            await writeRoom(env, room)
-            return json({ ok: true })
-          """
-          close_replacement = """  room.status = 'closed'
-            await writeRoom(env, room)
-            if (room.guest?.username) {
-              await env.KV.delete?.(inviteKey(room.guest.username, room.id))
-            }
-            return json({ ok: true })
-          """
-          if close_anchor in text:
-              text = text.replace(close_anchor, close_replacement, 1)
+          if "inviteKey(room.guest.username, room.id)" not in text:
+              text, count = re.subn(
+                  r"(  room\.status = 'closed'\n  await writeRoom\(env, room\)\n)(  return json\(\{ ok: true \}\)\n\})",
+                  r"\1  if (room.guest?.username && typeof env.KV.delete === 'function') {\n    await env.KV.delete(inviteKey(room.guest.username, room.id))\n  }\n\2",
+                  text,
+                  count=1,
+              )
+              if count != 1:
+                  raise SystemExit('close room anchor changed')
 
-          route_anchor = """  if (url.pathname === '/api/together/rooms' && request.method === 'POST') {
-            return createRoom(request, env, user)
-          }
-          """
           if "url.pathname === '/api/together/invites'" not in text:
-              route_replacement = """  if (url.pathname === '/api/together/invites' && request.method === 'GET') {
-            return getPendingInvites(request, env)
-          }
-
-            if (url.pathname === '/api/together/rooms' && request.method === 'POST') {
-              return createRoom(request, env, user)
-            }
-          """
-              if route_anchor not in text:
+              needle = "  if (url.pathname === '/api/together/rooms' && request.method === 'POST') {"
+              if needle not in text:
                   raise SystemExit('router anchor changed')
-              text = text.replace(route_anchor, route_replacement, 1)
+              text = text.replace(
+                  needle,
+                  "  if (url.pathname === '/api/together/invites' && request.method === 'GET') {\n"
+                  "    return getPendingInvites(request, env)\n"
+                  "  }\n\n"
+                  + needle,
+                  1,
+              )
 
           source.write_text(text)
 
@@ -188,8 +150,10 @@ jobs:
                   1,
               )
 
-          if "invited friend discovers and joins the room inside OTYA" not in test_text:
+          if "invited friend discovers and joins the room inside OTYA without a link" not in test_text:
               marker = "test('signaling is short-lived recipient-specific setup data only', async () => {"
+              if marker not in test_text:
+                  raise SystemExit('test insertion anchor changed')
               new_test = """test('invited friend discovers and joins the room inside OTYA without a link', async () => {
             const env = { KV: new MemoryKv(), AUTH: authBinding() }
             const created = await createRoom(env)
@@ -233,8 +197,6 @@ jobs:
           })
 
           """
-              if marker not in test_text:
-                  raise SystemExit('test insertion anchor changed')
               test_text = test_text.replace(marker, new_test + marker, 1)
 
           tests.write_text(test_text)
