@@ -10,6 +10,8 @@ class MemoryKv {
 
   async put(key, value) { this.values.set(key, value) }
 
+  async delete(key) { this.values.delete(key) }
+
   async list({ prefix = '', limit = 1000 } = {}) {
     const keys = [...this.values.keys()]
       .filter(key => key.startsWith(prefix))
@@ -136,6 +138,48 @@ test('only the invited username can join and room remains one-to-one', async () 
     { id: 'another-private-id' },
   )
   assert.equal(second.status, 409)
+})
+
+test('invited friend discovers and joins the room inside OTYA without a link', async () => {
+  const env = { KV: new MemoryKv(), AUTH: authBinding() }
+  const created = await createRoom(env)
+
+  const pending = await handleTogetherControl(
+    request('/api/together/invites', { token: 'guest' }),
+    env,
+    { id: 'guest-private' },
+  )
+  assert.equal(pending.status, 200)
+  const pendingBody = await pending.json()
+  assert.equal(pendingBody.invites.length, 1)
+  assert.equal(pendingBody.invites[0].room_id, created.room.room_id)
+  assert.equal(pendingBody.invites[0].host.username, 'peter')
+
+  const strangerPending = await handleTogetherControl(
+    request('/api/together/invites', { token: 'stranger' }),
+    env,
+    { id: 'stranger-private' },
+  )
+  assert.equal((await strangerPending.json()).invites.length, 0)
+
+  const joined = await handleTogetherControl(
+    request(`/api/together/rooms/${created.room.room_id}/join`, {
+      method: 'POST',
+      token: 'guest',
+      body: {},
+    }),
+    env,
+    { id: 'guest-private' },
+  )
+  assert.equal(joined.status, 200)
+  assert.equal((await joined.json()).room.guest.connected, true)
+
+  const afterJoin = await handleTogetherControl(
+    request('/api/together/invites', { token: 'guest' }),
+    env,
+    { id: 'guest-private' },
+  )
+  assert.equal((await afterJoin.json()).invites.length, 0)
 })
 
 test('signaling is short-lived recipient-specific setup data only', async () => {

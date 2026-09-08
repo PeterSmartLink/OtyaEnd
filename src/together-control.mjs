@@ -1,5 +1,6 @@
 const ROOM_PREFIX = 'together:room:'
 const SIGNAL_PREFIX = 'together:signal:'
+const INVITE_PREFIX = 'together:invite:'
 const ROOM_TTL_SECONDS = 8 * 60 * 60
 const SIGNAL_TTL_SECONDS = 5 * 60
 const TURN_CREDENTIAL_TTL_SECONDS = ROOM_TTL_SECONDS
@@ -134,6 +135,42 @@ async function writeRoom(env, room) {
   })
 }
 
+function inviteKey(username, roomId) {
+  return `${INVITE_PREFIX}${String(username || '').trim().toLowerCase()}:${roomId}`
+}
+
+function invitePrefix(username) {
+  return `${INVITE_PREFIX}${String(username || '').trim().toLowerCase()}:`
+}
+
+async function getPendingInvites(request, env) {
+  const identity = await currentPublicIdentity(request, env)
+  if (!identity) {
+    return json({
+      error: 'Choose an Otya username before joining Anywhere Together.',
+      code: 'USERNAME_REQUIRED',
+    }, 409)
+  }
+
+  const prefix = invitePrefix(identity.username)
+  const listed = await env.KV.list({ prefix, limit: 50 })
+  const invites = []
+
+  for (const item of listed.keys || []) {
+    const roomId = item.name.slice(prefix.length)
+    const room = await readRoom(env, roomId)
+    if (!room || room.status === 'closed' || room.guest?.username !== identity.username) {
+      if (typeof env.KV.delete === 'function') await env.KV.delete(item.name)
+      continue
+    }
+    invites.push(publicRoom(room))
+  }
+
+  invites.sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')))
+  return json({ ok: true, invites })
+}
+
+
 function roleFor(room, userId) {
   if (room.hostUserId === userId) return 'host'
   if (room.guestUserId === userId) return 'guest'
@@ -260,6 +297,10 @@ async function createRoom(request, env, user) {
   }
 
   await writeRoom(env, room)
+  await env.KV.put(inviteKey(guest.username, room.id), JSON.stringify({
+    room_id: room.id,
+    created_at: room.createdAt,
+  }), { expirationTtl: ROOM_TTL_SECONDS })
   return json({
     ok: true,
     room: publicRoom(room),
@@ -279,10 +320,17 @@ async function joinRoom(request, env, user, roomId) {
   }
 
   const body = await request.json().catch(() => null)
-  const inviteToken = typeof body?.invite_token === 'string' ? body.invite_token : ''
-  if (!inviteToken || await sha256(inviteToken) !== room.inviteTokenHash) {
+const inviteToken = typeof body?.invite_token === 'string' ? body.invite_token : ''
+if (inviteToken) {
+  if (await sha256(inviteToken) !== room.inviteTokenHash) {
     return json({ error: 'Invalid or expired Together invite.', code: 'INVALID_INVITE' }, 403)
   }
+} else {
+  const pending = await env.KV.get(inviteKey(identity.username, room.id))
+  if (!pending) {
+    return json({ error: 'This Together invite is no longer pending.', code: 'INVITE_NOT_PENDING' }, 403)
+  }
+}
 
   if (room.guestUserId && room.guestUserId !== user.id) {
     return json({ error: 'This Together room already has its guest.', code: 'ROOM_FULL' }, 409)
@@ -292,6 +340,7 @@ async function joinRoom(request, env, user, roomId) {
   room.status = 'connected'
   room.guest = identity
   await writeRoom(env, room)
+  if (typeof env.KV.delete === 'function') await env.KV.delete(inviteKey(identity.username, room.id))
   return json({ ok: true, room: publicRoom(room) })
 }
 
@@ -314,6 +363,9 @@ async function closeRoom(env, user, roomId) {
   // in v1 because the first release is intentionally private one-to-one.
   room.status = 'closed'
   await writeRoom(env, room)
+  if (room.guest?.username && typeof env.KV.delete === 'function') {
+    await env.KV.delete(inviteKey(room.guest.username, room.id))
+  }
   return json({ ok: true })
 }
 
@@ -390,6 +442,10 @@ export async function handleTogetherControl(request, env, user) {
   if (!url.pathname.startsWith('/api/together/')) return null
   if (!user) return json({ error: 'Sign in required' }, 401)
   if (!env.KV) return json({ error: 'Together control plane unavailable' }, 503)
+
+  if (url.pathname === '/api/together/invites' && request.method === 'GET') {
+    return getPendingInvites(request, env)
+  }
 
   if (url.pathname === '/api/together/rooms' && request.method === 'POST') {
     return createRoom(request, env, user)
