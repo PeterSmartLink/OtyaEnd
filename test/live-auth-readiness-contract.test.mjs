@@ -17,7 +17,12 @@ test('Telegram provider verification follows canonical production deploy directl
   const smoke = read('.github/workflows/telegram-provider-smoke.yml')
   assert.match(smoke, /workflows: \['Deploy OTYA to Cloudflare'\]/)
   assert.doesNotMatch(smoke, /Sync Telegram Auth Credential/)
-  assert.match(smoke, /Require Telegram Sign-In provider/)
+  assert.match(smoke, /Require Telegram Sign-In human security gate/)
+  assert.match(smoke, /TURNSTILE_REQUIRED/)
+  assert.match(smoke, /test "\$status" = "400"/)
+  assert.match(smoke, /Check Telegram handoff page/)
+  assert.match(smoke, /test "\$status" = "200"/)
+  assert.doesNotMatch(smoke, /grep -q 'authorization_url'/)
 })
 
 test('production auth deployment repairs preserved D1 before deploying the Worker', () => {
