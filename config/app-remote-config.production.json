@@ -1,53 +1,121 @@
 {
-  "revision": 3,
-  "maintenance": { "enabled": false, "message": "", "allowOfflinePlayback": true },
-  "versions": { "minimumBuild": 0, "recommendedBuild": 0, "forceUpdate": false },
+  "schemaVersion": 1,
+  "revision": 10,
+  "maintenance": {
+    "enabled": false,
+    "title": "Otya online services are temporarily unavailable",
+    "message": "Local playback and offline tools are still available.",
+    "allowOfflinePlayback": true,
+    "services": {}
+  },
+  "versions": {
+    "minimumBuild": 0,
+    "recommendedBuild": 0,
+    "forceUpdate": false,
+    "minimumMessage": "This version of Otya can no longer use online services. Please update to continue.",
+    "recommendedMessage": "A newer Otya version is available with improvements and fixes.",
+    "downloadUrl": "https://petersmartlink.com/download/otya-player"
+  },
   "features": {
-    "auth": true,
-    "googleSignIn": true,
-    "driveBackup": true,
+    "transfer": true,
+    "private": true,
     "beam": true,
     "safe": true,
+    "equalizer": true,
     "trimmer": true,
     "whatsappTrimmer": true,
+    "converter": true,
     "onlineThemes": true,
+    "googleSignIn": true,
+    "firebaseIdentity": true,
+    "firebaseAuth": true,
+    "firebaseAppCheck": true,
+    "firebaseAnalytics": true,
+    "firebasePerformance": true,
+    "driveBackup": true,
     "feedback": true,
-    "selfUpdate": true,
     "aiAssistant": true,
-    "telegramCommunity": true,
-    "telegramSupport": true
+    "cloudPush": true
   },
-  "featureBadges": {
-    "transfer": { "enabled": true, "label": "NEW", "version": "transfer-v1" },
-    "converter": { "enabled": true, "label": "NEW", "version": "converter-v1" },
-    "smartSearch": { "enabled": true, "label": "NEW", "version": "smart-search-v1" }
+  "home": {
+    "featuredCard": {
+      "enabled": true,
+      "title": "Your media. Your way.",
+      "subtitle": "Private, fast and built for everyday playback.",
+      "action": "/music"
+    },
+    "sectionOrder": ["continue", "recent", "featured", "tools"],
+    "banners": []
   },
+  "announcement": null,
   "links": {
-    "website": "https://petersmartlink.com",
+    "website": "https://petersmartlink.com/otya-player",
     "download": "https://petersmartlink.com/download/otya-player",
     "support": "https://petersmartlink.com/apps/otya-player/support",
-    "privacy": "https://petersmartlink.com/apps/otya-player/privacy",
-    "terms": "https://petersmartlink.com/apps/otya-player/terms",
-    "telegramChannel": "https://t.me/otyaplayer",
-    "telegramSupport": "https://t.me/OtyaPlayerBot"
+    "privacy": "https://petersmartlink.com/privacy",
+    "terms": "https://petersmartlink.com/terms",
+    "docs": "https://petersmartlink.com/docs",
+    "account": "https://petersmartlink.com/account",
+    "ai": "https://petersmartlink.com/ask"
   },
-  "home": {},
-  "announcement": { "enabled": false, "id": "", "title": "", "message": "" },
   "ai": {
     "enabled": true,
-    "surface": "embedded",
-    "inlineSearch": true,
-    "support": true,
-    "conversationFallback": true,
-    "bot": "https://t.me/OtyaPlayerBot"
+    "standaloneService": false,
+    "optionalForPlayer": true,
+    "scope": "general-assistant",
+    "productContext": "otya-aware",
+    "guestPolicy": "single-low-cost-model",
+    "signedInPolicy": "managed-model-selector",
+    "greeting": "Ask Otya anything. It can answer general questions and has extra Otya product context when you need help with playback, files, Transfer, Private, updates or your account.",
+    "suggestedPrompts": [
+      "Explain something I am learning in simple language.",
+      "Help me think through a decision step by step.",
+      "How do I send a large video with Otya Transfer?",
+      "Why can a video have picture but no sound?"
+    ]
+  },
+  "push": {
+    "enabled": true,
+    "provider": "fcm",
+    "optionalForPlayback": true
+  },
+  "auth": {
+    "authority": "otya-auth",
+    "emailPassword": "cloudflare",
+    "otp": "cloudflare-resend",
+    "firebaseIdentity": true,
+    "firebaseIsSessionAuthority": false
+  },
+  "security": {
+    "appCheck": {
+      "mode": "monitor",
+      "header": "X-Firebase-AppCheck",
+      "provider": "play-integrity",
+      "allowOfflinePlayback": true
+    }
   },
   "search": {
-    "enabled": true,
-    "localFirst": true,
-    "inlineAi": true,
-    "minimumAiQueryLength": 3
+    "suggestions": [],
+    "categories": ["video", "music", "folders", "playlists", "files", "help"],
+    "providerPriority": ["local", "help"],
+    "timeoutSeconds": 6
   },
-  "runtime": { "apiTimeoutSeconds": 8, "retryCount": 2 },
-  "experiments": {},
+  "experiments": {
+    "assignment": "stable-per-install",
+    "saltVersion": 1,
+    "items": {}
+  },
+  "regions": {
+    "default": { "enabled": true },
+    "UG": { "enabled": true }
+  },
+  "runtime": {
+    "apiTimeoutSeconds": 8,
+    "retryCount": 2,
+    "retryBackoffMs": 500,
+    "catalogRefreshMinutes": 30,
+    "configRefreshMinutes": 15,
+    "updateCheckHours": 12
+  },
   "campaigns": []
 }
