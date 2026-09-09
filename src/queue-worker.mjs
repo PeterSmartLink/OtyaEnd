@@ -9,6 +9,7 @@ import openNextWorker from '../.open-next/worker.js'
 
 const UPSTREAM_TIMEOUT_MS = 8000
 const TRANSIENT_FCM_STATUSES = new Set([401, 403, 408, 425, 429, 500, 502, 503, 504])
+const COMPACT_UPDATE_BODY = 'New features and improvements are ready. Tap to see what’s new.'
 
 export default {
   fetch: openNextWorker.fetch.bind(openNextWorker),
@@ -118,6 +119,25 @@ async function sendDailyAbuseReport(env) {
   }
 }
 
+function canonicalPushCopy(msg) {
+  const rawType = String(msg?.data?.type ?? msg?.type ?? '').trim().toLowerCase()
+  const isUpdate = rawType === 'update' || rawType === 'release_available'
+  if (!isUpdate) {
+    return {
+      title: msg?.title,
+      body: msg?.body,
+      messageType: rawType || 'announcement',
+    }
+  }
+
+  const version = String(msg?.data?.version ?? msg?.version ?? '').trim()
+  return {
+    title: version ? `Otya ${version} is ready` : 'Otya update is ready',
+    body: COMPACT_UPDATE_BODY,
+    messageType: 'update',
+  }
+}
+
 /**
  * Send one push message.
  *
@@ -132,7 +152,8 @@ async function sendDailyAbuseReport(env) {
  * devices that already received it.
  */
 async function handlePushMessage(msg, env) {
-  const { title, body, url, deviceId } = msg ?? {}
+  const { title, body, messageType } = canonicalPushCopy(msg)
+  const { url, deviceId } = msg ?? {}
   const userId = msg?.user_id ?? msg?.userId ?? null
 
   if (!title || !body) throw new Error('Missing required fields: title, body')
@@ -152,7 +173,8 @@ async function handlePushMessage(msg, env) {
   for (const key of ['type', 'version', 'download_url', 'release_notes']) {
     if (msg?.[key] !== undefined && msg?.[key] !== null) data[key] = String(msg[key])
   }
-  const messageType = data.type || 'announcement'
+  if (messageType === 'update') data.type = 'update'
+
   const channelId = messageType === 'update'
     ? 'otya_updates'
     : 'otya_announcements'
