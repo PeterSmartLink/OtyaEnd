@@ -249,8 +249,8 @@ export class OtyaReleaseWorkflow extends WorkflowEntrypoint {
           if (await this.env.KV.get(markerKey)) return { queued: false, duplicate: true }
           const url = `${release.workerUrl}/download/otya-player`
           await this.env.PUSH_QUEUE.send({
-            title: `OTYA Player ${release.version} is available`,
-            body: metadata.changelog || `OTYA Player ${release.version} is ready to download.`,
+            title: `Otya ${release.version} is ready`,
+            body: 'New features and improvements are ready. Tap to see what’s new.',
             url,
             type: 'release_available',
             version: release.version,
