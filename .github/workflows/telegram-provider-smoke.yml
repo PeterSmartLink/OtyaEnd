@@ -21,7 +21,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 6
     steps:
-      - name: Require Telegram Sign-In provider
+      - name: Require Telegram Sign-In human security gate
         shell: bash
         run: |
           set -euo pipefail
@@ -30,8 +30,12 @@ jobs:
           cat "$response"
           echo
           echo "HTTP $status"
-          test "$status" = "200"
-          grep -q 'authorization_url' "$response"
+
+          # CI is intentionally not given a Turnstile bypass. Production must
+          # reject this automated login-start request and require the real
+          # human challenge before Telegram authorization can begin.
+          test "$status" = "400"
+          grep -q 'TURNSTILE_REQUIRED' "$response"
 
       - name: Check Telegram handoff page
         shell: bash
