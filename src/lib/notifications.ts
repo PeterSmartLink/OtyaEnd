@@ -16,8 +16,8 @@ export interface ReleaseInfo {
 
 /**
  * Queue an FCM push notification to all devices announcing a new release.
- * Metadata is carried through the queue so the Flutter foreground handler can
- * render the richer update notification and start the correct download flow.
+ * Keep the system notification compact: full Markdown release notes belong in
+ * release metadata / What's New / the official download page.
  */
 export async function sendUpdateNotification(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -25,10 +25,8 @@ export async function sendUpdateNotification(
   release: ReleaseInfo,
 ): Promise<void> {
   try {
-    const title = `🎉 OTYA Player ${release.version} is available!`
-    const body  = release.changelog
-      ? release.changelog.replace(/[#*`]/g, '').split('\n').find(l => l.trim()) ?? 'New update available.'
-      : 'A new version of OTYA Player is ready to download.'
+    const title = `Otya ${release.version} is ready`
+    const body  = 'New features and improvements are ready. Tap to see what’s new.'
     const downloadUrl = 'https://petersmartlink.com/download/otya-player'
 
     await env.PUSH_QUEUE.send({
