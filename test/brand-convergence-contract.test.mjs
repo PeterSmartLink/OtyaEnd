@@ -33,6 +33,7 @@ test('website metadata and visual tokens match the approved app brand', () => {
   const manifest = read('public/manifest.json')
   const secondaryManifest = read('public/site.webmanifest')
   const sync = read('scripts/sync-brand-assets.mjs')
+  const download = read('src/app/download/otya-player/DownloadButtons.tsx')
 
   assert.match(layout, /const APP_VERSION = '1\.0\.0'/)
   assert.match(layout, /const OTYA_MARK = '\/otya-app-icon\.webp'/)
@@ -51,6 +52,8 @@ test('website metadata and visual tokens match the approved app brand', () => {
   assert.match(manifest, /#050812/)
   assert.match(secondaryManifest, /otya-app-icon\.webp/)
   assert.match(secondaryManifest, /#050812/)
+  assert.match(download, /src="\/otya-app-icon\.webp"/)
+  assert.doesNotMatch(download, /web-app-manifest-192x192\.png/)
 
   assert.match(sync, /OtyaPlayer\/\$\{APPROVED_APP_COMMIT\}\/assets\/branding\/otya_app_icon\.webp/)
   assert.match(sync, /63be1b59f1a261c853aab786cef584a70e29989d/)

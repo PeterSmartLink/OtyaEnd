@@ -3,6 +3,9 @@ node_modules/
 .open-next/
 .next/
 dist/
+*.tsbuildinfo
+next-env.d.ts
+**/.wrangler-dry-run/
 
 # Local environment / Worker secrets
 .dev.vars

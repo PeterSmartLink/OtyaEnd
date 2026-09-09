@@ -18,7 +18,7 @@ test('production KV sources are valid and retain the Otya 1.0.0 baseline', () =>
 
   const appConfig = JSON.parse(read('config/app-remote-config.production.json'))
   const themes = JSON.parse(read('config/themes-catalog.production.json'))
-  assert.equal(appConfig.revision, 3)
+  assert.equal(appConfig.revision, 10)
   assert.equal(appConfig.versions.minimumBuild, 0)
   assert.equal(appConfig.versions.recommendedBuild, 0)
   assert.equal(appConfig.versions.forceUpdate, false)

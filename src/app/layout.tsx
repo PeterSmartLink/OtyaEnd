@@ -1,5 +1,4 @@
 import type { Metadata, Viewport } from 'next'
-import Script from 'next/script'
 import { Manrope } from 'next/font/google'
 import ThemeControl from './ThemeControl'
 import './globals.css'
@@ -161,12 +160,16 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <head>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(schemaOrg) }} />
       <meta name="google-adsense-account" content={ADSENSE_ID} />
+      <script
+        async
+        src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADSENSE_ID}`}
+        crossOrigin="anonymous"
+      />
       <script dangerouslySetInnerHTML={{ __html: initialThemeScript }} />
     </head>
     <body className={manrope.className}>
       {children}
       <ThemeControl />
-      <Script id="google-adsense" async src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADSENSE_ID}`} crossOrigin="anonymous" strategy="afterInteractive" />
     </body>
   </html>
 }
