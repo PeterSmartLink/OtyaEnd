@@ -71,6 +71,7 @@ dead_letter_queue = "otya-next-jobs-dlq"
 # 05:00 UTC = 08:00 Africa/Kampala: morning operations brief + churn signals.
 # Monday 06:00 UTC = 09:00 Africa/Kampala: deeper weekly review.
 crons = ["0 * * * *", "0 5 * * *", "0 6 * * 1"]
-# Required secrets: RESEND_API_KEY. Optional integrations: TELEGRAM_BOT_TOKEN,
-# TELEGRAM_WEBHOOK_SECRET, INTERNAL_SECRET, GMAIL_GOOGLE_CLIENT_SECRET,
+# Next owns intelligence and approved provider actions. Core owns Telegram
+# transport/webhook credentials. Required secret: RESEND_API_KEY. Optional
+# integrations: INTERNAL_SECRET, GMAIL_GOOGLE_CLIENT_SECRET,
 # CONNECTOR_ENCRYPTION_KEY. Never commit secret values.
