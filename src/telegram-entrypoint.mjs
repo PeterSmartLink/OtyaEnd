@@ -67,6 +67,28 @@ async function ensureTelegramWebhook(env, { force = false } = {}) {
   const updated = await getTelegramWebhookInfo(env)
   return { changed: true, info: updated }
 }
+async function probeNext(env) {
+  const bound = Boolean(env.AI_SUPPORT?.fetch)
+  if (!bound) return { bound: false, ready: false }
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 3500)
+  try {
+    const response = await env.AI_SUPPORT.fetch(new Request('https://otya-next/health', {
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+      signal: controller.signal,
+    }))
+    const data = await response.json().catch(() => ({}))
+    return {
+      bound: true,
+      ready: response.ok && data?.ok === true && data?.ai === true,
+    }
+  } catch {
+    return { bound: true, ready: false }
+  } finally {
+    clearTimeout(timeout)
+  }
+}
 async function adminUser(request, env) {
   const token = cookieValue(request, ACCESS_COOKIE)
   if (!token || !env.AUTH?.fetch) return null
@@ -105,24 +127,29 @@ async function authorizeAdmin(request, env) {
   return null
 }
 async function telegramStatus(env) {
+  const next = await probeNext(env)
   try {
     const info = await getTelegramWebhookInfo(env)
+    const webhookConfigured = String(info?.url || '') === TELEGRAM_WEBHOOK_URL
+    const ready = webhookConfigured && next.ready
     return json({
-      ok: true,
+      ok: ready,
       bot: '@OtyaPlayerBot',
       channel: '@otyaplayer',
-      webhook_configured: String(info?.url || '') === TELEGRAM_WEBHOOK_URL,
-      ai_service_bound: Boolean(env.AI_SUPPORT?.fetch),
+      webhook_configured: webhookConfigured,
+      ai_service_bound: next.bound,
+      ai_service_ready: next.ready,
       pending_update_count: Number(info?.pending_update_count ?? 0),
       last_error_date: info?.last_error_date ?? null,
-    })
+    }, ready ? 200 : 503)
   } catch {
     return json({
       ok: false,
       bot: '@OtyaPlayerBot',
       channel: '@otyaplayer',
       webhook_configured: false,
-      ai_service_bound: Boolean(env.AI_SUPPORT?.fetch),
+      ai_service_bound: next.bound,
+      ai_service_ready: next.ready,
     }, 503)
   }
 }
