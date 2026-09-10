@@ -30,16 +30,19 @@ test('owner actions reject requests without the private internal secret', async 
   assert.equal(response.status, 401)
 })
 
-test('Telegram writes require prepare then exact approval and cannot execute twice', async () => {
+test('Telegram writes require prepare then exact approval and go through Otya core exactly once', async () => {
   const originalFetch = globalThis.fetch
   let externalWrites = 0
   globalThis.fetch = async (url, init) => {
     externalWrites += 1
-    assert.match(String(url), /^https:\/\/api\.telegram\.org\/bot/)
+    assert.equal(String(url), 'https://petersmartlink.com/api/admin/telegram/test')
+    const headers = new Headers(init.headers)
+    assert.equal(headers.get('X-OTYA-Internal-Secret'), 'owner-secret')
+    assert.equal(headers.get('X-OTYA-Admin-Action'), 'telegram')
     const body = JSON.parse(init.body)
-    assert.equal(body.chat_id, '@otyaplayer')
+    assert.equal(body.destination, 'channel')
     assert.equal(body.text, 'New OTYA build is still being tested.')
-    return new Response(JSON.stringify({ ok: true, result: { message_id: 42 } }), {
+    return new Response(JSON.stringify({ ok: true, message_id: 42 }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' },
     })
@@ -50,7 +53,6 @@ test('Telegram writes require prepare then exact approval and cannot execute twi
       INTERNAL_SECRET: 'owner-secret',
       KV: new MemoryKv(),
       DB: new MemoryD1(),
-      TELEGRAM_BOT_TOKEN: 'test-token',
       TELEGRAM_CHANNEL_URL: 'https://t.me/otyaplayer',
     }
 
