@@ -3,7 +3,7 @@ import type { Metadata } from 'next'
 import { SiteNav } from '@/components/SiteNav'
 import { SiteFooter } from '@/components/SiteFooter'
 import { OtyaBrandMark } from '@/components/OtyaBrandMark'
-import { OTYA } from '@/lib/constants'
+import { SITE_CONFIG } from '@/lib/constants'
 
 export const metadata: Metadata = {
   title: 'Help | Otya Player',
@@ -52,17 +52,17 @@ export default function HelpPage() {
         <section id="official-telegram" className="mt-9" aria-labelledby="official-telegram-title">
           <div className="mb-3">
             <div className="text-[11px] font-black uppercase tracking-[.15em] otya-muted">Official links</div>
-            <h2 id="official-telegram-title" className="mt-1 text-xl font-black">Official OTYA on Telegram</h2>
-            <p className="mt-2 text-sm leading-6 otya-muted">PeterSmart Link operates these official OTYA Telegram properties. Use these exact links to avoid impersonation.</p>
+            <h2 id="official-telegram-title" className="mt-1 text-xl font-black">Official Otya on Telegram</h2>
+            <p className="mt-2 text-sm leading-6 otya-muted">PeterSmart Link operates these official Otya Telegram properties. Use these exact links to avoid impersonation.</p>
           </div>
           <div className="grid sm:grid-cols-2 gap-3">
-            <a href={OTYA.telegramChannel} target="_blank" rel="noopener noreferrer" className="rounded-[20px] border border-black/[.06] dark:border-white/[.08] bg-white/70 dark:bg-white/[.025] p-4 min-h-24 flex items-center gap-3">
+            <a href={SITE_CONFIG.telegramChannel} target="_blank" rel="noopener noreferrer" className="rounded-[20px] border border-black/[.06] dark:border-white/[.08] bg-white/70 dark:bg-white/[.025] p-4 min-h-24 flex items-center gap-3">
               <span className="w-10 h-10 rounded-full grid place-items-center bg-[#229ED9]/10 text-[#229ED9] font-black">➤</span>
-              <span><strong className="block text-sm">Official OTYA Channel</strong><span className="block mt-1 text-xs otya-muted">@otyaplayer · News, releases and community updates</span></span>
+              <span><strong className="block text-sm">Official Otya Channel</strong><span className="block mt-1 text-xs otya-muted">@otyaplayer · News, releases and community updates</span></span>
             </a>
-            <a href={OTYA.telegramSupport} target="_blank" rel="noopener noreferrer" className="rounded-[20px] border border-black/[.06] dark:border-white/[.08] bg-white/70 dark:bg-white/[.025] p-4 min-h-24 flex items-center gap-3">
+            <a href={SITE_CONFIG.telegram} target="_blank" rel="noopener noreferrer" className="rounded-[20px] border border-black/[.06] dark:border-white/[.08] bg-white/70 dark:bg-white/[.025] p-4 min-h-24 flex items-center gap-3">
               <span className="w-10 h-10 rounded-full grid place-items-center bg-[#229ED9]/10 text-[#229ED9] font-black">✦</span>
-              <span><strong className="block text-sm">Official OTYA Bot</strong><span className="block mt-1 text-xs otya-muted">@OtyaPlayerBot · OTYA assistance and supported bot services</span></span>
+              <span><strong className="block text-sm">Official Otya Bot</strong><span className="block mt-1 text-xs otya-muted">@OtyaPlayerBot · Otya assistance and supported bot services</span></span>
             </a>
           </div>
         </section>
@@ -71,7 +71,7 @@ export default function HelpPage() {
           <div className="flex items-end justify-between gap-4 mb-3"><h2 id="contact-title" className="text-xl font-black">Contact Otya</h2><span className="text-xs otya-muted">Human support</span></div>
           <div className="grid sm:grid-cols-2 gap-3">
             <a href="mailto:support@petersmartlink.com?subject=Otya%20Support" className="rounded-[20px] border border-black/[.06] dark:border-white/[.08] bg-white/70 dark:bg-white/[.025] p-4 min-h-20 flex items-center gap-3"><span className="w-9 h-9 rounded-full grid place-items-center bg-black/[.045] dark:bg-white/[.06] font-black">✉</span><span><strong className="block text-sm">Email support</strong><span className="block mt-1 text-xs otya-muted">support@petersmartlink.com</span></span></a>
-            <a href={OTYA.telegramSupport} target="_blank" rel="noopener noreferrer" className="rounded-[20px] border border-black/[.06] dark:border-white/[.08] bg-white/70 dark:bg-white/[.025] p-4 min-h-20 flex items-center gap-3"><span className="w-9 h-9 rounded-full grid place-items-center bg-[#229ED9]/10 text-[#229ED9] font-black">➤</span><span><strong className="block text-sm">Telegram bot</strong><span className="block mt-1 text-xs otya-muted">@OtyaPlayerBot</span></span></a>
+            <a href={SITE_CONFIG.telegram} target="_blank" rel="noopener noreferrer" className="rounded-[20px] border border-black/[.06] dark:border-white/[.08] bg-white/70 dark:bg-white/[.025] p-4 min-h-20 flex items-center gap-3"><span className="w-9 h-9 rounded-full grid place-items-center bg-[#229ED9]/10 text-[#229ED9] font-black">➤</span><span><strong className="block text-sm">Telegram bot</strong><span className="block mt-1 text-xs otya-muted">@OtyaPlayerBot</span></span></a>
           </div>
         </section>
 
