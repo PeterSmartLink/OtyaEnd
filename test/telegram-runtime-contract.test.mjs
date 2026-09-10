@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs'
 
 const read = path => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
 
-test('Telegram runtime self-heals the canonical webhook and exposes safe health', () => {
+test('Telegram runtime self-heals the canonical webhook and exposes dependency readiness', () => {
   const entry = read('src/telegram-entrypoint.mjs')
 
   assert.match(entry, /getTelegramWebhookInfo/)
@@ -14,6 +14,10 @@ test('Telegram runtime self-heals the canonical webhook and exposes safe health'
   assert.match(entry, /\/api\/telegram\/status/)
   assert.match(entry, /webhook_configured/)
   assert.match(entry, /ai_service_bound/)
+  assert.match(entry, /ai_service_ready/)
+  assert.match(entry, /AI_SUPPORT\.fetch/)
+  assert.match(entry, /https:\/\/otya-next\/health/)
+  assert.match(entry, /data\?\.ai === true/)
   assert.match(entry, /TELEGRAM_HEALTH_CRON = '\*\/5 \* \* \* \*'/)
   assert.match(entry, /ensureTelegramWebhook\(env\)/)
   assert.match(entry, /X-OTYA-Internal-Secret/)
