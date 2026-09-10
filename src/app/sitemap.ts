@@ -11,6 +11,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${BASE}/ask`,                  lastModified: NOW, changeFrequency: 'weekly',  priority: 0.85 },
     { url: `${BASE}/download/otya-player`, lastModified: NOW, changeFrequency: 'weekly',  priority: 0.85 },
     { url: `${BASE}/official`,             lastModified: NOW, changeFrequency: 'monthly', priority: 0.8 },
+    { url: `${BASE}/press`,                lastModified: NOW, changeFrequency: 'monthly', priority: 0.75 },
     { url: `${BASE}/help`,                 lastModified: NOW, changeFrequency: 'monthly', priority: 0.65 },
     { url: `${BASE}/contact`,              lastModified: NOW, changeFrequency: 'monthly', priority: 0.6 },
     { url: `${BASE}/privacy`,              lastModified: NOW, changeFrequency: 'yearly',  priority: 0.4 },
