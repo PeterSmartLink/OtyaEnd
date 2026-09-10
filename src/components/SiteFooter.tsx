@@ -32,6 +32,7 @@ const GROUPS = [
     title: 'PeterSmart Link',
     links: [
       ['Company', '/company'],
+      ['Official links', '/official'],
       ['Contact', '/contact'],
       ['Privacy', '/privacy'],
       ['Terms', '/terms'],
