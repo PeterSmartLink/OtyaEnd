@@ -1,5 +1,5 @@
-const TELEGRAM_API = 'https://api.telegram.org'
 const RESEND_API = 'https://api.resend.com/emails'
+const OTYA_CORE_URL = 'https://petersmartlink.com'
 const ACTION_TTL_SECONDS = 15 * 60
 const LATEST_ACTION_KEY = 'owner-action:latest'
 
@@ -64,22 +64,33 @@ function normalizeAction(type, payload, env) {
 }
 
 async function executeTelegram(env, action) {
-  if (!env.TELEGRAM_BOT_TOKEN) throw new Error('Telegram bot is not configured')
-  const response = await fetch(`${TELEGRAM_API}/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      chat_id: telegramTarget(env),
-      text: action.payload.text,
-      disable_web_page_preview: true,
-    }),
-  })
-  const data = await response.json().catch(() => ({}))
-  if (!response.ok || data?.ok === false) throw new Error('Telegram post failed')
-  return {
-    provider: 'telegram',
-    message_id: data?.result?.message_id ?? null,
-    target: telegramTarget(env),
+  if (!env.INTERNAL_SECRET) throw new Error('Otya internal Telegram gateway is not configured')
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 12000)
+  try {
+    const response = await fetch(`${OTYA_CORE_URL}/api/admin/telegram/test`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        'X-OTYA-Internal-Secret': env.INTERNAL_SECRET,
+        'X-OTYA-Admin-Action': 'telegram',
+      },
+      body: JSON.stringify({
+        destination: 'channel',
+        text: action.payload.text,
+      }),
+      signal: controller.signal,
+    })
+    const data = await response.json().catch(() => ({}))
+    if (!response.ok || data?.ok !== true) throw new Error(`Otya Telegram gateway HTTP ${response.status}`)
+    return {
+      provider: 'telegram',
+      message_id: data?.message_id ?? null,
+      target: telegramTarget(env),
+    }
+  } finally {
+    clearTimeout(timeout)
   }
 }
 
