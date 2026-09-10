@@ -201,6 +201,9 @@ jobs:
           if [ -n "${INTERNAL_SECRET:-}" ]; then printf '%s' "$INTERNAL_SECRET" | npx wrangler secret put INTERNAL_SECRET; fi
           if [ -n "${GMAIL_GOOGLE_CLIENT_SECRET:-}" ]; then printf '%s' "$GMAIL_GOOGLE_CLIENT_SECRET" | npx wrangler secret put GMAIL_GOOGLE_CLIENT_SECRET; fi
           if [ -n "${CONNECTOR_ENCRYPTION_KEY:-}" ]; then printf '%s' "$CONNECTOR_ENCRYPTION_KEY" | npx wrangler secret put CONNECTOR_ENCRYPTION_KEY; fi
+          # Core is the sole Telegram transport owner. Remove any legacy copies
+          # left on Next by older deployments while preserving every other secret.
+          printf '%s\n' '{"TELEGRAM_BOT_TOKEN":null,"TELEGRAM_WEBHOOK_SECRET":null}' | npx wrangler secret bulk
           npx wrangler deploy
 
   deploy-core:
