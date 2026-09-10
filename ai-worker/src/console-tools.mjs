@@ -10,6 +10,7 @@ import {
 } from './conversations.mjs'
 
 const DEFAULT_MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast'
+const OTYA_CORE_URL = 'https://petersmartlink.com'
 
 const clean = (v, max = 5000) => String(v ?? '')
   .replace(/[\u0000-\u001f]/g, ' ')
@@ -45,10 +46,35 @@ async function runAi(env, messages) {
   return clean(aiText(await env.AI.run(env.OTYA_AI_MODEL || DEFAULT_MODEL, { messages })), 12000)
 }
 
+async function telegramCoreStatus() {
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 3500)
+  try {
+    const response = await fetch(`${OTYA_CORE_URL}/api/telegram/status`, {
+      headers: { Accept: 'application/json' },
+      signal: controller.signal,
+    })
+    const data = await response.json().catch(() => ({}))
+    const configured = data?.webhook_configured === true
+    const aiReady = data?.ai_service_ready === true
+    return {
+      reachable: response.status === 200 || response.status === 503,
+      configured,
+      ai_ready: aiReady,
+      connected: response.ok && data?.ok === true && configured && aiReady,
+    }
+  } catch {
+    return { reachable: false, configured: false, ai_ready: false, connected: false }
+  } finally {
+    clearTimeout(timeout)
+  }
+}
+
 async function pluginRegistry(env) {
-  const [gmail, control] = await Promise.all([
+  const [gmail, control, telegram] = await Promise.all([
     gmailStatus(env),
     controlPlaneStatus(env),
+    telegramCoreStatus(),
   ])
   const firebase = control.firebase_remote_config
 
@@ -65,11 +91,14 @@ async function pluginRegistry(env) {
       id: 'telegram',
       name: 'Telegram',
       category: 'Messaging',
-      status: env.TELEGRAM_BOT_TOKEN && env.TELEGRAM_WEBHOOK_SECRET
-        ? 'connected'
-        : 'setup_required',
-      capabilities: ['same OTYA AI', 'private support', 'server conversation memory'],
+      status: telegram.connected ? 'connected' : telegram.configured ? 'degraded' : 'setup_required',
+      capabilities: ['same OTYA AI', 'private support', 'server conversation memory', 'official channel publishing'],
       write: true,
+      setup_hint: telegram.connected
+        ? 'Healthy through the canonical Otya Core webhook and Next readiness path.'
+        : telegram.reachable
+          ? 'Otya Core is reachable, but the Telegram webhook or live Next dependency needs attention.'
+          : 'Telegram transport is owned by Otya Core; check the Core runtime rather than adding bot credentials to Next.',
     },
     {
       id: 'otya',
@@ -297,7 +326,7 @@ async function routeTool(env, message) {
     'knowledge_search',
     'full_report',
   ]
-  const prompt = `Choose at most one read-only OTYA admin tool that materially helps answer the user. Tools: ${tools.join(', ')}. Use knowledge_search when the owner asks how OTYA is designed, how a product feature should behave, what internal docs say, or needs indexed product/support/release knowledge. Use config_status for Firebase Remote Config, feature-config ownership, config source or sync questions. Use full_report for requests like system report, daily/weekly report, what needs attention, overall health, summarize everything. Use support_inbox for requests about unread/recent support email. Use none for ordinary conversation, writing or planning. Return JSON only: {"tool":"name","reason":"brief"}.\nUser: ${clean(message, 1800)}`
+  const prompt = `Choose at most one read-only OTYA admin tool that materially helps answer the user. Tools: ${tools.join(', ')}. Use knowledge_search when the owner asks how OTYA is designed, how a product feature should behave, what internal docs say, or needs indexed product/support/release knowledge. Use config_status for Firebase Remote Config, feature-config ownership or sync questions. Use full_report for requests like system report, daily/weekly report, what needs attention, overall health, summarize everything. Use support_inbox for requests about unread/recent support email. Use none for ordinary conversation, writing or planning. Return JSON only: {"tool":"name","reason":"brief"}.\nUser: ${clean(message, 1800)}`
   const routed = parse(await runAi(env, [
     { role: 'system', content: 'You are a conservative private admin tool router. Never choose a write action.' },
     { role: 'user', content: prompt },
