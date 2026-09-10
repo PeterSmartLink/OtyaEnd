@@ -27,11 +27,14 @@ test('natural Telegram request prepares first and explicit go-ahead executes onc
   let externalWrites = 0
   globalThis.fetch = async (url, init) => {
     externalWrites += 1
-    assert.match(String(url), /^https:\/\/api\.telegram\.org\/bot/)
+    assert.equal(String(url), 'https://petersmartlink.com/api/admin/telegram/test')
+    const requestHeaders = new Headers(init.headers)
+    assert.equal(requestHeaders.get('X-OTYA-Internal-Secret'), 'owner-secret')
+    assert.equal(requestHeaders.get('X-OTYA-Admin-Action'), 'telegram')
     const body = JSON.parse(init.body)
-    assert.equal(body.chat_id, '@otyaplayer')
+    assert.equal(body.destination, 'channel')
     assert.equal(body.text, 'OTYA v1 rebuild is still being tested. We will share the release when it is ready.')
-    return new Response(JSON.stringify({ ok: true, result: { message_id: 99 } }), {
+    return new Response(JSON.stringify({ ok: true, message_id: 99 }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' },
     })
@@ -42,7 +45,6 @@ test('natural Telegram request prepares first and explicit go-ahead executes onc
       INTERNAL_SECRET: 'owner-secret',
       KV: new MemoryKv(),
       DB: new MemoryD1(),
-      TELEGRAM_BOT_TOKEN: 'test-token',
       TELEGRAM_CHANNEL_URL: 'https://t.me/otyaplayer',
       AI: {
         async run(){
