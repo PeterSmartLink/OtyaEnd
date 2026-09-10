@@ -44,7 +44,7 @@ jobs:
           status="$(curl -sS --max-time 20 -o /dev/null -w '%{http_code}' 'https://petersmartlink.com/telegram-login/?telegram_smoke=1')"
           test "$status" = "200"
 
-      - name: Check live Otya bot webhook and Next binding after production deploy
+      - name: Check live Otya bot webhook and Next readiness after production deploy
         if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.event == 'workflow_dispatch'
         shell: bash
         run: |
@@ -54,15 +54,16 @@ jobs:
             status="$(curl -sS --max-time 20 -o "$response" -w '%{http_code}' 'https://petersmartlink.com/api/telegram/status' || true)"
             if [ "$status" = "200" ] \
               && grep -q '"webhook_configured":true' "$response" \
-              && grep -q '"ai_service_bound":true' "$response"; then
+              && grep -q '"ai_service_bound":true' "$response" \
+              && grep -q '"ai_service_ready":true' "$response"; then
               cat "$response"
               echo
-              echo 'OTYA Telegram bot runtime is healthy.'
+              echo 'OTYA Telegram bot runtime and Next dependency are healthy.'
               exit 0
             fi
             echo "Telegram runtime not healthy yet (attempt $attempt, HTTP ${status:-network-error})."
             sleep 10
           done
           cat "$response" || true
-          echo '::error::OTYA Telegram bot webhook or Next service binding is not healthy.'
+          echo '::error::OTYA Telegram bot webhook or live Next dependency is not healthy.'
           exit 1
