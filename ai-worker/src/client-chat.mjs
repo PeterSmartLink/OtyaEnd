@@ -1,4 +1,5 @@
 import { appendMessage, getOrCreateConversation, hashIdentity, listConversations, newConversation, readConversation } from './conversations.mjs'
+import { providerRequest } from './provider-request.mjs'
 
 const TELEGRAM_API='https://api.telegram.org'
 const FALLBACK_GUEST_MODEL='llama-fast'
@@ -166,7 +167,7 @@ async function sendAdminHandoff(env,{message,email,name,source,userId}){
     '',
     'Open the private Otya Admin console to review support and reply through the approved support tools.',
   ]
-  const r=await fetch('https://api.resend.com/emails',{
+  const r=await providerRequest('https://api.resend.com/emails',{
     method:'POST',
     headers:{Authorization:`Bearer ${env.RESEND_API_KEY}`,'Content-Type':'application/json'},
     body:JSON.stringify({
@@ -183,7 +184,7 @@ async function sendAdminHandoff(env,{message,email,name,source,userId}){
 
 async function telegram(env,method,body){
   if(!env.TELEGRAM_BOT_TOKEN)throw new Error('Telegram unavailable')
-  const r=await fetch(`${TELEGRAM_API}/bot${env.TELEGRAM_BOT_TOKEN}/${method}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})
+  const r=await providerRequest(`${TELEGRAM_API}/bot${env.TELEGRAM_BOT_TOKEN}/${method}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})
   if(!r.ok)throw new Error('Telegram send failed')
 }
 

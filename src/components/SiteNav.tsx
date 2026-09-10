@@ -31,7 +31,7 @@ function Brand() {
     <span className="grid h-10 w-10 place-items-center rounded-xl border border-[color:var(--cosmos-divider)] bg-[color:var(--cosmos-surface)] shadow-[0_0_24px_rgba(18,107,255,.10)]"><OtyaBrandMark size={32} /></span>
     <span className="hidden sm:block leading-tight">
       <span className="block font-black text-[15px] tracking-[-.035em] whitespace-nowrap">PeterSmart Link</span>
-      <span className="block text-[10px] font-bold tracking-[.08em] uppercase otya-muted">Otya Player</span>
+      <span className="block text-sm font-semibold tracking-[.04em] otya-muted">Otya Player</span>
     </span>
   </Link>
 }
@@ -45,7 +45,9 @@ export function SiteNav() {
 
   useEffect(() => {
     let active = true
-    fetch('/api/account-session/session', { credentials: 'same-origin', cache: 'no-store' })
+    const controller = new AbortController()
+    const deadline = setTimeout(() => controller.abort(), 8000)
+    fetch('/api/account-session/session', { credentials: 'same-origin', cache: 'no-store', signal: controller.signal })
       .then(async response => {
         const data = await response.json().catch(() => ({})) as Session
         if (!active) return
@@ -53,7 +55,8 @@ export function SiteNav() {
         setChecked(true)
       })
       .catch(() => { if (active) { setUser(null); setChecked(true) } })
-    return () => { active = false }
+      .finally(() => clearTimeout(deadline))
+    return () => { active = false; clearTimeout(deadline); controller.abort() }
   }, [])
 
   useEffect(() => {

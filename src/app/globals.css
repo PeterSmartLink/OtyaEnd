@@ -77,7 +77,7 @@ body {
   max-width: 100vw;
   overflow-x: hidden;
   font-family: var(--font-otya), Manrope, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  font-size: 15px;
+  font-size: 1rem;
   line-height: 1.5;
   letter-spacing: -0.008em;
   -webkit-font-smoothing: antialiased;
@@ -99,7 +99,7 @@ button:active, a:active { transform: scale(.987); }
 
 .otya-shell { width: min(var(--content-max), calc(100% - 32px)); margin-inline: auto; }
 .otya-reading { width: min(var(--reading-max), calc(100% - 32px)); margin-inline: auto; }
-.otya-kicker { font-size: 10px; line-height: 1; letter-spacing: .16em; text-transform: uppercase; font-weight: 900; color: var(--cosmos-text-secondary); }
+.otya-kicker { font-size: .875rem; line-height: 1.5; letter-spacing: .08em; text-transform: uppercase; font-weight: 700; color: var(--cosmos-text-secondary); }
 .otya-page-title { font-size: clamp(32px, 5vw, 58px); font-weight: 850; letter-spacing: -.055em; }
 .otya-section-title { font-size: clamp(23px, 3vw, 32px); font-weight: 820; }
 .otya-muted { color: var(--cosmos-text-secondary); }
@@ -223,7 +223,7 @@ body:has(nav[aria-label='Account sections']) #connected > div + div { border-top
 }
 
 @media (max-width: 640px) {
-  body { font-size: 14px; }
+  body { font-size: 1rem; }
   .otya-shell, .otya-reading { width: min(100% - 24px, var(--content-max)); }
   .otya-page-title { font-size: clamp(30px, 10vw, 42px); }
   body:has(nav[aria-label='Account sections']) nav[aria-label='Account sections'] { top: 116px; margin-inline:-4px; }

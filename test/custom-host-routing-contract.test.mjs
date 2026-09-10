@@ -6,6 +6,12 @@ const router = readFileSync(new URL('../src/production-router.mjs', import.meta.
 const nextConfig = readFileSync(new URL('../next.config.mjs', import.meta.url), 'utf8')
 const status = readFileSync(new URL('../src/app/status/page.tsx', import.meta.url), 'utf8')
 
+test('documentation product links and help preserve their destinations', () => {
+  assert.ok(router.includes('publicDestinations.has(publicPath)'))
+  assert.ok(router.includes('redirectToHost(url, APP_HOST, url.pathname)'))
+  assert.ok(router.includes("redirectToHost(url, DOCS_HOST, '/help/')"))
+})
+
 test('custom domains are canonical public entry points', () => {
   assert.ok(router.includes("const APP_HOST = 'petersmartlink.com'"))
   assert.ok(router.includes("const DOCS_HOST = 'docs.petersmartlink.com'"))
