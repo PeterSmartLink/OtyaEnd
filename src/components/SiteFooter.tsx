@@ -17,6 +17,7 @@ const GROUPS = [
     links: [
       ['Documentation', 'https://docs.petersmartlink.com'],
       ['Developers', '/developers'],
+      ['Press & media', '/press'],
       ['Help & support', '/help'],
       ['Service status', 'https://status.petersmartlink.com'],
     ],
