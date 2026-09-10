@@ -1,7 +1,7 @@
 import aiWorker from './index.mjs'
 import { handleSupportEmailAdmin } from './support-email.mjs'
 import { gmailStatus, handleGmailConnector, listGmailMessages } from './gmail-connector.mjs'
-import { handlePublicChat, handleSharedTelegram } from './client-chat.mjs'
+import { handlePublicChat } from './client-chat.mjs'
 import { handlePublicChatStream } from './client-chat-stream.mjs'
 import { handleOwnerActions } from './owner-actions.mjs'
 import { handleOwnerConsole } from './owner-console.mjs'
@@ -232,7 +232,7 @@ export default {
       if(streamed)return streamed
       return handlePublicChat(request,runtimeEnv)
     }
-    if(url.pathname.startsWith('/api/telegram/')){const shared=await handleSharedTelegram(request,runtimeEnv);if(shared)return shared}
+    if(url.pathname.startsWith('/api/telegram/')) return new Response(JSON.stringify({error:'Telegram transport is owned by Otya Core'}),{status:404,headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}})
     return aiWorker.fetch(request,runtimeEnv,ctx)
   },
   async queue(batch,env,ctx){
