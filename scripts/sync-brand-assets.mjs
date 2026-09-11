@@ -1,6 +1,7 @@
 import { readFile, rm } from 'node:fs/promises'
 import { createHash } from 'node:crypto'
 import { resolve } from 'node:path'
+import sharp from 'sharp'
 
 // Immutable owner-approved cyan/blue Otya identity, vendored from
 // assets/branding/otya_app_icon.webp. Builds must work with private repositories.
@@ -58,6 +59,17 @@ async function sync() {
   )
 
   console.log(`Verified canonical Otya WebP from OtyaPlayer@${APPROVED_APP_COMMIT} at ${TARGET}.`)
+  const card = Buffer.from(`<svg width="1200" height="630" xmlns="http://www.w3.org/2000/svg">
+    <rect width="1200" height="630" fill="#07111f"/>
+    <rect x="72" y="70" width="64" height="5" rx="2" fill="#27e8ff"/>
+    <g fill="#f5f8ff" font-family="sans-serif">
+      <text x="72" y="140" font-size="24" letter-spacing="3">PETERSMART LINK</text>
+      <text x="72" y="288" font-size="94" font-weight="700">Otya</text>
+      <text x="76" y="357" font-size="34">Your next update is here.</text>
+      <text x="76" y="523" font-size="23" fill="#b9cadd">Music. Video. Your way.</text>
+    </g></svg>`)
+  await sharp(card).composite([{ input: await sharp(bytes).resize(350, 350).toBuffer(), left: 778, top: 140 }])
+    .jpeg({ quality: 90 }).toFile(resolve(process.cwd(), 'public/otya-release-card.jpg'))
 }
 
 await sync()

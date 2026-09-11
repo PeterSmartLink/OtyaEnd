@@ -2,6 +2,24 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { DatabaseSync } from 'node:sqlite'
 import { announceRelease, releaseAnnouncementText } from '../src/lib/release-announcement.mjs'
+import { sendTelegramMessage, sendTelegramReleaseCard } from '../src/lib/telegram-bot.mjs'
+test('Telegram keeps paragraph breaks and sends the branded photo with buttons', async () => {
+  const original = globalThis.fetch
+  const requests = []
+  globalThis.fetch = async (url, options) => {
+    requests.push({ url, body: JSON.parse(options.body) })
+    return new Response(JSON.stringify({ ok: true, result: { message_id: 1 } }))
+  }
+  try {
+    const env = { TELEGRAM_BOT_TOKEN: { get: async () => 'test' } }
+    await sendTelegramMessage('@otyaplayer', 'First paragraph\n\nSecond paragraph', env)
+    await sendTelegramReleaseCard('@otyaplayer', 'Otya update', env)
+    assert.equal(requests[0].body.text, 'First paragraph\n\nSecond paragraph')
+    assert.match(requests[1].url, /\/sendPhoto$/)
+    assert.equal(requests[1].body.photo, 'https://petersmartlink.com/otya-release-card.jpg')
+    assert.equal(requests[1].body.reply_markup.inline_keyboard[0][0].text, 'Download Otya')
+  } finally { globalThis.fetch = original }
+})
 function database() {
   const sqlite = new DatabaseSync(':memory:')
   return { close: () => sqlite.close(), prepare(sql) {
@@ -15,6 +33,12 @@ function database() {
   } }
 }
 const release = { tag: 'v1.0.0+3', version: '1.0.0', workerUrl: 'https://petersmartlink.com', changelog: 'Improved playback.' }
+test('release caption stays compact and omits contributor lists and links', () => {
+  const text = releaseAnnouncementText({ ...release, changelog: '- Better playback\n- Clearer controls\n- Improved reliability\n- Fourth item\nCo-authored-by: Someone\nhttps://example.com' })
+  assert.equal(text.split('\n').filter(line => line.startsWith('•')).length, 3)
+  assert.doesNotMatch(text, /Someone|example.com|Fourth item/)
+  assert.ok(text.length < 1024)
+})
 test('concurrent and repeated release jobs send one announcement', async () => {
   const DB = database(); let calls = 0
   try {
@@ -38,6 +62,6 @@ test('uncertain Telegram failure is recorded and not automatically resent', asyn
 test('missing configuration does not send and long release notes fit Telegram', async () => {
   assert.equal((await announceRelease({}, release, () => assert.fail('must not send'))).status, 'not-configured')
   const text = releaseAnnouncementText({ ...release, changelog: 'x'.repeat(8000) })
-  assert.ok(text.length < 4096)
-  assert.match(text, /https:\/\/petersmartlink.com\/download\/otya-player/)
+  assert.ok(text.length < 1024)
+  assert.match(text, /PeterSmart Link/)
 })

@@ -60,9 +60,21 @@ async function telegramApi(method, body, env) {
 export async function sendTelegramMessage(chatId, text, env, options = {}) {
   return telegramApi('sendMessage', {
     chat_id: chatId,
-    text: clean(text, 4096),
+    text: String(text ?? '').replace(/[\u0000-\u0008\u000b-\u001f]/g, '').trim().slice(0, 4096),
     link_preview_options: { is_disabled: true },
     ...options,
+  }, env)
+}
+
+export async function sendTelegramReleaseCard(chatId, caption, env) {
+  return telegramApi('sendPhoto', {
+    chat_id: chatId,
+    photo: 'https://petersmartlink.com/otya-release-card.jpg',
+    caption,
+    reply_markup: { inline_keyboard: [
+      [{ text: 'Download Otya', url: 'https://petersmartlink.com/download/otya-player' }],
+      [{ text: 'Help & feedback', url: 'https://t.me/OtyaPlayerBot' }],
+    ] },
   }, env)
 }
 

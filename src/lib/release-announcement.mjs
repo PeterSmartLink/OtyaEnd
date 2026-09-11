@@ -1,21 +1,23 @@
-import { sendTelegramMessage } from './telegram-bot.mjs'
+import { sendTelegramReleaseCard } from './telegram-bot.mjs'
 
 const CHANNEL = '@otyaplayer'
 
 export function releaseAnnouncementText(release) {
-  const notes = typeof release.changelog === 'string' ? release.changelog.trim().slice(0, 2000) : ''
+  const notes = typeof release.changelog === 'string' ? release.changelog
+    .split(/\r?\n/).map(line => line.replace(/^\s*(?:[-*#]+|\d+[.)])\s*/, '').trim())
+    .filter(line => line && !/https?:\/\/|@[\w]+|^co-authored-by:|^contributors?:/i.test(line))
+    .slice(0, 3).map(line => `• ${Array.from(line).slice(0, 130).join('')}`).join('\n') : ''
   return [
-    `Otya ${release.version} is available`,
+    `Otya ${String(release.version).slice(0, 30)} · New update`,
     notes,
-    'See release details and download from our official website:',
-    `${release.workerUrl}/download/otya-player`,
-    'Need help? Contact @OtyaPlayerBot. Thank you for using Otya.',
+    'See the full release notes and get the Android download below.',
+    'PeterSmart Link · Made with care in Uganda',
   ].filter(Boolean).join('\n\n')
 }
 
 // Reserve the release before sending. Telegram has no sendMessage idempotency
 // key: an uncertain attempt requires review instead of automatic resending.
-export async function announceRelease(env, release, send = sendTelegramMessage) {
+export async function announceRelease(env, release, send = sendTelegramReleaseCard) {
   if (!env.TELEGRAM_BOT_TOKEN) return { status: 'not-configured' }
   if (!env.DB) return { status: 'storage-unavailable' }
   try {
