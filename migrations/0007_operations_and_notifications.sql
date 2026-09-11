@@ -13,7 +13,6 @@ CREATE TABLE IF NOT EXISTS notification_events (
   source           TEXT NOT NULL DEFAULT 'core',
   delivery_channel TEXT,
   delivery_status  TEXT NOT NULL DEFAULT 'created',
-  read_at          TEXT,
   created_at       TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   expires_at       TEXT
 );
@@ -22,8 +21,18 @@ CREATE INDEX IF NOT EXISTS idx_notification_events_user_created
   ON notification_events(user_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_notification_events_global_created
   ON notification_events(created_at DESC) WHERE user_id IS NULL;
-CREATE INDEX IF NOT EXISTS idx_notification_events_unread
-  ON notification_events(user_id, read_at, created_at DESC);
+
+-- Read state is stored separately so a global announcement can be read by one
+-- user without becoming read for every other account.
+CREATE TABLE IF NOT EXISTS notification_reads (
+  notification_id TEXT NOT NULL,
+  user_id         TEXT NOT NULL,
+  read_at         TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (notification_id, user_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_notification_reads_user
+  ON notification_reads(user_id, read_at DESC);
 
 CREATE TABLE IF NOT EXISTS security_events (
   id             TEXT PRIMARY KEY,
