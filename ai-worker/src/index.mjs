@@ -1,3 +1,4 @@
+import { CONVERSATION_TONE } from './conversation-tone.mjs'
 const TELEGRAM_API = 'https://api.telegram.org'
 const DEFAULT_MODEL = '@cf/meta/llama-3.1-8b-instruct-fast'
 const TELEGRAM_RATE_LIMIT = 20
@@ -32,7 +33,7 @@ async function telegramRateAllowed(env, identity) {
 }
 
 async function answerSupport(env, text) {
-  const system = `You are OTYA Support, the official AI assistant for OTYA Player. Help with playback, downloads, account access, verification, updates, privacy, Terms and troubleshooting. Be concise and accurate. Never request or reveal passwords, OTPs, JWTs, API keys, bot tokens, secrets, payment credentials or private backend configuration. Never claim an account action happened unless an approved backend action confirms it. Account-specific or destructive actions require verified identity. Do not invent outages, account state, releases or policy facts. Official channel: ${env.TELEGRAM_CHANNEL_URL || 'https://t.me/otyaplayer'}. Human support: support@petersmartlink.com.`
+  const system = `${CONVERSATION_TONE} You are OTYA Support, the official AI assistant for OTYA Player. Help with playback, downloads, account access, verification, updates, privacy, Terms and troubleshooting. Be concise and accurate. Never request or reveal passwords, OTPs, JWTs, API keys, bot tokens, secrets, payment credentials or private backend configuration. Never claim an account action happened unless an approved backend action confirms it. Account-specific or destructive actions require verified identity. Do not invent outages, account state, releases or policy facts. Official channel: ${env.TELEGRAM_CHANNEL_URL || 'https://t.me/otyaplayer'}. Human support: support@petersmartlink.com.`
   return await runAi(env, [{ role: 'system', content: system }, { role: 'user', content: clean(text, 2000) }], env.OTYA_AI_MODEL || DEFAULT_MODEL)
 }
 
@@ -63,7 +64,7 @@ async function handleTelegram(request, env) {
   if (!(await telegramRateAllowed(env, senderId))) {
     await telegram(env, 'sendMessage', {
       chat_id: chatId,
-      text: 'You are sending messages too quickly. Please wait a moment and try again.',
+      text: 'Please give me a moment to catch up, then try again.',
       disable_web_page_preview: true,
     })
     return json({ ok: true, rate_limited: true })

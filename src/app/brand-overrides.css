@@ -55,11 +55,7 @@
 }
 
 body {
-  background:
-    radial-gradient(circle at 10% -12%, rgba(39,232,255,.12), transparent 30rem),
-    radial-gradient(circle at 90% 4%, rgba(18,107,255,.14), transparent 34rem),
-    radial-gradient(circle at 50% 115%, rgba(23,59,255,.10), transparent 38rem),
-    var(--cosmos-scaffold);
+  background: var(--cosmos-scaffold);
   color: var(--cosmos-text-primary);
 }
 
@@ -68,10 +64,9 @@ h1 { text-wrap: balance; }
 a { transition: color .16s ease, border-color .16s ease, background-color .16s ease, opacity .16s ease; }
 
 .cosmos-gradient-text {
-  background: linear-gradient(100deg, var(--otya-cyan), var(--otya-blue) 58%, var(--otya-deep-blue));
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+  background: none;
+  color: var(--cosmos-text-primary);
+  -webkit-text-fill-color: currentColor;
 }
 
 .modern-card,
@@ -98,7 +93,7 @@ a { transition: color .16s ease, border-color .16s ease, background-color .16s e
 .bg-violet-500,
 .bg-violet-600,
 .otya-accent-button {
-  background: linear-gradient(105deg, var(--otya-cyan), var(--otya-blue) 56%, var(--otya-deep-blue)) !important;
+  background: #175CD3 !important;
   color: #FFFFFF !important;
   border-color: transparent !important;
   border-radius: 999px !important;

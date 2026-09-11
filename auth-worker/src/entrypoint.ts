@@ -117,7 +117,7 @@ function jsonError(
       'X-Content-Type-Options': 'nosniff',
       'Access-Control-Allow-Origin': env.CORS_ORIGIN ?? PRIMARY_ORIGIN,
       'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Otya-Drive-Token',
       'Vary': 'Origin',
     },
   })

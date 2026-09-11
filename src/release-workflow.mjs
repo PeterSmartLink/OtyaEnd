@@ -1,4 +1,5 @@
 import { WorkflowEntrypoint } from 'cloudflare:workers'
+import { announceRelease } from './lib/release-announcement.mjs'
 import { mirrorApkToFirebaseAppDistribution } from './lib/firebase_app_distribution'
 import { decodeWorkflowPayload } from './lib/workflow_payload.mjs'
 
@@ -275,6 +276,10 @@ export class OtyaReleaseWorkflow extends WorkflowEntrypoint {
         }
       })
 
+      const telegram = await step.do('announce published release in Telegram', async () =>
+        announceRelease(this.env, release),
+      )
+
       const analytics = await step.do('record release analytics', async () => {
         try {
           if (!this.env.OTYA_ANALYTICS?.writeDataPoint) return { written: false, reason: 'binding-unavailable' }
@@ -302,6 +307,7 @@ export class OtyaReleaseWorkflow extends WorkflowEntrypoint {
               `arm32: ${release.arm32Key}`,
               `Firebase test mirror: ${firebaseDistribution.mirrored ? 'yes' : 'no'}`,
               `Push queued: ${notification.queued}`,
+              `Telegram announcement: ${telegram.status}`,
               'Status: completed',
             ].join('\n'),
           )
@@ -320,6 +326,7 @@ export class OtyaReleaseWorkflow extends WorkflowEntrypoint {
         database,
         firebaseDistribution,
         notification,
+        telegram,
         analytics,
         report,
       }

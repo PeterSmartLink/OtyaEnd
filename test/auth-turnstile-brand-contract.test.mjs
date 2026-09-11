@@ -58,7 +58,7 @@ test('website brand tokens match the approved Otya cyan and blue identity', () =
   for (const color of ['#27E8FF', '#126BFF', '#173BFF', '#050812', '#0A1020', '#10182A', '#213454', '#F7FAFF']) {
     assert.match(css, new RegExp(color.replace('#', '\\#'), 'i'), `${color} must remain in the canonical website palette`)
   }
-  assert.match(css, /linear-gradient\(100deg, var\(--otya-cyan\), var\(--otya-blue\) 58%, var\(--otya-deep-blue\)\)/)
+  assert.match(css, /background: #175CD3 !important/)
   assert.doesNotMatch(css, /--otya-red:/)
   assert.doesNotMatch(css, /--otya-yellow:/)
   assert.doesNotMatch(css, /#2979FF/i)

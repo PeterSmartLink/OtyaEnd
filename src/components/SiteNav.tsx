@@ -1,6 +1,8 @@
 'use client'
 
 import Link from 'next/link'
+import { OTYA } from '@/lib/constants'
+import { signOutBrowser } from '@/lib/browser-sign-out.mjs'
 import { useEffect, useRef, useState } from 'react'
 import { OtyaBrandMark } from '@/components/OtyaBrandMark'
 
@@ -27,7 +29,7 @@ function AccountGlyph() { return <svg viewBox="0 0 24 24" className="h-5 w-5" fi
 function SpaceGlyph() { return <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3.5 11 12 4l8.5 7"/><path d="M5.5 9.5V20h13V9.5"/><path d="M9.5 20v-6h5v6"/></svg> }
 
 function Brand() {
-  return <Link href="/" className="inline-flex items-center gap-2.5 shrink-0" aria-label="PeterSmart Link home">
+  return <Link href={OTYA.website} className="inline-flex items-center gap-2.5 shrink-0" aria-label="PeterSmart Link home">
     <span className="grid h-10 w-10 place-items-center rounded-xl border border-[color:var(--cosmos-divider)] bg-[color:var(--cosmos-surface)] shadow-[0_0_24px_rgba(18,107,255,.10)]"><OtyaBrandMark size={32} /></span>
     <span className="hidden sm:block leading-tight">
       <span className="block font-black text-[15px] tracking-[-.035em] whitespace-nowrap">PeterSmart Link</span>
@@ -41,6 +43,8 @@ export function SiteNav() {
   const [checked, setChecked] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const [accountOpen, setAccountOpen] = useState(false)
+  const signingOut = useRef(false)
+  const [signOutError, setSignOutError] = useState('')
   const accountWrap = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -79,19 +83,26 @@ export function SiteNav() {
   const avatar = user?.avatar_url?.trim()
 
   async function signOut() {
-    await fetch('/api/account-session/logout', { method: 'POST', credentials: 'same-origin' }).catch(() => undefined)
-    setUser(null)
-    setAccountOpen(false)
-    setMenuOpen(false)
-    window.location.assign('/')
+    if (signingOut.current) return
+    signingOut.current = true
+    setSignOutError('')
+    try {
+      await signOutBrowser()
+      window.location.assign('/')
+    } catch {
+      setSignOutError('Could not sign out. Check your connection and try again.')
+    } finally {
+      signingOut.current = false
+    }
   }
 
   return <>
+    {signOutError && <p role="alert" className="fixed bottom-4 left-4 right-4 z-[100] rounded-xl border bg-[color:var(--cosmos-surface)] p-4 text-sm shadow-lg">{signOutError}</p>}
     <header className="sticky top-0 z-50 border-b border-black/[.06] dark:border-white/[.08] bg-[color:var(--nav-bg)] backdrop-blur-2xl">
       <div className="otya-shell h-16 flex items-center gap-2 sm:gap-3">
         <button onClick={() => setMenuOpen(true)} aria-label="Open menu" className="lg:hidden inline-flex h-10 w-10 items-center justify-center rounded-full hover:bg-black/[.05] dark:hover:bg-white/[.06]"><MenuGlyph/></button>
         <Brand />
-        <nav className="hidden lg:flex ml-7 items-center gap-1" aria-label="Main navigation">{publicLinks.map(([label, href]) => <Link key={href} href={href} className="min-h-10 inline-flex items-center rounded-full px-3.5 text-[13px] font-extrabold otya-muted hover:bg-black/[.045] dark:hover:bg-white/[.06]">{label}</Link>)}</nav>
+        <nav className="hidden lg:flex ml-7 items-center gap-1" aria-label="Main navigation">{publicLinks.map(([label, href]) => <Link key={href} href={href.startsWith('/') ? `${OTYA.website}${href}` : href} className="min-h-10 inline-flex items-center rounded-full px-3.5 text-[13px] font-extrabold otya-muted hover:bg-black/[.045] dark:hover:bg-white/[.06]">{label}</Link>)}</nav>
         <div className="ml-auto flex items-center gap-2">
           <a href="https://docs.petersmartlink.com" className="hidden md:inline-flex min-h-10 items-center rounded-full px-3.5 text-xs font-black otya-muted hover:bg-black/[.04] dark:hover:bg-white/[.05]">Docs</a>
           {signedIn ? <a href="https://space.petersmartlink.com" className="hidden sm:inline-flex min-h-10 items-center gap-2 rounded-full border border-black/[.08] dark:border-white/[.10] px-3.5 text-xs font-black hover:bg-black/[.04] dark:hover:bg-white/[.05]" aria-label="Open Space"><SpaceGlyph/>Space</a> : <a href="https://space.petersmartlink.com/sign-in" className="hidden sm:inline-flex min-h-10 items-center rounded-full px-3.5 text-xs font-black">Sign in</a>}
@@ -114,7 +125,7 @@ export function SiteNav() {
         <div className="h-16 flex items-center px-4 border-b border-black/[.06] dark:border-white/[.08]"><Brand/><button onClick={() => setMenuOpen(false)} aria-label="Close menu" className="ml-auto h-10 w-10 grid place-items-center rounded-full"><CloseGlyph/></button></div>
         <div className="p-4 text-sm">
           {signedIn && <a href="https://space.petersmartlink.com" onClick={() => setMenuOpen(false)} className="mb-4 flex items-center gap-3 rounded-2xl px-3 py-3 font-black bg-black/[.035] dark:bg-white/[.05]"><SpaceGlyph/>Open Space</a>}
-          <div className="space-y-1">{publicLinks.map(([label, href]) => <Link key={href} href={href} onClick={() => setMenuOpen(false)} className="block rounded-2xl px-3 py-3 font-bold hover:bg-black/[.045] dark:hover:bg-white/[.06]">{label}</Link>)}</div>
+          <div className="space-y-1">{publicLinks.map(([label, href]) => <Link key={href} href={href.startsWith('/') ? `${OTYA.website}${href}` : href} onClick={() => setMenuOpen(false)} className="block rounded-2xl px-3 py-3 font-bold hover:bg-black/[.045] dark:hover:bg-white/[.06]">{label}</Link>)}</div>
           <div className="mt-4 pt-4 border-t border-black/[.06] dark:border-white/[.08] space-y-1"><a href="https://docs.petersmartlink.com" className="block rounded-2xl px-3 py-3 font-bold">Documentation</a><a href="https://status.petersmartlink.com" className="block rounded-2xl px-3 py-3 font-bold">Service status</a></div>
           {signedIn ? <button onClick={() => void signOut()} className="mt-4 w-full text-left rounded-2xl px-3 py-3 text-red-500">Sign out</button> : <a href="https://space.petersmartlink.com/sign-in" onClick={() => setMenuOpen(false)} className="cosmos-button mt-4 flex min-h-11 items-center justify-center rounded-full px-4 font-black">Sign in</a>}
         </div>

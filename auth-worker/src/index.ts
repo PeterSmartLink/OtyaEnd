@@ -145,7 +145,7 @@ function corsHeaders(env: Env, req?: Request): Record<string, string> {
   return {
     'Access-Control-Allow-Origin':  allowedOrigin,
     'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Otya-Drive-Token',
     'Vary': 'Origin',
   }
 }
@@ -1003,8 +1003,8 @@ async function handleBackupGet(req: Request, env: Env): Promise<Response> {
   if (!payload) return jsonErr('Authorization header required or token invalid', env, 401)
 
   const url         = new URL(req.url)
-  const drive_token = url.searchParams.get('drive_token')
-  if (!drive_token) return jsonErr('drive_token query parameter is required', env, 400)
+  const drive_token = req.headers.get('X-Otya-Drive-Token') ?? url.searchParams.get('drive_token')
+  if (!drive_token) return jsonErr('Google Drive permission is required', env, 400)
 
   try {
     let fileId = await env.AUTH_KV.get(`drive_file:${payload.sub}`)

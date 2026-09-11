@@ -1,6 +1,8 @@
 'use client'
 
 import Link from 'next/link'
+import { AccountNotices } from '@/components/AccountNotices'
+import { signOutBrowser } from '@/lib/browser-sign-out.mjs'
 import { ReactNode, useEffect, useRef, useState } from 'react'
 import { OtyaBrandMark } from '@/components/OtyaBrandMark'
 
@@ -53,7 +55,7 @@ const GROUPS: NavGroup[] = [
     label: 'Otya services',
     items: [
       { label: 'Next', section: 'next', fallback: '/ask', icon: icons.ai },
-      { label: 'Telegram', section: 'telegram', fallback: '/telegram/', icon: icons.connected },
+      { label: 'Telegram community', fallback: 'https://t.me/otyaplayer', icon: icons.connected, external: true },
     ],
   },
 ]
@@ -69,17 +71,22 @@ export function OtyaSpaceChrome({ children, initialUser }: { children: ReactNode
   const [notificationsOpen, setNotificationsOpen] = useState(false)
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
   const [query, setQuery] = useState('')
+  const signingOut = useRef(false)
+  const [signOutError, setSignOutError] = useState('')
   const profileRef = useRef<HTMLDivElement>(null)
   const notificationRef = useRef<HTMLDivElement>(null)
   const user = initialUser
 
   useEffect(() => {
     let cancelled = false
-    void fetch('/api/admin/session', { cache: 'no-store', credentials: 'same-origin', headers: { Accept: 'application/json' } })
+    const controller = new AbortController()
+    const deadline = setTimeout(() => controller.abort(), 8000)
+    void fetch('/api/admin/session', { signal: controller.signal, cache: 'no-store', credentials: 'same-origin', headers: { Accept: 'application/json' } })
       .then(async response => response.ok ? await response.json().catch(() => ({})) as AdminState : {})
       .then(data => { if (!cancelled) setAdmin(data) })
       .catch(() => undefined)
-    return () => { cancelled = true }
+      .finally(() => clearTimeout(deadline))
+    return () => { cancelled = true; clearTimeout(deadline); controller.abort() }
   }, [])
 
   useEffect(() => {
@@ -97,20 +104,21 @@ export function OtyaSpaceChrome({ children, initialUser }: { children: ReactNode
   const homeHref = consoleHref(user.otya_id, 'overview', '/')
 
   return <div className="min-h-screen" style={{ background: 'var(--cosmos-scaffold)', color: 'var(--cosmos-text-primary)' }}>
+    {signOutError && <p role="alert" className="fixed bottom-4 left-4 right-4 z-[100] rounded-xl border bg-[color:var(--cosmos-surface)] p-4 text-sm shadow-lg">{signOutError}</p>}
     <header className="sticky top-0 z-50 h-16 border-b" style={{ background: 'color-mix(in srgb,var(--cosmos-scaffold) 94%,transparent)', borderColor: 'var(--cosmos-divider)', backdropFilter: 'blur(18px)' }}>
       <div className="h-full flex items-center gap-2 px-3 sm:px-5">
-        <button type="button" aria-label="Open Space menu" onClick={() => setMobileNavOpen(true)} className="lg:hidden h-10 w-10 grid place-items-center rounded-xl hover:bg-black/5 dark:hover:bg-white/5"><Icon><path d="M4 7h16M4 12h16M4 17h16"/></Icon></button>
-        <Link href={homeHref} className="flex items-center gap-2.5 min-w-0" aria-label="Otya Space home"><OtyaBrandMark size={36} /><div className="hidden sm:block leading-tight"><div className="font-black tracking-[-.025em]">Otya</div><div className="text-[11px] otya-muted">Space</div></div></Link>
+        <button type="button" aria-label="Open Space menu" onClick={() => setMobileNavOpen(true)} className="lg:hidden h-11 w-11 grid place-items-center rounded-xl hover:bg-black/5 dark:hover:bg-white/5"><Icon><path d="M4 7h16M4 12h16M4 17h16"/></Icon></button>
+        <Link href={homeHref} className="flex items-center gap-2.5 min-w-0" aria-label="Otya Space home"><OtyaBrandMark size={36} /><div className="hidden sm:block leading-tight"><div className="font-black tracking-[-.025em]">Otya</div><div className="text-sm otya-muted">Space</div></div></Link>
         <div className="ml-auto flex items-center gap-1 sm:gap-1.5">
-          <Link href={consoleHref(user.otya_id, 'next', '/ask')} aria-label="Next" title="Next" className="h-10 w-10 grid place-items-center rounded-xl hover:bg-black/5 dark:hover:bg-white/5"><OtyaBrandMark ai size={27} /></Link>
+          <Link href={consoleHref(user.otya_id, 'next', '/ask')} aria-label="Next" title="Next" className="h-11 w-11 grid place-items-center rounded-xl hover:bg-black/5 dark:hover:bg-white/5"><OtyaBrandMark ai size={27} /></Link>
           <div className="relative" ref={notificationRef}>
-            <button type="button" aria-label="Notifications" title="Notifications" onClick={() => { setNotificationsOpen(value => !value); setProfileOpen(false) }} className="relative h-10 w-10 grid place-items-center rounded-xl hover:bg-black/5 dark:hover:bg-white/5">{icons.bell}</button>
-            {notificationsOpen && <FloatingPanel><div className="font-black px-2 py-1">Notifications</div><div className="mt-3 rounded-xl border p-4 text-sm" style={{ borderColor: 'var(--cosmos-divider)' }}><div className="font-semibold">Account inbox not available yet</div><p className="mt-1 text-sm otya-muted">This panel does not currently retrieve account or security notices.</p><Link href={consoleHref(user.otya_id, 'notifications', '/account/notifications/')} className="mt-3 inline-flex text-sm font-bold">About notifications →</Link></div></FloatingPanel>}
+            <button type="button" aria-label="Notifications" title="Notifications" onClick={() => { setNotificationsOpen(value => !value); setProfileOpen(false) }} className="relative h-11 w-11 grid place-items-center rounded-xl hover:bg-black/5 dark:hover:bg-white/5">{icons.bell}</button>
+            {notificationsOpen && <FloatingPanel><div className="font-bold px-2 py-1">Notices</div><div className="mt-2 max-h-[65vh] overflow-y-auto px-2"><AccountNotices compact /></div><Link href={consoleHref(user.otya_id, 'notifications', '/account/notifications/')} className="mt-3 inline-flex min-h-11 items-center px-2 text-sm font-bold">View notices</Link></FloatingPanel>}
           </div>
-          <a href="https://docs.petersmartlink.com" aria-label="Help" title="Help" className="h-10 w-10 grid place-items-center rounded-xl hover:bg-black/5 dark:hover:bg-white/5">{icons.help}</a>
+          <a href="https://docs.petersmartlink.com" aria-label="Help" title="Help" className="h-11 w-11 grid place-items-center rounded-xl hover:bg-black/5 dark:hover:bg-white/5">{icons.help}</a>
           <div className="relative" ref={profileRef}>
-            <button type="button" aria-label="Profile" title="Profile" onClick={() => { setProfileOpen(value => !value); setNotificationsOpen(false) }} className="h-10 min-w-10 rounded-full border grid place-items-center text-xs font-black overflow-hidden" style={{ borderColor: profileOpen ? 'var(--cosmos-primary)' : 'var(--cosmos-divider)', background: 'var(--cosmos-card)' }}>{user.avatar_url ? <img src={user.avatar_url} alt="" className="h-full w-full object-cover" referrerPolicy="no-referrer" /> : initials}</button>
-            {profileOpen && <FloatingPanel><div className="flex items-center gap-3 p-2.5"><div className="h-11 w-11 shrink-0 rounded-full grid place-items-center font-black" style={{ background: 'color-mix(in srgb,var(--cosmos-primary) 14%,var(--cosmos-card))' }}>{initials}</div><div className="min-w-0"><div className="font-bold truncate">{displayName}</div><div className="text-xs otya-muted truncate">{user.email || 'No primary email added'}</div>{user.otya_id && <div className="mt-1 text-[11px] font-mono otya-muted">{user.otya_id}</div>}</div></div><Divider/><PanelLink href={consoleHref(user.otya_id, 'account', '/account/')} onClick={() => setProfileOpen(false)}>Account</PanelLink><PanelLink href={consoleHref(user.otya_id, 'providers', '/account/sign-in-methods/')} onClick={() => setProfileOpen(false)}>Sign-in methods</PanelLink><PanelLink href={consoleHref(user.otya_id, 'settings', '/account/settings/')} onClick={() => setProfileOpen(false)}>Preferences</PanelLink><Divider/><button type="button" onClick={() => void signOut()} className="w-full rounded-xl px-3 py-2.5 text-left text-sm font-semibold hover:bg-black/5 dark:hover:bg-white/5">Sign out</button></FloatingPanel>}
+            <button type="button" aria-label="Profile" title="Profile" onClick={() => { setProfileOpen(value => !value); setNotificationsOpen(false) }} className="h-11 min-w-11 rounded-full border grid place-items-center text-xs font-black overflow-hidden" style={{ borderColor: profileOpen ? 'var(--cosmos-primary)' : 'var(--cosmos-divider)', background: 'var(--cosmos-card)' }}>{user.avatar_url ? <img src={user.avatar_url} alt="" className="h-full w-full object-cover" referrerPolicy="no-referrer" /> : initials}</button>
+            {profileOpen && <FloatingPanel><div className="flex items-center gap-3 p-2.5"><div className="h-11 w-11 shrink-0 rounded-full grid place-items-center font-black" style={{ background: 'color-mix(in srgb,var(--cosmos-primary) 14%,var(--cosmos-card))' }}>{initials}</div><div className="min-w-0"><div className="font-bold truncate">{displayName}</div><div className="text-xs otya-muted truncate">{user.email || 'No primary email added'}</div>{user.otya_id && <div className="mt-1 text-sm font-mono otya-muted">{user.otya_id}</div>}</div></div><Divider/><PanelLink href={consoleHref(user.otya_id, 'account', '/account/')} onClick={() => setProfileOpen(false)}>Account</PanelLink><PanelLink href={consoleHref(user.otya_id, 'providers', '/account/sign-in-methods/')} onClick={() => setProfileOpen(false)}>Sign-in methods</PanelLink><PanelLink href={consoleHref(user.otya_id, 'settings', '/account/settings/')} onClick={() => setProfileOpen(false)}>Preferences</PanelLink><Divider/><button type="button" onClick={() => void signOut()} className="w-full rounded-xl px-3 py-2.5 text-left text-sm font-semibold hover:bg-black/5 dark:hover:bg-white/5">Sign out</button></FloatingPanel>}
           </div>
         </div>
       </div>
@@ -121,12 +129,21 @@ export function OtyaSpaceChrome({ children, initialUser }: { children: ReactNode
       <div className="min-w-0">{children}</div>
     </div>
 
-    {mobileNavOpen && <div className="fixed inset-0 z-[70] lg:hidden" role="dialog" aria-modal="true" aria-label="Otya Space menu"><button type="button" aria-label="Close menu" onClick={() => setMobileNavOpen(false)} className="absolute inset-0 bg-black/45" /><aside className="relative h-full w-[88vw] max-w-[390px] border-r shadow-2xl" style={{ background: 'var(--cosmos-scaffold)', borderColor: 'var(--cosmos-divider)' }}><div className="h-16 flex items-center gap-2 px-4 border-b" style={{ borderColor: 'var(--cosmos-divider)' }}><OtyaBrandMark size={34}/><strong className="tracking-[-.02em]">Otya Space</strong><button type="button" aria-label="Close menu" onClick={() => setMobileNavOpen(false)} className="ml-auto h-9 w-9 grid place-items-center rounded-xl hover:bg-black/5 dark:hover:bg-white/5"><Icon><path d="m6 6 12 12M18 6 6 18"/></Icon></button></div><SpaceNav query={query} setQuery={setQuery} showAdmin={admin.accountAdmin === true || admin.authenticated === true} publicId={user.otya_id} onNavigate={() => setMobileNavOpen(false)} /></aside></div>}
+    {mobileNavOpen && <div className="fixed inset-0 z-[70] lg:hidden" role="dialog" aria-modal="true" aria-label="Otya Space menu"><button type="button" aria-label="Close menu" onClick={() => setMobileNavOpen(false)} className="absolute inset-0 bg-black/45" /><aside className="relative h-full w-[88vw] max-w-[390px] border-r shadow-2xl" style={{ background: 'var(--cosmos-scaffold)', borderColor: 'var(--cosmos-divider)' }}><div className="h-16 flex items-center gap-2 px-4 border-b" style={{ borderColor: 'var(--cosmos-divider)' }}><OtyaBrandMark size={34}/><strong className="tracking-[-.02em]">Otya Space</strong><button type="button" aria-label="Close menu" onClick={() => setMobileNavOpen(false)} className="ml-auto h-11 w-11 grid place-items-center rounded-xl hover:bg-black/5 dark:hover:bg-white/5"><Icon><path d="m6 6 12 12M18 6 6 18"/></Icon></button></div><SpaceNav query={query} setQuery={setQuery} showAdmin={admin.accountAdmin === true || admin.authenticated === true} publicId={user.otya_id} onNavigate={() => setMobileNavOpen(false)} /></aside></div>}
   </div>
 
   async function signOut() {
-    await fetch('/api/account-session/logout', { method: 'POST', credentials: 'same-origin' }).catch(() => undefined)
-    window.location.replace('/sign-in')
+    if (signingOut.current) return
+    signingOut.current = true
+    setSignOutError('')
+    try {
+      await signOutBrowser()
+      window.location.replace('/sign-in')
+    } catch {
+      setSignOutError('Could not sign out. Check your connection and try again.')
+    } finally {
+      signingOut.current = false
+    }
   }
 }
 
@@ -136,7 +153,7 @@ function SpaceNav({ query, setQuery, showAdmin, publicId, onNavigate }: { query:
   return <nav className="sticky top-16 max-h-[calc(100dvh-64px)] overflow-y-auto px-3 py-4" aria-label="Otya Space">
     <label className="mb-3 flex h-11 items-center gap-2 rounded-xl border px-3" style={{ borderColor: 'var(--cosmos-divider)', background: 'var(--cosmos-card)' }}><Icon><circle cx="11" cy="11" r="6"/><path d="m16 16 4 4"/></Icon><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Search Space" className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-current placeholder:opacity-45" /></label>
     {match('Space home') && <NavLink item={{ label: 'Space home', section: 'overview', fallback: '/', icon: icons.overview }} publicId={publicId} onNavigate={onNavigate} strong />}
-    {GROUPS.map(group => { const visible = group.items.filter(item => match(item.label)); if (!visible.length) return null; return <div key={group.label} className="mt-5"><div className="px-3 pb-2 text-[11px] font-semibold otya-muted">{group.label}</div><div className="space-y-0.5">{visible.map(item => <NavLink key={item.label} item={item} publicId={publicId} onNavigate={onNavigate} />)}</div></div> })}
+    {GROUPS.map(group => { const visible = group.items.filter(item => match(item.label)); if (!visible.length) return null; return <div key={group.label} className="mt-5"><div className="px-3 pb-2 text-sm font-semibold otya-muted">{group.label}</div><div className="space-y-0.5">{visible.map(item => <NavLink key={item.label} item={item} publicId={publicId} onNavigate={onNavigate} />)}</div></div> })}
     {showAdmin && match('Admin') && <div className="mt-5 border-t pt-4" style={{ borderColor: 'var(--cosmos-divider)' }}><NavLink item={{ label: 'Admin', fallback: 'https://petersmartlink.com/admin', icon: icons.admin, external: true }} publicId={publicId} onNavigate={onNavigate} /></div>}
     <div className="mt-5 border-t pt-4" style={{ borderColor: 'var(--cosmos-divider)' }}><NavLink item={{ label: 'Help & Docs', fallback: 'https://docs.petersmartlink.com', icon: icons.help, external: true }} publicId={publicId} onNavigate={onNavigate} /></div>
   </nav>

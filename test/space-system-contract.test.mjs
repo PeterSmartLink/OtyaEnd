@@ -29,7 +29,7 @@ test('Space navigation exposes real sections and canonical subdomains', () => {
   assert.ok(chrome.includes("label: 'Space home', section: 'overview', fallback: '/'"))
   assert.ok(chrome.includes("label: 'Sign-in methods', section: 'providers', fallback: '/account/sign-in-methods/'"))
   assert.ok(chrome.includes("label: 'Next', section: 'next', fallback: '/ask'"))
-  assert.ok(chrome.includes("label: 'Telegram', section: 'telegram', fallback: '/telegram/'"))
+  assert.ok(chrome.includes("label: 'Telegram community', fallback: 'https://t.me/otyaplayer'"))
   assert.ok(chrome.includes('https://docs.petersmartlink.com'))
   assert.ok(chrome.includes('consoleHref(publicId, item.section, item.fallback)'))
 })

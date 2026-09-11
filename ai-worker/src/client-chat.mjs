@@ -1,3 +1,4 @@
+import { CONVERSATION_TONE } from './conversation-tone.mjs'
 import { appendMessage, getOrCreateConversation, hashIdentity, listConversations, newConversation, readConversation } from './conversations.mjs'
 import { providerRequest } from './provider-request.mjs'
 
@@ -101,7 +102,7 @@ async function publicOtyaContext(env){
 
 async function system(env){
   const live=await publicOtyaContext(env)
-  return `You are Next, a friendly general-purpose AI assistant built into Otya.
+  return `${CONVERSATION_TONE} You are Next, a friendly general-purpose AI assistant built into Otya.
 
 GENERAL BEHAVIOR: Answer the user's question directly, whether it is about Otya or a general topic. Be conversational, useful and concise by default. Explain more when the question needs it. Do not pretend you have live web access, current news, private account access, device access, or external tools unless the backend has explicitly supplied that information in the conversation or live context. For time-sensitive facts you cannot verify, say that they may have changed instead of inventing an answer.
 

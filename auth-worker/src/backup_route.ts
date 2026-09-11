@@ -43,7 +43,7 @@ function headers(env: BackupRouteEnv): Record<string, string> {
     'X-Content-Type-Options': 'nosniff',
     'Access-Control-Allow-Origin': env.CORS_ORIGIN ?? PRIMARY_ORIGIN,
     'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Otya-Drive-Token',
     'Vary': 'Origin',
   }
 }
@@ -138,7 +138,9 @@ export async function handleBackupRoute(
   }
 
   if (request.method === 'GET') {
-    const driveToken = url.searchParams.get('drive_token')
+    // Prefer the header so new clients never put Drive credentials in URLs.
+    // Retain the query fallback until older installed clients have upgraded.
+    const driveToken = request.headers.get('X-Otya-Drive-Token') ?? url.searchParams.get('drive_token')
     if (!validDriveToken(driveToken)) {
       return json({ error: 'Google Drive permission is required' }, env, 400)
     }
