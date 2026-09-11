@@ -21,10 +21,24 @@ export default {
 
     for (const message of batch.messages) {
       try {
-        await handlePushMessage(message.body, env)
-        message.ack()
+        const evidence = await handlePushMessage(message.body, env)
+        await recordQueueDeliveryEvent(env, evidence)
+        if (evidence.retry === true) message.retry()
+        else message.ack()
       } catch (error) {
         console.error('[PUSH_QUEUE] Failed to process message:', error?.message ?? error)
+        await recordQueueDeliveryEvent(env, {
+          queueName: 'otya-push',
+          messageType: canonicalPushCopy(message.body).messageType,
+          scope: pushScope(message.body),
+          sent: 0,
+          failed: 1,
+          transientFailed: 1,
+          removed: 0,
+          total: 0,
+          outcome: 'retry',
+          retry: true,
+        })
         message.retry()
       }
     }
@@ -37,6 +51,30 @@ export default {
     }
     ctx.waitUntil(handleHourlyMaintenance(env))
   },
+}
+
+async function recordQueueDeliveryEvent(env, evidence) {
+  if (!env.DB?.prepare || !evidence) return
+  try {
+    await env.DB.prepare(`
+      INSERT INTO queue_delivery_events (
+        queue_name, message_type, scope, sent_count, failed_count,
+        transient_failed, removed_count, total_count, outcome
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).bind(
+      evidence.queueName ?? 'otya-push',
+      evidence.messageType ?? null,
+      evidence.scope ?? null,
+      Number(evidence.sent ?? 0),
+      Number(evidence.failed ?? 0),
+      Number(evidence.transientFailed ?? 0),
+      Number(evidence.removed ?? 0),
+      Number(evidence.total ?? 0),
+      evidence.outcome ?? 'unknown',
+    ).run()
+  } catch (error) {
+    console.warn('[PUSH_QUEUE] Could not persist queue delivery evidence:', error?.message ?? error)
+  }
 }
 
 async function handleHourlyMaintenance(env) {
@@ -138,6 +176,13 @@ function canonicalPushCopy(msg) {
   }
 }
 
+function pushScope(msg) {
+  if (msg?.deviceId) return `device:${msg.deviceId}`
+  const userId = msg?.user_id ?? msg?.userId
+  if (userId) return `user:${userId}`
+  return 'broadcast'
+}
+
 /**
  * Send one push message.
  *
@@ -155,6 +200,7 @@ async function handlePushMessage(msg, env) {
   const { title, body, messageType } = canonicalPushCopy(msg)
   const { url, deviceId } = msg ?? {}
   const userId = msg?.user_id ?? msg?.userId ?? null
+  const scope = pushScope(msg)
 
   if (!title || !body) throw new Error('Missing required fields: title, body')
 
@@ -206,7 +252,11 @@ async function handlePushMessage(msg, env) {
   tokens = [...new Set(tokens)]
   if (tokens.length === 0) {
     console.log('[PUSH_QUEUE] No matching registered devices — skipping.')
-    return
+    return {
+      queueName: 'otya-push', messageType, scope,
+      sent: 0, failed: 0, transientFailed: 0, removed: 0, total: 0,
+      outcome: 'no-targets', retry: false,
+    }
   }
 
   let sent = 0
@@ -272,14 +322,18 @@ async function handlePushMessage(msg, env) {
     }
   }
 
-  const scope = deviceId ? `device:${deviceId}` : userId ? `user:${userId}` : 'broadcast'
   console.log(`[PUSH_QUEUE] Scope=${scope}, Sent=${sent}, Failed=${failed}, Transient=${transientFailed}, Removed=${removed}, Total=${tokens.length}`)
 
-  if (sent === 0 && transientFailed > 0) {
-    throw new Error(`All push deliveries failed before a successful send; ${transientFailed} transient failure(s) can be retried safely`)
-  }
+  const retry = sent === 0 && transientFailed > 0
+  const outcome = retry ? 'retry' : failed > 0 ? 'partial' : 'success'
   if (sent > 0 && transientFailed > 0) {
     console.warn(`[PUSH_QUEUE] ${transientFailed} transient delivery failure(s) were not replayed because ${sent} device(s) already received this message.`)
+  }
+
+  return {
+    queueName: 'otya-push', messageType, scope,
+    sent, failed, transientFailed, removed, total: tokens.length,
+    outcome, retry,
   }
 }
 
@@ -336,7 +390,7 @@ async function getFcmAccessToken(serviceAccountJson) {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
-      grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+      grant_type: 'urn:ietf:params:oauth-type:jwt-bearer',
       assertion: jwt,
     }),
     signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
