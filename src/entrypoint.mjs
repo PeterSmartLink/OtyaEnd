@@ -1,4 +1,5 @@
 import worker from './queue-worker.mjs'
+import { recordRuntimeOperationalEvent } from './lib/operational-events.mjs'
 export { OtyaReleaseWorkflow } from './release-workflow.mjs'
 
 const HEALTH_CHECK_CRON = '*/5 * * * *'
@@ -111,6 +112,13 @@ async function runProductionHealthCheck(env,ctx){
   if(!down.length){
     if(previousIncident){
       await clearHealthIncident(env)
+      await recordRuntimeOperationalEvent(env,{
+        component:'health',
+        eventType:'production_health_recovered',
+        status:'healthy',
+        severity:'info',
+        details:{surfaces:results.map(({path,status,latency})=>({path,status,latency}))},
+      })
       await sendHealthEmail(env,'[OTYA Backend] Production services recovered',['OTYA production health has recovered.','',...results.map(r=>`${r.path} — ${r.status} (${r.latency}ms)`),'',`Checked at: ${new Date().toISOString()}`].join('\n'))
     }
     return
@@ -118,6 +126,13 @@ async function runProductionHealthCheck(env,ctx){
   const signature=JSON.stringify(down.map(({path,status})=>[path,status]))
   if(signature===previousIncident)return
   await writeHealthIncident(env,signature)
+  await recordRuntimeOperationalEvent(env,{
+    component:'health',
+    eventType:'production_health_incident',
+    status:'unhealthy',
+    severity:'critical',
+    details:{surfaces:down.map(({path,status,latency,error})=>({path,status,latency,error:error??null}))},
+  })
   await sendHealthEmail(env,`[OTYA Backend] ${down.length} production surface(s) unhealthy`,['OTYA production health alert','',...down.map(r=>`${r.path} — status ${r.status}, latency ${r.latency}ms${r.error?` (${r.error})`:''}`),'',`Checked at: ${new Date().toISOString()}`].join('\n'))
 }
 
