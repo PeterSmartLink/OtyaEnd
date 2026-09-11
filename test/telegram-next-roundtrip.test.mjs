@@ -133,17 +133,69 @@ test('comments under the official Otya channel round-trip through Next inside th
   }])
 })
 
+test('mentions in the learned Otya discussion group are answered by Next', async t => {
+  const sent = installTelegramSendMock(t)
+  const { env, kv, nextRequests } = telegramEnv({ nextAnswer: 'Yes. What would you like to know?' })
+  kv.set('telegram:discussion:chat_id', '-100700')
+
+  const response = await handleTelegramWebhook(webhookRequest({
+    update_id: 1003,
+    message: {
+      message_id: 40,
+      from: { id: 18, is_bot: false, username: 'anotherlistener' },
+      chat: { id: -100700, type: 'supergroup', title: 'Otya discussion' },
+      text: '@OtyaPlayerBot can you help me?',
+    },
+  }), env)
+
+  assert.equal(response.status, 200)
+  assert.equal((await response.json()).ok, true)
+  assert.equal(nextRequests.length, 1)
+  assert.deepEqual(await nextRequests[0].json(), {
+    message: 'can you help me?',
+    channel: 'telegram',
+    surface: 'telegram_discussion',
+    guest_id: 'telegram:18',
+  })
+  assert.deepEqual(sent, [{
+    chat_id: -100700,
+    text: 'Yes. What would you like to know?',
+    link_preview_options: { is_disabled: true },
+    reply_parameters: { message_id: 40, allow_sending_without_reply: true },
+  }])
+})
+
 test('Next ignores unrelated Telegram groups', async t => {
   const sent = installTelegramSendMock(t)
   const { env, nextRequests } = telegramEnv()
 
   const response = await handleTelegramWebhook(webhookRequest({
-    update_id: 1003,
+    update_id: 1004,
     message: {
       message_id: 41,
       from: { id: 27, is_bot: false },
       chat: { id: -100900, type: 'supergroup', title: 'Unrelated group' },
       text: '@OtyaPlayerBot hello',
+    },
+  }), env)
+
+  assert.equal(response.status, 200)
+  assert.equal((await response.json()).ok, true)
+  assert.equal(nextRequests.length, 0)
+  assert.deepEqual(sent, [])
+})
+
+test('official Otya channel posts never trigger an AI echo loop', async t => {
+  const sent = installTelegramSendMock(t)
+  const { env, nextRequests } = telegramEnv()
+
+  const response = await handleTelegramWebhook(webhookRequest({
+    update_id: 1005,
+    channel_post: {
+      message_id: 51,
+      sender_chat: { id: -100100, type: 'channel', username: 'otyaplayer' },
+      chat: { id: -100100, type: 'channel', username: 'otyaplayer' },
+      text: 'Official Otya announcement',
     },
   }), env)
 
