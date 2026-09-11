@@ -49,6 +49,14 @@ test('push queue persists outcomes without replaying partial-success broadcasts'
   assert.match(queue, /else message\.ack\(\)/)
 })
 
+test('production health records incident and recovery transitions without heartbeat spam', () => {
+  const entry = read('src/entrypoint.mjs')
+  assert.match(entry, /recordRuntimeOperationalEvent/)
+  assert.match(entry, /production_health_incident/)
+  assert.match(entry, /production_health_recovered/)
+  assert.match(entry, /if\(signature===previousIncident\)return/)
+})
+
 test('explicit Core deploy validates and applies repository D1 migrations', () => {
   const pkg = JSON.parse(read('package.json'))
   assert.match(pkg.scripts.check, /verify:migrations/)
