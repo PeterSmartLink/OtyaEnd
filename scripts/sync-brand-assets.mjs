@@ -1,10 +1,11 @@
-import { mkdir, rm, writeFile } from 'node:fs/promises'
-import { dirname, resolve } from 'node:path'
+import { readFile, rm } from 'node:fs/promises'
+import { createHash } from 'node:crypto'
+import { resolve } from 'node:path'
 
-// Immutable owner-approved cyan/blue Otya identity. Website builds fetch the
-// exact app asset rather than regenerating or recoloring a second logo.
+// Immutable owner-approved cyan/blue Otya identity, vendored from
+// assets/branding/otya_app_icon.webp. Builds must work with private repositories.
 const APPROVED_APP_COMMIT = '63be1b59f1a261c853aab786cef584a70e29989d'
-const SOURCE = `https://raw.githubusercontent.com/PeterSmartLink/OtyaPlayer/${APPROVED_APP_COMMIT}/assets/branding/otya_app_icon.webp`
+const EXPECTED_SHA256 = '34f8e6568b52900d8eaa7c30cd304770d60fb56745b6e2ed3874bc61ab205c51'
 const TARGET = 'public/otya-app-icon.webp'
 const EXPECTED_WIDTH = 512
 const EXPECTED_HEIGHT = 512
@@ -42,22 +43,13 @@ function isCanonicalWebP(bytes) {
 }
 
 async function sync() {
-  const response = await fetch(SOURCE, {
-    headers: { 'User-Agent': 'Otya-Server brand asset sync' },
-    redirect: 'follow',
-  })
-  if (!response.ok) {
-    throw new Error(`Could not fetch approved Otya mark (${response.status}).`)
+  const bytes = await readFile(resolve(process.cwd(), TARGET))
+  if (createHash('sha256').update(bytes).digest('hex') !== EXPECTED_SHA256) {
+    throw new Error('Local Otya mark does not match the approved asset checksum.')
   }
-
-  const bytes = Buffer.from(await response.arrayBuffer())
   if (!isCanonicalWebP(bytes)) {
     throw new Error('Approved Otya mark did not resolve to the expected 512x512 WebP asset.')
   }
-
-  const destination = resolve(process.cwd(), TARGET)
-  await mkdir(dirname(destination), { recursive: true })
-  await writeFile(destination, bytes)
 
   // Old builds generated malformed PNG bytes into many icon paths. Remove all
   // retired generated names so a dirty workspace cannot publish stale branding.
@@ -65,7 +57,7 @@ async function sync() {
     RETIRED_GENERATED_TARGETS.map(target => rm(resolve(process.cwd(), target), { force: true })),
   )
 
-  console.log(`Synced canonical Otya WebP from OtyaPlayer@${APPROVED_APP_COMMIT} to ${TARGET}.`)
+  console.log(`Verified canonical Otya WebP from OtyaPlayer@${APPROVED_APP_COMMIT} at ${TARGET}.`)
 }
 
 await sync()

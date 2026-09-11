@@ -55,7 +55,8 @@ test('website metadata and visual tokens match the approved app brand', () => {
   assert.match(download, /src="\/otya-app-icon\.webp"/)
   assert.doesNotMatch(download, /web-app-manifest-192x192\.png/)
 
-  assert.match(sync, /OtyaPlayer\/\$\{APPROVED_APP_COMMIT\}\/assets\/branding\/otya_app_icon\.webp/)
+  assert.match(sync, /EXPECTED_SHA256/)
+  assert.doesNotMatch(sync, /fetch\(|raw\.githubusercontent\.com/)
   assert.match(sync, /63be1b59f1a261c853aab786cef584a70e29989d/)
   assert.match(sync, /EXPECTED_WIDTH = 512/)
   assert.match(sync, /EXPECTED_HEIGHT = 512/)
