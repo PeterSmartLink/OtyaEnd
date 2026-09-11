@@ -1,6 +1,9 @@
 const TELEGRAM_API = 'https://api.telegram.org'
 const MINI_APP_URL = 'https://space.petersmartlink.com/telegram/'
 const CHANNEL = '@otyaplayer'
+const CHANNEL_USERNAME = 'otyaplayer'
+const BOT_USERNAME = 'OtyaPlayerBot'
+const DISCUSSION_CHAT_KEY = 'telegram:discussion:chat_id'
 const UPDATE_TTL = 24 * 60 * 60
 const MAX_TEXT = 3900
 
@@ -96,7 +99,7 @@ function splitTelegramText(text) {
   return chunks
 }
 
-async function askNext(text, env) {
+async function askNext(text, env, { senderId = '', surface = 'telegram_private' } = {}) {
   if (!env.AI_SUPPORT?.fetch) throw new Error('Next service unavailable')
   const headers = new Headers({
     'Content-Type': 'application/json',
@@ -104,10 +107,17 @@ async function askNext(text, env) {
     'X-OTYA-Channel': 'telegram',
   })
   if (env.INTERNAL_SECRET) headers.set('X-OTYA-Internal-Secret', env.INTERNAL_SECRET)
+  const identity = clean(senderId, 120)
+  const body = {
+    message: clean(text, 3000),
+    channel: 'telegram',
+    surface,
+  }
+  if (identity) body.guest_id = `telegram:${identity}`
   const response = await env.AI_SUPPORT.fetch(new Request('https://internal/api/ai/chat', {
     method: 'POST',
     headers,
-    body: JSON.stringify({ message: clean(text, 3000), channel: 'telegram' }),
+    body: JSON.stringify(body),
   }))
   const data = await response.json().catch(() => ({}))
   if (!response.ok) throw new Error('Next request failed')
@@ -157,6 +167,7 @@ async function isDuplicate(updateId, env) {
 async function processPrivateMessage(message, env) {
   if (!message || message?.from?.is_bot === true || message?.chat?.type !== 'private') return
   const chatId = message?.chat?.id
+  const senderId = message?.from?.id ?? chatId
   const text = clean(message?.text, 3000)
   if (!chatId || !text) return
   let reply = commandReply(text)
@@ -165,7 +176,7 @@ async function processPrivateMessage(message, env) {
     if (dynamic) reply = { text: dynamic }
   }
   if (!reply) {
-    try { reply = { text: await askNext(text, env) } }
+    try { reply = { text: await askNext(text, env, { senderId, surface: 'telegram_private' }) } }
     catch { reply = { text: 'Next is temporarily unavailable. Please try again shortly.' } }
   }
   const chunks = splitTelegramText(reply.text)
@@ -176,6 +187,75 @@ async function processPrivateMessage(message, env) {
       env,
       i === 0 && reply.reply_markup ? { reply_markup: reply.reply_markup } : {},
     )
+  }
+}
+
+function normalizedUsername(value) {
+  return clean(value, 80).replace(/^@/, '').toLowerCase()
+}
+
+function isOfficialChannelForward(message) {
+  if (!message || message?.is_automatic_forward !== true) return false
+  const originChat = message?.forward_origin?.chat ?? message?.sender_chat
+  return originChat?.type === 'channel'
+    && normalizedUsername(originChat?.username) === CHANNEL_USERNAME
+}
+
+function isReplyToNext(message) {
+  const from = message?.reply_to_message?.from
+  return from?.is_bot === true && normalizedUsername(from?.username) === BOT_USERNAME.toLowerCase()
+}
+
+function mentionsNext(text) {
+  return clean(text, 3000).toLowerCase().includes(`@${BOT_USERNAME.toLowerCase()}`)
+}
+
+function stripNextMention(text) {
+  return clean(text, 3000).replace(new RegExp(`@${BOT_USERNAME}\\b`, 'ig'), '').trim()
+}
+
+async function rememberDiscussionChat(chatId, env) {
+  if (!env.KV || chatId === undefined || chatId === null) return
+  await env.KV.put(DISCUSSION_CHAT_KEY, String(chatId))
+}
+
+async function isKnownDiscussionChat(chatId, env) {
+  if (!env.KV || chatId === undefined || chatId === null) return false
+  const stored = await env.KV.get(DISCUSSION_CHAT_KEY)
+  return Boolean(stored) && stored === String(chatId)
+}
+
+async function processDiscussionMessage(message, env) {
+  if (!message || message?.from?.is_bot === true) return
+  if (!['group', 'supergroup'].includes(message?.chat?.type)) return
+  const chatId = message?.chat?.id
+  const senderId = message?.from?.id
+  const rawText = clean(message?.text, 3000)
+  if (!chatId || !rawText) return
+
+  const directChannelComment = isOfficialChannelForward(message?.reply_to_message)
+  if (directChannelComment) await rememberDiscussionChat(chatId, env)
+
+  const knownDiscussion = directChannelComment || await isKnownDiscussionChat(chatId, env)
+  if (!knownDiscussion) return
+
+  const addressedToNext = directChannelComment || isReplyToNext(message) || mentionsNext(rawText)
+  if (!addressedToNext) return
+
+  const prompt = stripNextMention(rawText)
+  const replyText = prompt
+    ? await askNext(prompt, env, { senderId, surface: 'telegram_discussion' }).catch(() => 'Next is temporarily unavailable. Please try again shortly.')
+    : 'How can I help with Otya?'
+  const chunks = splitTelegramText(replyText)
+  for (let i = 0; i < chunks.length; i++) {
+    const options = {
+      reply_parameters: {
+        message_id: message.message_id,
+        allow_sending_without_reply: true,
+      },
+    }
+    if (message?.message_thread_id) options.message_thread_id = message.message_thread_id
+    await sendTelegramMessage(chatId, chunks[i], env, options)
   }
 }
 
@@ -196,6 +276,7 @@ export async function handleTelegramWebhook(request, env, ctx) {
       }
       const message = update.message ?? update.edited_message
       await processPrivateMessage(message, env)
+      await processDiscussionMessage(message, env)
     } catch (error) {
       console.error('[telegram] update processing failed:', error instanceof Error ? error.message : 'unknown error')
     }
