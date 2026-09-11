@@ -24,25 +24,30 @@ export async function GET(req: NextRequest) {
   const unreadOnly = req.nextUrl.searchParams.get('unread') === '1'
   const db = getDB(identity.env)
 
-  const unreadClause = unreadOnly ? 'AND read_at IS NULL' : ''
+  const unreadClause = unreadOnly ? 'AND nr.read_at IS NULL' : ''
   const { results } = await db.prepare(`
-    SELECT id, user_id, event_type, severity, title, body, data_json, source,
-           delivery_channel, delivery_status, read_at, created_at, expires_at
-    FROM notification_events
-    WHERE (user_id = ? OR user_id IS NULL)
-      AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
+    SELECT ne.id, ne.user_id, ne.event_type, ne.severity, ne.title, ne.body,
+           ne.data_json, ne.source, ne.delivery_channel, ne.delivery_status,
+           nr.read_at, ne.created_at, ne.expires_at
+    FROM notification_events ne
+    LEFT JOIN notification_reads nr
+      ON nr.notification_id = ne.id AND nr.user_id = ?
+    WHERE (ne.user_id = ? OR ne.user_id IS NULL)
+      AND (ne.expires_at IS NULL OR ne.expires_at > CURRENT_TIMESTAMP)
       ${unreadClause}
-    ORDER BY created_at DESC
+    ORDER BY ne.created_at DESC
     LIMIT ?
-  `).bind(identity.userId, limit).all()
+  `).bind(identity.userId, identity.userId, limit).all()
 
   const unread = await db.prepare(`
     SELECT COUNT(*) AS count
-    FROM notification_events
-    WHERE (user_id = ? OR user_id IS NULL)
-      AND read_at IS NULL
-      AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
-  `).bind(identity.userId).first<{ count: number }>()
+    FROM notification_events ne
+    LEFT JOIN notification_reads nr
+      ON nr.notification_id = ne.id AND nr.user_id = ?
+    WHERE (ne.user_id = ? OR ne.user_id IS NULL)
+      AND nr.read_at IS NULL
+      AND (ne.expires_at IS NULL OR ne.expires_at > CURRENT_TIMESTAMP)
+  `).bind(identity.userId, identity.userId).first<{ count: number }>()
 
   return secureJson({
     notifications: results.map((row) => ({
@@ -65,30 +70,48 @@ export async function POST(req: NextRequest) {
 
   if (body.all === true) {
     if (body.unread === true) {
-      await db.prepare(`
-        UPDATE notification_events
-        SET read_at = NULL
-        WHERE user_id = ?
-      `).bind(identity.userId).run()
+      await db.prepare('DELETE FROM notification_reads WHERE user_id = ?')
+        .bind(identity.userId)
+        .run()
       return secureJson({ ok: true, all: true, unread: true, ts: Date.now() })
     }
+
     await db.prepare(`
-      UPDATE notification_events
-      SET read_at = CURRENT_TIMESTAMP
-      WHERE user_id = ? AND read_at IS NULL
-    `).bind(identity.userId).run()
+      INSERT INTO notification_reads (notification_id, user_id, read_at)
+      SELECT id, ?, CURRENT_TIMESTAMP
+      FROM notification_events
+      WHERE (user_id = ? OR user_id IS NULL)
+        AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
+      ON CONFLICT(notification_id, user_id)
+      DO UPDATE SET read_at = excluded.read_at
+    `).bind(identity.userId, identity.userId).run()
     return secureJson({ ok: true, all: true, ts: Date.now() })
   }
 
   const id = typeof body.id === 'string' ? body.id.trim() : ''
   if (!id) return errorJson('id or all=true is required', 400)
 
-  const readAt = body.unread === true ? null : new Date().toISOString()
-  await db.prepare(`
-    UPDATE notification_events
-    SET read_at = ?
-    WHERE id = ? AND user_id = ?
-  `).bind(readAt, id, identity.userId).run()
+  const visible = await db.prepare(`
+    SELECT id FROM notification_events
+    WHERE id = ?
+      AND (user_id = ? OR user_id IS NULL)
+      AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
+    LIMIT 1
+  `).bind(id, identity.userId).first<{ id: string }>()
+  if (!visible) return errorJson('Notification not found', 404)
+
+  if (body.unread === true) {
+    await db.prepare('DELETE FROM notification_reads WHERE notification_id = ? AND user_id = ?')
+      .bind(id, identity.userId)
+      .run()
+  } else {
+    await db.prepare(`
+      INSERT INTO notification_reads (notification_id, user_id, read_at)
+      VALUES (?, ?, CURRENT_TIMESTAMP)
+      ON CONFLICT(notification_id, user_id)
+      DO UPDATE SET read_at = excluded.read_at
+    `).bind(id, identity.userId).run()
+  }
 
   return secureJson({ ok: true, id, unread: body.unread === true, ts: Date.now() })
 }
