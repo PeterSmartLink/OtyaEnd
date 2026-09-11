@@ -1,17 +1,30 @@
 /**
  * Smart notification helpers.
  * Queues FCM pushes via PUSH_QUEUE and sends operational email through the
- * backend's Resend transport. All functions are fire-and-forget safe — errors
- * are logged, never thrown.
+ * backend's Resend transport. Important account/release notices are also
+ * persisted so delivery is not the only copy of an event.
  */
 
 import { D1 } from '@/lib/d1'
 import { sendAlertEmail } from '@/lib/monitor'
+import { recordNotificationEvent } from '@/lib/operations'
 
 export interface ReleaseInfo {
   version:   string
   changelog: string
   tag:       string
+}
+
+async function persistNotificationSafe(
+  db: D1 | undefined,
+  input: Parameters<typeof recordNotificationEvent>[1],
+): Promise<void> {
+  if (!db) return
+  try {
+    await recordNotificationEvent(db, input)
+  } catch (e) {
+    console.error('[notifications] durable notification write failed:', (e as Error)?.message)
+  }
 }
 
 /**
@@ -38,6 +51,22 @@ export async function sendUpdateNotification(
       download_url: downloadUrl,
       release_notes: body,
     })
+
+    await persistNotificationSafe(env.DB as D1 | undefined, {
+      eventType: 'release_available',
+      severity: 'info',
+      title,
+      body,
+      data: {
+        version: release.version,
+        tag: release.tag,
+        download_url: downloadUrl,
+      },
+      source: 'release',
+      deliveryChannel: 'push',
+      deliveryStatus: 'queued',
+    })
+
     console.log(`[notifications] Queued update notification for ${release.version}`)
   } catch (e) {
     console.error('[notifications] sendUpdateNotification failed:', (e as Error)?.message)
@@ -110,22 +139,41 @@ export async function sendProExpiryWarnings(
       return
     }
 
+    const persistedUsers = new Set<string>()
     for (const row of results) {
       try {
         const daysLeft = Math.ceil((row.expiry_ms - Date.now()) / 86_400_000)
+        const title = '⚠️ Pro subscription expiring soon'
+        const body = `Your OTYA Player Pro access expires in ${daysLeft} day${daysLeft === 1 ? '' : 's'}. Renew to keep premium features.`
         await env.PUSH_QUEUE.send({
-          title:    '⚠️ Pro subscription expiring soon',
-          body:     `Your OTYA Player Pro access expires in ${daysLeft} day${daysLeft === 1 ? '' : 's'}. Renew to keep premium features.`,
-          url:      'https://petersmartlink.com',
+          title,
+          body,
+          url: 'https://petersmartlink.com',
           deviceId: row.device_id,
-          type:     'pro_expiry',
+          user_id: row.user_id,
+          type: 'pro_expiry',
         })
+
+        if (!persistedUsers.has(row.user_id)) {
+          persistedUsers.add(row.user_id)
+          await persistNotificationSafe(db, {
+            userId: row.user_id,
+            eventType: 'pro_expiry',
+            severity: 'warning',
+            title,
+            body,
+            data: { expiry_ms: row.expiry_ms },
+            source: 'subscription',
+            deliveryChannel: 'push',
+            deliveryStatus: 'queued',
+          })
+        }
       } catch (e) {
         console.error('[notifications] pro expiry push failed for', row.user_id, (e as Error)?.message)
       }
     }
 
-    console.log(`[notifications] Queued pro expiry warnings for ${results.length} users.`)
+    console.log(`[notifications] Queued pro expiry warnings for ${results.length} devices.`)
   } catch (e) {
     console.error('[notifications] sendProExpiryWarnings failed:', (e as Error)?.message)
   }
