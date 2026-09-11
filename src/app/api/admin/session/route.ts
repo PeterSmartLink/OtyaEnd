@@ -9,6 +9,8 @@ import {
   getOtyaAccountAdminEmail,
   verifyAdminSession,
 } from '@/lib/admin_auth'
+import { getDB } from '@/lib/d1'
+import { recordSecurityEvent } from '@/lib/operations'
 
 const ACCESS_COOKIE = '__Secure-otya_access'
 const AUTH_STEP_TIMEOUT_MS = 8000
@@ -37,6 +39,24 @@ async function authStep(
     body: body === undefined ? '{}' : JSON.stringify(body),
     signal: AbortSignal.timeout(AUTH_STEP_TIMEOUT_MS),
   }))
+}
+
+async function auditAdminSession(
+  request: Request,
+  recordEnv: Record<string, unknown>,
+  eventType: 'admin_session_elevated' | 'admin_session_ended',
+): Promise<void> {
+  try {
+    await recordSecurityEvent(getDB(recordEnv), {
+      eventType,
+      severity: 'info',
+      actorType: 'admin',
+      source: 'admin-session',
+      correlationId: request.headers.get('CF-Ray'),
+    })
+  } catch (error) {
+    console.warn('[admin/session] security audit write failed:', (error as Error)?.message)
+  }
 }
 
 export async function GET(request: NextRequest) {
@@ -92,6 +112,7 @@ export async function POST(request: NextRequest) {
       }
 
       const session = await createAdminSession(recordEnv, accountEmail)
+      await auditAdminSession(request, recordEnv, 'admin_session_elevated')
       return NextResponse.json({ ok: true }, {
         headers: {
           'Set-Cookie': adminSessionCookie(session),
@@ -110,7 +131,9 @@ export async function POST(request: NextRequest) {
   return NextResponse.json({ error: 'Unsupported owner verification step.' }, { status: 400 })
 }
 
-export async function DELETE() {
+export async function DELETE(request: NextRequest) {
+  const { env } = await getCloudflareContext({ async: true })
+  await auditAdminSession(request, env as Record<string, unknown>, 'admin_session_ended')
   return NextResponse.json({ ok: true }, {
     headers: {
       'Set-Cookie': clearAdminSessionCookie(),
