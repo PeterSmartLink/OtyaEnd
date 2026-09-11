@@ -20,7 +20,7 @@
     "audit:all": "npm audit --audit-level=high",
     "prepreview": "npm run sync:brand",
     "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
-    "predeploy": "npm run sync:brand",
+    "predeploy": "npm run sync:brand && npm run verify:migrations && npx wrangler d1 migrations apply DB --remote",
     "deploy": "node scripts/ensure-admin-session-secret.mjs && opennextjs-cloudflare build && node scripts/deploy-core-version.mjs && node scripts/verify-admin-mfa.mjs",
     "maintenance:edge-csp": "bash scripts/remove-legacy-edge-csp.sh",
     "cf-typegen": "wrangler types"
