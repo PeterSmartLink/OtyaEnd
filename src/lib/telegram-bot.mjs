@@ -4,7 +4,6 @@ const CHANNEL = '@otyaplayer'
 const CHANNEL_USERNAME = 'otyaplayer'
 const BOT_USERNAME = 'OtyaPlayerBot'
 const DISCUSSION_CHAT_KEY = 'telegram:discussion:chat_id'
-const UPDATE_TTL = 24 * 60 * 60
 const MAX_TEXT = 3900
 
 function json(data, status = 200) {
@@ -172,13 +171,28 @@ async function dynamicCommandReply(text) {
   return null
 }
 
-async function isDuplicate(updateId, env) {
-  if (!env.KV || !Number.isSafeInteger(updateId)) return false
-  const key = `telegram:update:${updateId}`
-  const seen = await env.KV.get(key)
-  if (seen) return true
-  await env.KV.put(key, '1', { expirationTtl: UPDATE_TTL })
-  return false
+async function reserveTelegramUpdate(updateId, env) {
+  if (!env.DB?.prepare || !Number.isSafeInteger(updateId)) {
+    throw new Error('Telegram update receipt storage unavailable')
+  }
+  const result = await env.DB.prepare(
+    "INSERT OR IGNORE INTO telegram_update_receipts (update_id, status) VALUES (?, 'processing')",
+  ).bind(updateId).run()
+  return result?.meta?.changes === 1
+}
+
+async function finishTelegramUpdate(updateId, status, env, error = '') {
+  if (!env.DB?.prepare || !Number.isSafeInteger(updateId)) return
+  const detail = clean(error, 300) || null
+  try {
+    await env.DB.prepare(`
+      UPDATE telegram_update_receipts
+      SET status = ?, completed_at = CURRENT_TIMESTAMP, last_error = ?
+      WHERE update_id = ?
+    `).bind(status, detail, updateId).run()
+  } catch (ledgerError) {
+    console.error('[telegram] could not finalize update receipt:', ledgerError instanceof Error ? ledgerError.message : 'unknown error')
+  }
 }
 
 async function processPrivateMessage(message, env) {
@@ -285,7 +299,16 @@ export async function handleTelegramWebhook(request, env, ctx) {
   if (!constantTimeEqual(provided, expected)) return json({ error: 'Unauthorized' }, 401)
   const update = await request.json().catch(() => null)
   if (!update || !Number.isSafeInteger(update.update_id)) return json({ ok: true })
-  if (await isDuplicate(update.update_id, env)) return json({ ok: true, duplicate: true })
+
+  let claimed
+  try {
+    claimed = await reserveTelegramUpdate(update.update_id, env)
+  } catch (error) {
+    console.error('[telegram] update receipt reservation failed:', error instanceof Error ? error.message : 'unknown error')
+    return json({ error: 'Telegram webhook receipt storage unavailable' }, 503)
+  }
+  if (!claimed) return json({ ok: true, duplicate: true })
+
   const work = async () => {
     try {
       if (update.callback_query?.id) {
@@ -294,8 +317,11 @@ export async function handleTelegramWebhook(request, env, ctx) {
       const message = update.message ?? update.edited_message
       await processPrivateMessage(message, env)
       await processDiscussionMessage(message, env)
+      await finishTelegramUpdate(update.update_id, 'done', env)
     } catch (error) {
-      console.error('[telegram] update processing failed:', error instanceof Error ? error.message : 'unknown error')
+      const detail = error instanceof Error ? error.message : 'unknown error'
+      console.error('[telegram] update processing failed:', detail)
+      await finishTelegramUpdate(update.update_id, 'failed', env, detail)
     }
   }
   if (ctx?.waitUntil) ctx.waitUntil(work())
