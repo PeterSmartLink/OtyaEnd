@@ -13,6 +13,17 @@ test('production custom worker wraps the generated OpenNext handler', () => {
   assert.match(router, /applyCanonicalBrowserPolicy\(await openNextWorker\.fetch/)
 })
 
+test('production HTML responses carry the canonical browser security policy', () => {
+  const router = read('src/production-router.mjs')
+  assert.match(router, /headers\.set\('Content-Security-Policy', CANONICAL_CSP\)/)
+  assert.match(router, /headers\.set\('Cross-Origin-Opener-Policy', 'same-origin-allow-popups'\)/)
+  assert.match(router, /headers\.set\('Referrer-Policy', 'strict-origin-when-cross-origin'\)/)
+  assert.match(router, /headers\.set\('Permissions-Policy', 'camera=\(\), microphone=\(\), geolocation=\(\)'\)/)
+  assert.match(router, /headers\.set\('Strict-Transport-Security', 'max-age=31536000'\)/)
+  assert.match(router, /headers\.set\('X-Frame-Options', 'DENY'\)/)
+  assert.match(router, /headers\.set\('X-Content-Type-Options', 'nosniff'\)/)
+})
+
 test('backend-only auth, Next, owner and Telegram routes bypass Next.js', () => {
   const router = read('src/production-router.mjs')
   assert.match(router, /function isCoreBackendRoute/)
