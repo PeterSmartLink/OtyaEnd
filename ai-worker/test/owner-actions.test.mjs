@@ -151,3 +151,32 @@ test('owner email action is restricted to the configured owner address', async (
     globalThis.fetch = originalFetch
   }
 })
+
+test('support reply preparation exposes exact text but performs no send', async () => {
+  const env = {
+    INTERNAL_SECRET: 'owner-secret',
+    KV: new MemoryKv(),
+    DB: new MemoryD1(),
+  }
+  const exactReply = 'Thanks for reporting this. I have recorded the details and will follow up when we have verified the fix.'
+  const response = await handleOwnerActions(
+    request('/api/admin/ai/actions/prepare', {
+      type: 'support_reply',
+      payload: {
+        email_id: 'gmail-message-1',
+        recipient: 'customer@example.com',
+        subject: 'Playback issue',
+        reply: exactReply,
+        risk: 'medium',
+      },
+    }),
+    env,
+  )
+  assert.equal(response.status, 201)
+  const prepared = await response.json()
+  assert.equal(prepared.action.status, 'pending')
+  assert.equal(prepared.action.type, 'support_reply')
+  assert.equal(prepared.action.payload.reply, exactReply)
+  assert.equal(prepared.action.payload.text, exactReply)
+  assert.equal(prepared.action.payload.recipient, 'customer@example.com')
+})
