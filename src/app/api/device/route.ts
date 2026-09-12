@@ -1,7 +1,7 @@
 // app/api/device/route.ts
 // POST /api/device
 // Upserts device info into D1 `devices` table.
-// Called on first launch / version change by the Flutter app.
+// Called on first launch / version change and FCM registration sync by Flutter.
 //
 // Authentication model:
 //   - Verified JWT: links the installation to the token's user_id.
@@ -9,7 +9,7 @@
 //     It starts in monitor mode and can later be enforced without an app update.
 //   - Anonymous/legacy unsigned install: allowed for non-sensitive installation
 //     metadata only while App Check remains in monitor mode. user_id is forced
-//     to null so an unauthenticated caller cannot impersonate an account.
+//     to null so logout/account switching cannot retain stale account ownership.
 
 import { getCloudflareContext } from '@opennextjs/cloudflare'
 import { NextRequest, NextResponse } from 'next/server'
@@ -78,7 +78,9 @@ export async function POST(request: NextRequest) {
   const platform = cleanText(body.platform, 32) ?? 'android'
 
   // Only a verified JWT may establish account ownership. App Check proves the
-  // app installation, not the user's identity.
+  // app installation, not the user's identity. A later anonymous registration
+  // intentionally clears an older user_id so signing out or switching accounts
+  // cannot keep routing private account pushes to the previous user on this phone.
   const resolvedUserId = auth.mode === 'jwt' ? auth.user_id : null
 
   const db = getDB(recordEnv)
@@ -98,7 +100,7 @@ export async function POST(request: NextRequest) {
       android_version = COALESCE(excluded.android_version, devices.android_version),
       locale          = COALESCE(excluded.locale,          devices.locale),
       fcm_token       = COALESCE(excluded.fcm_token,       devices.fcm_token),
-      user_id         = COALESCE(excluded.user_id,         devices.user_id),
+      user_id         = excluded.user_id,
       last_seen_at    = datetime('now')
   `).bind(
     deviceId,
