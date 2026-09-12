@@ -5,6 +5,7 @@ import { readFileSync } from 'node:fs'
 const router = readFileSync(new URL('../src/production-router.mjs', import.meta.url), 'utf8')
 const nextConfig = readFileSync(new URL('../next.config.mjs', import.meta.url), 'utf8')
 const status = readFileSync(new URL('../src/app/status/page.tsx', import.meta.url), 'utf8')
+const statusClient = readFileSync(new URL('../src/app/status/StatusClient.tsx', import.meta.url), 'utf8')
 
 test('documentation product links and help preserve their destinations', () => {
   assert.ok(router.includes('publicDestinations.has(publicPath)'))
@@ -83,12 +84,16 @@ test('custom surfaces keep HTTPS and generated OpenNext routing explicit', () =>
   assert.ok(router.includes('Response.redirect(target.toString(), 302)'))
 })
 
-test('public status page avoids exposing internal monitoring details', () => {
+test('public status page exposes live state without internal monitoring details', () => {
   assert.ok(status.includes("title: 'Otya Status'"))
-  assert.ok(status.includes('Live service monitoring is not displayed'))
-  assert.ok(status.includes('Account-specific or private operational issues are intentionally not shown here'))
-  assert.ok(!status.includes('CLOUDFLARE_ACCOUNT_ID'))
-  assert.ok(!status.includes('INTERNAL_SECRET'))
-  assert.ok(!status.includes('D1 database'))
-  assert.ok(!status.includes('R2 bucket'))
+  assert.ok(status.includes('LiveStatusPanel'))
+  assert.ok(status.includes('private operational metrics and internal infrastructure details are intentionally not shown here'))
+  assert.ok(statusClient.includes("fetch('/api/status'"))
+  assert.ok(statusClient.includes('device-first'))
+  for (const source of [status, statusClient]) {
+    assert.ok(!source.includes('CLOUDFLARE_ACCOUNT_ID'))
+    assert.ok(!source.includes('INTERNAL_SECRET'))
+    assert.ok(!source.includes('D1 database'))
+    assert.ok(!source.includes('R2 bucket'))
+  }
 })
