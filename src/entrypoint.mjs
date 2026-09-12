@@ -17,6 +17,12 @@ function timingSafeEqual(a,b){if(a.length!==b.length)return false;let diff=0;for
 function b64url(bytes){let binary='';for(const byte of bytes)binary+=String.fromCharCode(byte);return btoa(binary).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/g,'')}
 function fromB64url(value){const base64=value.replace(/-/g,'+').replace(/_/g,'/').padEnd(Math.ceil(value.length/4)*4,'=');return Uint8Array.from(atob(base64),c=>c.charCodeAt(0))}
 async function sign(value,secret){const key=await crypto.subtle.importKey('raw',new TextEncoder().encode(secret),{name:'HMAC',hash:'SHA-256'},false,['sign']);const mac=await crypto.subtle.sign('HMAC',key,new TextEncoder().encode(value));return b64url(new Uint8Array(mac))}
+function timedRequest(request,timeoutMs=UPSTREAM_TIMEOUT_MS){return new Request(request,{signal:AbortSignal.timeout(timeoutMs)})}
+async function serviceFetch(binding,request,errorMessage){
+  if(!binding?.fetch)return json({error:errorMessage},503)
+  try{return await binding.fetch(timedRequest(request))}
+  catch(error){console.error('[upstream]',errorMessage,error?.message??error);return json({error:errorMessage},503)}
+}
 
 async function authenticateUser(request,env){
   const bearer=request.headers.get('Authorization')||''
@@ -25,7 +31,7 @@ async function authenticateUser(request,env){
   if(!authorization||!env.AUTH?.fetch)return null
   try{
     const verifyUrl=new URL('/auth/verify',request.url)
-    const verifyRequest=new Request(verifyUrl,{method:'GET',headers:{Authorization:authorization}})
+    const verifyRequest=new Request(verifyUrl,{method:'GET',headers:{Authorization:authorization},signal:AbortSignal.timeout(UPSTREAM_TIMEOUT_MS)})
     const response=await env.AUTH.fetch(verifyRequest)
     const data=await response.json().catch(()=>({}))
     if(!response.ok||data?.ok!==true||!data?.user_id||!data?.email)return null
@@ -137,7 +143,6 @@ async function runProductionHealthCheck(env,ctx){
 }
 
 async function forwardClientAi(request,env){
-  if(!env.AI_SUPPORT?.fetch)return json({error:'AI service unavailable'},503)
   const user=await authenticateUser(request,env)
   const headers=new Headers(request.headers)
   headers.delete('X-OTYA-Internal-Secret')
@@ -152,7 +157,7 @@ async function forwardClientAi(request,env){
   }else{
     headers.delete('Authorization')
   }
-  return env.AI_SUPPORT.fetch(new Request(request,{headers}))
+  return serviceFetch(env.AI_SUPPORT,new Request(request,{headers}),'AI service unavailable')
 }
 
 async function forwardAdminAi(request,env){
@@ -160,13 +165,12 @@ async function forwardAdminAi(request,env){
   if(!user)return json({error:'Sign in required'},401)
   if(!isAdminUser(user,env))return json({error:'Administrator access required'},403)
   if(!await hasElevatedAdminSession(request,env))return json({error:'Elevated administrator verification required'},403)
-  if(!env.AI_SUPPORT?.fetch)return json({error:'AI support service unavailable'},503)
   if(!env.INTERNAL_SECRET)return json({error:'AI admin channel is not configured'},503)
   const headers=new Headers(request.headers)
   headers.set('X-OTYA-Internal-Secret',env.INTERNAL_SECRET)
   headers.set('X-OTYA-Admin-ID',user.id)
   headers.set('X-OTYA-Admin-Email',user.email)
-  return env.AI_SUPPORT.fetch(new Request(request,{headers}))
+  return serviceFetch(env.AI_SUPPORT,new Request(request,{headers}),'AI support service unavailable')
 }
 
 async function authorizeReleaseWorkflow(request,env){
@@ -186,16 +190,15 @@ export default {
     writeRequestAnalytics(runtimeEnv,request,response,startedAt);return response
   }
   if(url.pathname==='/api/ai/oauth/google/callback'){
-    if(!runtimeEnv.AI_SUPPORT?.fetch)response=json({error:'AI support service unavailable'},503)
-    else if(!runtimeEnv.INTERNAL_SECRET)response=json({error:'AI connector channel is not configured'},503)
-    else{const headers=new Headers(request.headers);headers.set('X-OTYA-Internal-Secret',runtimeEnv.INTERNAL_SECRET);response=await runtimeEnv.AI_SUPPORT.fetch(new Request(request,{headers}))}
+    if(!runtimeEnv.INTERNAL_SECRET)response=json({error:'AI connector channel is not configured'},503)
+    else{const headers=new Headers(request.headers);headers.set('X-OTYA-Internal-Secret',runtimeEnv.INTERNAL_SECRET);response=await serviceFetch(runtimeEnv.AI_SUPPORT,new Request(request,{headers}),'AI support service unavailable')}
     writeRequestAnalytics(runtimeEnv,request,response,startedAt);return response
   }
   if(url.pathname.startsWith('/api/admin/ai/')){
     response=await forwardAdminAi(request,runtimeEnv)
     writeRequestAnalytics(runtimeEnv,request,response,startedAt);return response
   }
-  if(url.pathname.startsWith('/api/telegram/')){response=runtimeEnv.AI_SUPPORT?.fetch?await runtimeEnv.AI_SUPPORT.fetch(request):json({error:'AI support service unavailable'},503);writeRequestAnalytics(runtimeEnv,request,response,startedAt);return response}
+  if(url.pathname.startsWith('/api/telegram/')){response=await serviceFetch(runtimeEnv.AI_SUPPORT,request,'AI support service unavailable');writeRequestAnalytics(runtimeEnv,request,response,startedAt);return response}
   if(url.pathname==='/api/admin/release-workflow'&&request.method==='POST'){
     const auth=await authorizeReleaseWorkflow(request,runtimeEnv)
     if(!auth.ok)response=auth.response
@@ -210,7 +213,7 @@ export default {
     else{const id=url.searchParams.get('id');if(!id)response=json({error:'id is required'},400);else{try{const instance=await runtimeEnv.OTYA_RELEASE_WORKFLOW.get(id);response=json({ok:true,instanceId:id,workflow:await instance.status()})}catch{response=json({error:'Workflow instance not found'},404)}}}
     writeRequestAnalytics(runtimeEnv,request,response,startedAt);return response
   }
-  if(url.pathname==='/auth'||url.pathname.startsWith('/auth/')){response=runtimeEnv.AUTH?.fetch?await runtimeEnv.AUTH.fetch(request):json({error:'Authentication service unavailable'},503);writeRequestAnalytics(runtimeEnv,request,response,startedAt);return response}
+  if(url.pathname==='/auth'||url.pathname.startsWith('/auth/')){response=await serviceFetch(runtimeEnv.AUTH,request,'Authentication service unavailable');writeRequestAnalytics(runtimeEnv,request,response,startedAt);return response}
   response=await worker.fetch(request,runtimeEnv,ctx);writeRequestAnalytics(runtimeEnv,request,response,startedAt);return response
  },
  async queue(batch,env,ctx){return worker.queue(batch,withProductionAdapters(env),ctx)},
