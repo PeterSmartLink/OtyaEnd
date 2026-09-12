@@ -19,6 +19,7 @@ type SessionRecord = {
   tokenDigest: string
   createdAt: string
   lastUsedAt: string
+  tokenRenewedAt: string
   ip?: string
   userAgent?: string
 }
@@ -29,11 +30,13 @@ type StoredSessionRecord = Partial<SessionRecord> & {
   refreshToken?: string
   createdAt?: string
   lastUsedAt?: string
+  tokenRenewedAt?: string
   ip?: string
   userAgent?: string
 }
 
 const SESSION_TTL = 30 * 24 * 60 * 60
+const SESSION_RENEW_AFTER = 7 * 24 * 60 * 60 * 1000
 const DIGEST_RE = /^[a-f0-9]{64}$/
 
 function json(data: unknown, status = 200): Response {
@@ -81,6 +84,7 @@ async function readSession(kv: KVNamespaceLike, userId: string, id: string): Pro
   }
   if (parsed.id !== id || parsed.userId !== userId || !parsed.createdAt || !parsed.lastUsedAt) return null
 
+  const tokenRenewedAt = parsed.tokenRenewedAt || parsed.createdAt
   if (typeof parsed.tokenDigest === 'string' && DIGEST_RE.test(parsed.tokenDigest)) {
     return {
       id,
@@ -88,6 +92,7 @@ async function readSession(kv: KVNamespaceLike, userId: string, id: string): Pro
       tokenDigest: parsed.tokenDigest,
       createdAt: parsed.createdAt,
       lastUsedAt: parsed.lastUsedAt,
+      tokenRenewedAt,
       ip: parsed.ip,
       userAgent: parsed.userAgent,
     }
@@ -104,6 +109,7 @@ async function readSession(kv: KVNamespaceLike, userId: string, id: string): Pro
       tokenDigest,
       createdAt: parsed.createdAt,
       lastUsedAt: parsed.lastUsedAt,
+      tokenRenewedAt,
       ip: parsed.ip,
       userAgent: parsed.userAgent,
     }
@@ -146,6 +152,7 @@ export async function recordSessionFromAuthResponse(
       tokenDigest,
       createdAt: now,
       lastUsedAt: now,
+      tokenRenewedAt: now,
       ip: clientIp(request),
       userAgent: request.headers.get('User-Agent')?.slice(0, 240) || undefined,
     }
@@ -170,10 +177,33 @@ export async function touchSessionFromRefresh(
     if (!index.userId || !index.id) return
     const session = await readSession(env.AUTH_KV, index.userId, index.id)
     if (!session) return
-    session.lastUsedAt = new Date().toISOString()
+
+    const now = new Date()
+    const renewedAt = new Date(session.tokenRenewedAt).getTime()
+    const shouldRenewToken = !Number.isFinite(renewedAt)
+      || now.getTime() - renewedAt >= SESSION_RENEW_AFTER
+
+    session.lastUsedAt = now.toISOString()
     session.ip = clientIp(request) ?? session.ip
     session.userAgent = request.headers.get('User-Agent')?.slice(0, 240) || session.userAgent
-    await env.AUTH_KV.put(`auth_session:${session.userId}:${session.id}`, JSON.stringify(session), { expirationTtl: SESSION_TTL })
+
+    if (shouldRenewToken) {
+      // Sliding sign-in: an actively used session remains valid until logout,
+      // password/security revocation or explicit session removal. The safe KV
+      // wrapper hashes these keys, so the bearer token is not persisted raw.
+      await Promise.all([
+        env.AUTH_KV.put(`rt:${refreshToken}`, session.userId, { expirationTtl: SESSION_TTL }),
+        env.AUTH_KV.put(`rt_user:${session.userId}:${refreshToken}`, '1', { expirationTtl: SESSION_TTL }),
+        env.AUTH_KV.put(tokenIndexKeyById(session.id), JSON.stringify({ userId: session.userId, id: session.id }), { expirationTtl: SESSION_TTL }),
+      ])
+      session.tokenRenewedAt = now.toISOString()
+    }
+
+    await env.AUTH_KV.put(
+      `auth_session:${session.userId}:${session.id}`,
+      JSON.stringify(session),
+      { expirationTtl: SESSION_TTL },
+    )
   } catch (error) {
     console.error('[auth/session] Could not touch session:', (error as Error)?.message)
   }
