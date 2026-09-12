@@ -46,6 +46,22 @@ test('exact build downloads use immutable tag paths while legacy version links r
   assert.match(route, /Choose either tag or version, not both/)
   assert.match(route, /key = `releases\/\$\{tag\}\/Otya-\$\{file\}\.apk`/)
   assert.match(route, /key = `releases\/v\$\{version\}\/Otya-\$\{file\}\.apk`/)
+  assert.match(route, /key: `download:\$\{ip\}`/)
+})
+
+test('missing immutable APKs fail closed instead of redirecting an updater to HTML', () => {
+  const route = read('src/app/apk/[file]/route.ts')
+
+  assert.match(route, /if \(tag \|\| version\)/)
+  assert.match(route, /Requested release APK not found\./)
+  assert.match(route, /status: 404/)
+  assert.match(route, /'Cache-Control': 'no-store'/)
+  assert.match(route, /'X-Content-Type-Options': 'nosniff'/)
+
+  const exactFailure = route.indexOf('if (tag || version)')
+  const humanFallback = route.indexOf("return NextResponse.redirect(\n        'https://petersmartlink.com/download/otya-player'")
+  assert.ok(exactFailure >= 0, 'exact missing-release guard must exist')
+  assert.ok(humanFallback > exactFailure, 'HTML redirect must only remain after exact-release failure handling')
 })
 
 test('release metadata uses the same latest aliases and preserves exact APK URLs', () => {
