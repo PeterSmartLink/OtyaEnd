@@ -1,9 +1,6 @@
 name: OTYA Account and Google Smoke
 
 on:
-  workflow_run:
-    workflows: ['Deploy OTYA to Cloudflare']
-    types: [completed]
   workflow_dispatch:
 
 permissions:
@@ -16,9 +13,6 @@ concurrency:
 jobs:
   browser-policy:
     name: Browser Google policy
-    if: >-
-      github.event_name == 'workflow_dispatch' ||
-      (github.event.workflow_run.event == 'workflow_dispatch' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main')
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -48,9 +42,6 @@ jobs:
 
   account-backend:
     name: Account backend
-    if: >-
-      github.event_name == 'workflow_dispatch' ||
-      (github.event.workflow_run.event == 'workflow_dispatch' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main')
     runs-on: ubuntu-latest
     timeout-minutes: 6
     steps:
@@ -126,9 +117,6 @@ jobs:
 
   telegram-boundary:
     name: Telegram account boundary
-    if: >-
-      github.event_name == 'workflow_dispatch' ||
-      (github.event.workflow_run.event == 'workflow_dispatch' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main')
     runs-on: ubuntu-latest
     timeout-minutes: 6
     steps:
