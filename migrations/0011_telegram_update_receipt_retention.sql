@@ -1,3 +1,4 @@
+-- OTYA-DESTRUCTIVE-MIGRATION-APPROVED: delete only Telegram webhook replay receipts older than 30 days.
 -- Keep the Telegram replay ledger bounded without adding another cron or
 -- executing a cleanup query for every webhook. Telegram update IDs are
 -- positive, increasing integers; one out of every 128 accepted receipts runs
