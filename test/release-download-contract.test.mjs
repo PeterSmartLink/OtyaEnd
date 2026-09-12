@@ -64,6 +64,15 @@ test('missing immutable APKs fail closed instead of redirecting an updater to HT
   assert.ok(humanFallback > exactFailure, 'HTML redirect must only remain after exact-release failure handling')
 })
 
+test('APK routes force Android package MIME instead of trusting R2 metadata', () => {
+  const route = read('src/app/apk/[file]/route.ts')
+
+  assert.match(route, /const APK_CONTENT_TYPE = 'application\/vnd\.android\.package-archive'/)
+  assert.match(route, /headers\.set\('Content-Type', APK_CONTENT_TYPE\)/)
+  assert.match(route, /headers\.set\('X-Content-Type-Options', 'nosniff'\)/)
+  assert.doesNotMatch(route, /object\.httpMetadata\?\.contentType \?\?/) 
+})
+
 test('release metadata uses the same latest aliases and preserves exact APK URLs', () => {
   const workflow = read('src/release-workflow.mjs')
 
