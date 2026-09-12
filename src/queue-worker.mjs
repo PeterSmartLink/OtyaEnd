@@ -10,6 +10,7 @@ import openNextWorker from '../.open-next/worker.js'
 const UPSTREAM_TIMEOUT_MS = 8000
 const MAX_DIRECT_TARGETS = 40
 const PUBLIC_FCM_TOPIC = 'otya_public'
+const GOOGLE_TOKEN_URI = 'https://oauth2.googleapis.com/token'
 const TRANSIENT_FCM_STATUSES = new Set([401, 403, 408, 425, 429, 500, 502, 503, 504])
 const COMPACT_UPDATE_BODY = 'New features and improvements are ready. Tap to see what’s new.'
 
@@ -269,8 +270,11 @@ async function handlePushMessage(msg, env) {
   if (!serviceAccountJson) throw new Error('FCM_SERVICE_ACCOUNT_JSON secret is not set')
 
   const sa = JSON.parse(serviceAccountJson)
+  if (!sa?.project_id || !sa?.client_email || !sa?.private_key) {
+    throw new Error('FCM service account is missing required fields')
+  }
   const accessToken = await getFcmAccessToken(serviceAccountJson)
-  const fcmEndpoint = `https://fcm.googleapis.com/v1/projects/${sa.project_id}/messages:send`
+  const fcmEndpoint = `https://fcm.googleapis.com/v1/projects/${encodeURIComponent(sa.project_id)}/messages:send`
 
   const baseMessage = {
     notification: { title, body },
@@ -409,8 +413,14 @@ function encodeUtf8(str) {
 
 async function getFcmAccessToken(serviceAccountJson) {
   const sa = JSON.parse(serviceAccountJson)
+  if (!sa?.client_email || !sa?.private_key) {
+    throw new Error('FCM service account is missing required OAuth fields')
+  }
   const now = Math.floor(Date.now() / 1000)
-  const tokenUri = sa.token_uri ?? 'https://oauth2.googleapis.com/token'
+  // Service-account secrets are trusted configuration, but the OAuth transport
+  // still stays pinned to Google's documented HTTPS token endpoint. This keeps
+  // a malformed or replaced token_uri from becoming an outbound request target.
+  const tokenUri = GOOGLE_TOKEN_URI
 
   const header = base64urlEncode(encodeUtf8(JSON.stringify({ alg: 'RS256', typ: 'JWT' })))
   const payload = base64urlEncode(encodeUtf8(JSON.stringify({
@@ -454,7 +464,7 @@ async function getFcmAccessToken(serviceAccountJson) {
     signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
   })
   if (!tokenRes.ok) {
-    throw new Error(`OAuth2 token exchange failed: ${tokenRes.status}`)
+    throw new Error(`OAuth2 token exchange failed: HTTP ${tokenRes.status}`)
   }
 
   const tokenData = await tokenRes.json()
