@@ -16,6 +16,7 @@ const clientConfig = read('src/lib/client_config.ts')
 const musicPage = read('src/app/music/page.tsx')
 const telegramProxy = read('src/app/api/auth/telegram/[...path]/route.ts')
 const telegramCore = read('src/lib/telegram-bot.mjs')
+const telegramReceiptMigration = read('migrations/0010_telegram_update_receipts.sql')
 const telegramMini = read('auth-worker/src/telegram-miniapp.ts')
 
 requireMatch('public Worker must be otya-core', core, /^name\s*=\s*"otya-core"$/m)
@@ -42,7 +43,10 @@ requireMatch('Telegram bot token uses Secrets Store on core', core, /\[\[secrets
 requireMatch('Telegram webhook secret uses Secrets Store on core', core, /binding\s*=\s*"TELEGRAM_WEBHOOK_SECRET"[\s\S]*?secret_name\s*=\s*"TELEGRAM_WEBHOOK_SECRET"/m)
 requireMatch('Telegram core reads Secrets Store values with get()', telegramCore, /TELEGRAM_BOT_TOKEN[\s\S]*?\.get/)
 requireMatch('Telegram webhook validates secret header', telegramCore, /X-Telegram-Bot-Api-Secret-Token/)
-requireMatch('Telegram webhook deduplicates update_id', telegramCore, /telegram:update:/)
+requireMatch('Telegram webhook atomically claims update_id', telegramCore, /INSERT OR IGNORE INTO telegram_update_receipts/)
+requireMatch('Telegram webhook records completion status', telegramCore, /finishTelegramUpdate/)
+requireMatch('Telegram webhook receipt migration owns update_id primary key', telegramReceiptMigration, /update_id INTEGER PRIMARY KEY/)
+forbidMatch('Telegram webhook must not regress to racy KV GET then PUT dedupe', telegramCore, /telegram:update:/)
 forbidMatch('Telegram bot token must not be treated as a raw committed string', telegramCore, /env\.TELEGRAM_BOT_TOKEN\s*\)/)
 
 requireMatch('otya-auth Worker name', auth, /^name\s*=\s*"otya-auth"$/m)
@@ -106,6 +110,7 @@ const scanned = [
   musicPage,
   telegramProxy,
   telegramCore,
+  telegramReceiptMigration,
   telegramMini,
 ].join('\n')
 forbidMatch('Firebase Admin private key material must not be committed', scanned, /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/)
