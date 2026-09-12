@@ -1,3 +1,5 @@
+import { handleSupportEmailAdmin } from './support-email.mjs'
+
 const RESEND_API = 'https://api.resend.com/emails'
 const OTYA_CORE_URL = 'https://petersmartlink.com'
 const ACTION_TTL_SECONDS = 15 * 60
@@ -61,6 +63,22 @@ function normalizeAction(type, payload, env) {
     }
   }
 
+  if (type === 'support_reply') {
+    const emailId = clean(payload?.email_id, 200)
+    const recipient = clean(payload?.recipient, 300)
+    const subject = clean(payload?.subject, 450)
+    const reply = clean(payload?.reply, 8000)
+    const risk = clean(payload?.risk, 30)
+    if (!emailId || !reply) throw new Error('Support email ID and exact reply are required')
+    return {
+      type,
+      summary: recipient
+        ? `Reply to ${recipient}${subject ? ` about ${subject}` : ''}`
+        : `Reply to support email${subject ? ` about ${subject}` : ''}`,
+      payload: { email_id: emailId, recipient, subject, reply, risk },
+    }
+  }
+
   throw new Error('Unsupported owner action')
 }
 
@@ -97,9 +115,6 @@ async function executeOwnerEmail(env, action) {
     headers: {
       Authorization: `Bearer ${env.RESEND_API_KEY}`,
       'Content-Type': 'application/json',
-      // Resend also receives a stable provider-side idempotency key. D1 is the
-      // primary execution guard; this is a second layer if a network retry
-      // reaches Resend after the provider accepted the first request.
       'Idempotency-Key': `otya-owner-${action.id}`,
     },
     body: JSON.stringify({
@@ -116,16 +131,40 @@ async function executeOwnerEmail(env, action) {
   return { provider: 'resend', email_id: data?.id ?? null, to }
 }
 
+async function executeSupportReply(env, action) {
+  if (!env.INTERNAL_SECRET) throw new Error('OTYA internal support channel is not configured')
+  const response = await handleSupportEmailAdmin(new Request('https://otya.internal/api/admin/ai/support/send', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-OTYA-Internal-Secret': env.INTERNAL_SECRET,
+    },
+    body: JSON.stringify({
+      email_id: action.payload.email_id,
+      reply: action.payload.reply,
+      risk: action.payload.risk,
+    }),
+  }), env)
+  const data = await response.json().catch(() => ({}))
+  if (!response.ok || data?.sent !== true) {
+    throw new Error(clean(data?.detail || data?.error || `Support reply HTTP ${response.status}`, 300))
+  }
+  return {
+    provider: 'resend',
+    email_id: data?.id ?? null,
+    to: data?.to ?? action.payload.recipient ?? null,
+  }
+}
+
 async function execute(env, action) {
   if (action.type === 'telegram_post') return executeTelegram(env, action)
   if (action.type === 'owner_email') return executeOwnerEmail(env, action)
+  if (action.type === 'support_reply') return executeSupportReply(env, action)
   throw new Error('Unsupported owner action')
 }
 
 async function claimExecution(env, action) {
   if (!env.DB?.prepare) throw new Error('D1 execution guard is not configured')
-  // owner_action_executions is migration-owned (0005). Never create schema in
-  // an approval request: missing schema is a deployment/readiness failure.
   const result = await env.DB.prepare(`
     INSERT INTO owner_action_executions (id, action_type, status)
     VALUES (?, ?, 'executing')
@@ -231,10 +270,6 @@ async function approve(env, body) {
   if (action.status !== 'pending') throw new Error('Owner action is no longer pending')
   if (action.approval_token !== token) throw new Error('Approval token does not match')
 
-  // KV is intentionally used for short-lived conversational state, but it is
-  // eventually consistent. Claim the external write atomically in D1 before
-  // changing KV or contacting Telegram/Resend so concurrent approvals cannot
-  // execute the same action twice.
   await claimExecution(env, action)
   action.status = 'executing'
   action.approval_token = null
