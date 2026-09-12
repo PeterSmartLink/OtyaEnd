@@ -14,17 +14,18 @@
 const BACKUP_FILE_NAME = 'otya-backup.json'
 const DRIVE_FILES_URL  = 'https://www.googleapis.com/drive/v3/files'
 const DRIVE_UPLOAD_URL = 'https://www.googleapis.com/upload/drive/v3/files'
+const DRIVE_TIMEOUT_MS = 8000
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function driveHeaders(driveToken: string): Record<string, string> {
-  return {
-    Authorization: `Bearer ${driveToken}`,
-    'Content-Type': 'application/json',
-  }
+function providerError(label: string, status: number): Error {
+  return new Error(`${label} failed with HTTP ${status}`)
 }
 
-// ── Public API ────────────────────────────────────────────────────────────────
+async function driveFetch(url: string, init: RequestInit = {}): Promise<Response> {
+  return fetch(url, {
+    ...init,
+    signal: init.signal ?? AbortSignal.timeout(DRIVE_TIMEOUT_MS),
+  })
+}
 
 /**
  * Search the App Folder for the backup file.
@@ -37,31 +38,20 @@ export async function findBackupFile(driveToken: string): Promise<string | null>
     fields: 'files(id)',
   })
 
-  const res = await fetch(`${DRIVE_FILES_URL}?${params}`, {
+  const res = await driveFetch(`${DRIVE_FILES_URL}?${params}`, {
     headers: { Authorization: `Bearer ${driveToken}` },
   })
 
-  if (!res.ok) {
-    const err = await res.text()
-    throw new Error(`Drive search failed: ${res.status} ${err}`)
-  }
+  if (!res.ok) throw providerError('Drive search', res.status)
 
   const data = await res.json() as { files: { id: string }[] }
   return data.files?.[0]?.id ?? null
 }
 
-/**
- * Create a new backup file in the App Folder.
- * Returns the new file's ID.
- */
+/** Create a new encrypted backup file in the App Folder. */
 export async function createBackupFile(driveToken: string, data: unknown): Promise<string> {
-  const metadata = JSON.stringify({
-    name:    BACKUP_FILE_NAME,
-    parents: ['appDataFolder'],
-  })
+  const metadata = JSON.stringify({ name: BACKUP_FILE_NAME, parents: ['appDataFolder'] })
   const content = JSON.stringify(data)
-
-  // Multipart upload: metadata + content in one request
   const boundary = '-------otya_backup_boundary'
   const body = [
     `--${boundary}`,
@@ -75,7 +65,7 @@ export async function createBackupFile(driveToken: string, data: unknown): Promi
     `--${boundary}--`,
   ].join('\r\n')
 
-  const res = await fetch(`${DRIVE_UPLOAD_URL}?uploadType=multipart&spaces=appDataFolder`, {
+  const res = await driveFetch(`${DRIVE_UPLOAD_URL}?uploadType=multipart&spaces=appDataFolder`, {
     method: 'POST',
     headers: {
       Authorization:  `Bearer ${driveToken}`,
@@ -84,25 +74,18 @@ export async function createBackupFile(driveToken: string, data: unknown): Promi
     body,
   })
 
-  if (!res.ok) {
-    const err = await res.text()
-    throw new Error(`Drive create failed: ${res.status} ${err}`)
-  }
-
+  if (!res.ok) throw providerError('Drive create', res.status)
   const file = await res.json() as { id: string }
   return file.id
 }
 
-/**
- * Update an existing backup file's content.
- * Uses PATCH with uploadType=media to replace the file content.
- */
+/** Update an existing backup file's content. */
 export async function updateBackupFile(
   driveToken: string,
   fileId: string,
   data: unknown,
 ): Promise<void> {
-  const res = await fetch(`${DRIVE_UPLOAD_URL}/${encodeURIComponent(fileId)}?uploadType=media`, {
+  const res = await driveFetch(`${DRIVE_UPLOAD_URL}/${encodeURIComponent(fileId)}?uploadType=media`, {
     method: 'PATCH',
     headers: {
       Authorization:  `Bearer ${driveToken}`,
@@ -111,35 +94,23 @@ export async function updateBackupFile(
     body: JSON.stringify(data),
   })
 
-  if (!res.ok) {
-    const err = await res.text()
-    throw new Error(`Drive update failed: ${res.status} ${err}`)
-  }
+  if (!res.ok) throw providerError('Drive update', res.status)
 }
 
-/**
- * Download and parse the backup file content.
- * Returns the parsed JSON data.
- */
+/** Download and parse the backup file content. */
 export async function downloadBackupFile(driveToken: string, fileId: string): Promise<unknown> {
-  const res = await fetch(
+  const res = await driveFetch(
     `${DRIVE_FILES_URL}/${encodeURIComponent(fileId)}?alt=media`,
     { headers: { Authorization: `Bearer ${driveToken}` } },
   )
 
-  if (!res.ok) {
-    const err = await res.text()
-    throw new Error(`Drive download failed: ${res.status} ${err}`)
-  }
-
+  if (!res.ok) throw providerError('Drive download', res.status)
   return res.json()
 }
 
-/**
- * Delete a backup file from the App Folder.
- */
+/** Delete a backup file from the App Folder. */
 export async function deleteBackupFile(driveToken: string, fileId: string): Promise<void> {
-  const res = await fetch(
+  const res = await driveFetch(
     `${DRIVE_FILES_URL}/${encodeURIComponent(fileId)}`,
     {
       method:  'DELETE',
@@ -147,9 +118,6 @@ export async function deleteBackupFile(driveToken: string, fileId: string): Prom
     },
   )
 
-  // 204 No Content is success; 404 means already deleted — both are OK
-  if (!res.ok && res.status !== 404) {
-    const err = await res.text()
-    throw new Error(`Drive delete failed: ${res.status} ${err}`)
-  }
+  // 204 No Content is success; 404 means already deleted — both are OK.
+  if (!res.ok && res.status !== 404) throw providerError('Drive delete', res.status)
 }
