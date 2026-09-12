@@ -3,11 +3,44 @@ import assert from 'node:assert/strict'
 
 import { handleTelegramWebhook } from '../src/lib/telegram-bot.mjs'
 
+function receiptDb() {
+  const receipts = new Map()
+  return {
+    receipts,
+    prepare(sql) {
+      const statement = String(sql)
+      return {
+        bind(...values) {
+          return {
+            async run() {
+              if (statement.includes('INSERT OR IGNORE INTO telegram_update_receipts')) {
+                const updateId = values[0]
+                if (receipts.has(updateId)) return { meta: { changes: 0 } }
+                receipts.set(updateId, { status: 'processing', error: null })
+                return { meta: { changes: 1 } }
+              }
+              if (statement.includes('UPDATE telegram_update_receipts')) {
+                const [status, error, updateId] = values
+                if (!receipts.has(updateId)) return { meta: { changes: 0 } }
+                receipts.set(updateId, { status, error })
+                return { meta: { changes: 1 } }
+              }
+              throw new Error(`Unexpected receipt SQL: ${statement}`)
+            },
+          }
+        },
+      }
+    },
+  }
+}
+
 function telegramEnv({ nextAnswer = 'Hello from Next.' } = {}) {
   const kv = new Map()
   const nextRequests = []
+  const DB = receiptDb()
   return {
     env: {
+      DB,
       TELEGRAM_WEBHOOK_SECRET: { get: async () => 'webhook-secret' },
       TELEGRAM_BOT_TOKEN: { get: async () => 'TEST_TOKEN' },
       INTERNAL_SECRET: 'internal-secret',
@@ -27,6 +60,7 @@ function telegramEnv({ nextAnswer = 'Hello from Next.' } = {}) {
     },
     kv,
     nextRequests,
+    receipts: DB.receipts,
   }
 }
 
@@ -61,7 +95,7 @@ function webhookRequest(update) {
 
 test('private Telegram messages round-trip through Next and back to the same chat', async t => {
   const sent = installTelegramSendMock(t)
-  const { env, nextRequests } = telegramEnv()
+  const { env, nextRequests, receipts } = telegramEnv()
 
   const response = await handleTelegramWebhook(webhookRequest({
     update_id: 1001,
@@ -91,6 +125,7 @@ test('private Telegram messages round-trip through Next and back to the same cha
     text: 'Hello from Next.',
     link_preview_options: { is_disabled: true },
   }])
+  assert.equal(receipts.get(1001)?.status, 'done')
 })
 
 test('comments under the official Otya channel round-trip through Next inside the linked discussion', async t => {
@@ -209,9 +244,10 @@ test('Telegram AI replies preserve paragraphs and lists', async t => {
   const sent = installTelegramSendMock(t)
   const answer = 'Hello!\n\nHere is how to start:\n1. Open Otya.\n2. Choose a song.'
   const { env } = telegramEnv({ nextAnswer: answer })
-  await handleTelegramWebhook(webhookRequest({
+  const response = await handleTelegramWebhook(webhookRequest({
     update_id: 91001,
     message: { message_id: 10, from: { id: 7, is_bot: false }, chat: { id: 7, type: 'private' }, text: 'Help me start' },
   }), env)
+  assert.equal(response.status, 200)
   assert.equal(sent.at(-1).text, answer)
 })
