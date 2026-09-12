@@ -6,14 +6,21 @@ const read = path => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8'
 
 test('public Status uses canonical Otya naming and exposes only safe public meaning', () => {
   const status = read('src/app/status/page.tsx')
+  const statusClient = read('src/app/status/StatusClient.tsx')
 
   assert.match(status, /title: 'Otya Status'/)
-  assert.match(status, /Otya service information\./)
-  assert.match(status, /Live service monitoring is not displayed/)
-  assert.match(status, /Local playback/)
+  assert.match(status, /Otya service availability\./)
+  assert.match(status, /LiveStatusPanel/)
+  assert.match(status, /without exposing private infrastructure details/)
+  assert.match(statusClient, /Local playback/)
+  assert.match(statusClient, /device-first/)
   assert.doesNotMatch(status, /OTYA/)
+  assert.doesNotMatch(statusClient, /OTYA/)
   assert.doesNotMatch(status, /music-provider/i)
-  assert.doesNotMatch(status, /D1|KV namespace|R2 bucket|Worker binding|Cloudflare account/i)
+  assert.doesNotMatch(statusClient, /music-provider/i)
+  for (const source of [status, statusClient]) {
+    assert.doesNotMatch(source, /D1|KV namespace|R2 bucket|Worker binding|Cloudflare account/i)
+  }
 })
 
 test('public Help teaches the current one-account and verification flow', () => {
