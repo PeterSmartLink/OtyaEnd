@@ -63,6 +63,7 @@ interface D1Database {
 interface ResendEnv extends Record<string, unknown> {
   RESEND_API_KEY?: string
   GOOGLE_CLIENT_ID?: string
+  PREVERIFIED_GOOGLE_PAYLOAD?: GoogleTokenPayload
   TELEGRAM_LOGIN_CLIENT_ID?: string
   TELEGRAM_LOGIN_CLIENT_SECRET?: string
   TELEGRAM_LOGIN_REDIRECT_URI?: string
@@ -76,6 +77,7 @@ interface ResendEnv extends Record<string, unknown> {
 
 const GOOGLE_RATE_LIMIT = 20
 const GOOGLE_RATE_TTL = 15 * 60
+const GOOGLE_VERIFY_TIMEOUT_MS = 8000
 const PRIMARY_ORIGIN = 'https://petersmartlink.com'
 const OTYA_NOREPLY_EMAIL = 'noreply@petersmartlink.com'
 const OTYA_SUPPORT_EMAIL = 'support@petersmartlink.com'
@@ -163,8 +165,11 @@ interface GoogleTokenPayload {
   aud?: string
   iss?: string
   exp?: string | number
+  iat?: string | number
   email?: string
   email_verified?: string | boolean
+  name?: string
+  picture?: string
 }
 
 interface PreparedGoogleRequest {
@@ -172,6 +177,22 @@ interface PreparedGoogleRequest {
   error?: Response
   newUser?: boolean
   marketingConsent?: boolean
+  payload?: GoogleTokenPayload
+}
+
+function isValidGooglePayload(payload: GoogleTokenPayload | undefined, clientId: string): payload is GoogleTokenPayload {
+  if (!payload) return false
+  const verified = payload.email_verified === true || payload.email_verified === 'true'
+  const issuerOk = payload.iss === 'accounts.google.com' || payload.iss === 'https://accounts.google.com'
+  const expiry = Number(payload.exp ?? 0)
+  const now = Math.floor(Date.now() / 1000)
+  return payload.aud === clientId
+    && issuerOk
+    && Number.isFinite(expiry)
+    && expiry > now
+    && verified
+    && Boolean(payload.email)
+    && Boolean(payload.sub)
 }
 
 async function validateGoogleRequest(
@@ -198,18 +219,24 @@ async function validateGoogleRequest(
   }
 
   try {
-    const response = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(idToken)}`)
-    if (!response.ok) return { error: jsonError('Invalid Google ID token', 401, env) }
-    const payload = await response.json() as GoogleTokenPayload
-    const verified = payload.email_verified === true || payload.email_verified === 'true'
-    const issuerOk = payload.iss === 'accounts.google.com' || payload.iss === 'https://accounts.google.com'
-    const expiry = Number(payload.exp ?? 0)
-    const now = Math.floor(Date.now() / 1000)
-    if (payload.aud !== env.GOOGLE_CLIENT_ID || !issuerOk || expiry <= now || !verified || !payload.email || !payload.sub) {
+    let payload = env.PREVERIFIED_GOOGLE_PAYLOAD
+    if (!payload) {
+      const response = await fetch(
+        `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(idToken)}`,
+        {
+          headers: { Accept: 'application/json' },
+          signal: AbortSignal.timeout(GOOGLE_VERIFY_TIMEOUT_MS),
+        },
+      )
+      if (!response.ok) return { error: jsonError('Invalid Google ID token', 401, env) }
+      payload = await response.json() as GoogleTokenPayload
+    }
+
+    if (!isValidGooglePayload(payload, env.GOOGLE_CLIENT_ID)) {
       return { error: jsonError('Google account verification failed', 401, env) }
     }
 
-    const normalizedEmail = payload.email.toLowerCase().trim()
+    const normalizedEmail = payload.email!.toLowerCase().trim()
     const bySubject = await env.AUTH_DB.prepare(
       'SELECT id FROM users WHERE google_id = ? LIMIT 1',
     ).bind(payload.sub).first<{ id?: string }>()
@@ -235,6 +262,7 @@ async function validateGoogleRequest(
       request: new Request(request, { body: bodyText }),
       newUser,
       marketingConsent: body.marketing_consent === true,
+      payload,
     }
   } catch (error) {
     console.error('[auth/google] Google verification failed:', (error as Error)?.message)
@@ -320,6 +348,7 @@ export default {
     let registrationMarketingConsent = false
     let googleNewUser = false
     let googleMarketingConsent = false
+    let googlePayload: GoogleTokenPayload | undefined
     let loginSecondFactor: { code?: string; recoveryCode?: string } | null = null
     let refreshTokenForTouch: string | null = null
     let refreshTokenForLogout: string | null = null
@@ -361,11 +390,15 @@ export default {
       forwardedRequest = checked.request ?? request
       googleNewUser = checked.newUser === true
       googleMarketingConsent = checked.marketingConsent === true
+      googlePayload = checked.payload
     }
 
+    const legacyEnv = googlePayload
+      ? { ...resendEnv, PREVERIFIED_GOOGLE_PAYLOAD: googlePayload }
+      : resendEnv
     const response = await legacyWorker.fetch(
       forwardedRequest,
-      resendEnv as Parameters<typeof legacyWorker.fetch>[1],
+      legacyEnv as Parameters<typeof legacyWorker.fetch>[1],
     )
 
     if (response.ok && request.method === 'POST' && url.pathname === '/auth/login') {
