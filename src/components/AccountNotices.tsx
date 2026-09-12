@@ -27,7 +27,7 @@ export function AccountNotices({ compact = false }: { compact?: boolean }) {
             if (!response.ok) throw new Error('session unavailable')
             const data = await response.json() as { sessions?: Session[] }
             if (!Array.isArray(data.sessions)) throw new Error('invalid sessions')
-            return data.sessions.filter(item => typeof item.id === 'string' && typeof item.created_at === 'string')
+            return data.sessions.filter(item => item && typeof item.id === 'string' && typeof item.created_at === 'string')
           }),
         fetch('https://petersmartlink.com/latest', { credentials: 'omit', cache: 'no-store', signal: controller.signal })
           .then(async response => {

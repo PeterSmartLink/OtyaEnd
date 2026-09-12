@@ -6,7 +6,7 @@ const source = readFileSync(new URL('../src/components/OtyaAssistPrompt.tsx', im
 
 test('website Next requests SSE and consumes response chunks incrementally', () => {
   assert.match(source, /'accept':'text\/event-stream'/)
-  assert.match(source, /response\.body\.getReader\(\)/)
+  assert.match(source, /readChatStream\(response\.body/)
   assert.match(source, /event\.type==='delta'/)
   assert.match(source, /content:message\.content\+event\.delta/)
 })

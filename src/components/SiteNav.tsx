@@ -30,7 +30,7 @@ function SpaceGlyph() { return <svg viewBox="0 0 24 24" className="h-4 w-4" fill
 
 function Brand() {
   return <Link href={OTYA.website} className="inline-flex items-center gap-2.5 shrink-0" aria-label="PeterSmart Link home">
-    <span className="grid h-10 w-10 place-items-center rounded-xl border border-[color:var(--cosmos-divider)] bg-[color:var(--cosmos-surface)] shadow-[0_0_24px_rgba(18,107,255,.10)]"><OtyaBrandMark size={32} /></span>
+    <span className="grid h-11 w-11 place-items-center rounded-xl border border-[color:var(--cosmos-divider)] bg-[color:var(--cosmos-surface)] shadow-[0_0_24px_rgba(18,107,255,.10)]"><OtyaBrandMark size={32} /></span>
     <span className="hidden sm:block leading-tight">
       <span className="block font-black text-[15px] tracking-[-.035em] whitespace-nowrap">PeterSmart Link</span>
       <span className="block text-sm font-semibold tracking-[.04em] otya-muted">Otya Player</span>
@@ -46,6 +46,8 @@ export function SiteNav() {
   const signingOut = useRef(false)
   const [signOutError, setSignOutError] = useState('')
   const accountWrap = useRef<HTMLDivElement>(null)
+  const menuPanel = useRef<HTMLElement>(null)
+  const menuButton = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
     let active = true
@@ -74,9 +76,20 @@ export function SiteNav() {
     if (!menuOpen) return
     const old = document.body.style.overflow
     document.body.style.overflow = 'hidden'
-    const esc = (event: KeyboardEvent) => { if (event.key === 'Escape') setMenuOpen(false) }
+    const focusable = () => Array.from(menuPanel.current?.querySelectorAll<HTMLElement>('a[href],button:not([disabled])') ?? [])
+    focusable()[0]?.focus()
+    const esc = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setMenuOpen(false)
+      if (event.key === 'Tab') {
+        const items = focusable(), first = items[0], last = items[items.length - 1]
+        if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus() }
+        else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus() }
+      }
+    }
+    const resize = () => { if (window.innerWidth >= 1024) setMenuOpen(false) }
+    window.addEventListener('resize', resize)
     window.addEventListener('keydown', esc)
-    return () => { document.body.style.overflow = old; window.removeEventListener('keydown', esc) }
+    return () => { document.body.style.overflow = old; window.removeEventListener('keydown', esc); window.removeEventListener('resize', resize); menuButton.current?.focus() }
   }, [menuOpen])
 
   const signedIn = checked && user !== null
@@ -100,14 +113,14 @@ export function SiteNav() {
     {signOutError && <p role="alert" className="fixed bottom-4 left-4 right-4 z-[100] rounded-xl border bg-[color:var(--cosmos-surface)] p-4 text-sm shadow-lg">{signOutError}</p>}
     <header className="sticky top-0 z-50 border-b border-black/[.06] dark:border-white/[.08] bg-[color:var(--nav-bg)] backdrop-blur-2xl">
       <div className="otya-shell h-16 flex items-center gap-2 sm:gap-3">
-        <button onClick={() => setMenuOpen(true)} aria-label="Open menu" className="lg:hidden inline-flex h-10 w-10 items-center justify-center rounded-full hover:bg-black/[.05] dark:hover:bg-white/[.06]"><MenuGlyph/></button>
+        <button ref={menuButton} aria-expanded={menuOpen} aria-controls="otya-mobile-menu" onClick={() => setMenuOpen(true)} aria-label="Open menu" className="lg:hidden inline-flex h-11 w-11 items-center justify-center rounded-full hover:bg-black/[.05] dark:hover:bg-white/[.06]"><MenuGlyph/></button>
         <Brand />
         <nav className="hidden lg:flex ml-7 items-center gap-1" aria-label="Main navigation">{publicLinks.map(([label, href]) => <Link key={href} href={href.startsWith('/') ? `${OTYA.website}${href}` : href} className="min-h-10 inline-flex items-center rounded-full px-3.5 text-[13px] font-extrabold otya-muted hover:bg-black/[.045] dark:hover:bg-white/[.06]">{label}</Link>)}</nav>
         <div className="ml-auto flex items-center gap-2">
           <a href="https://docs.petersmartlink.com" className="hidden md:inline-flex min-h-10 items-center rounded-full px-3.5 text-xs font-black otya-muted hover:bg-black/[.04] dark:hover:bg-white/[.05]">Docs</a>
           {signedIn ? <a href="https://space.petersmartlink.com" className="hidden sm:inline-flex min-h-10 items-center gap-2 rounded-full border border-black/[.08] dark:border-white/[.10] px-3.5 text-xs font-black hover:bg-black/[.04] dark:hover:bg-white/[.05]" aria-label="Open Space"><SpaceGlyph/>Space</a> : <a href="https://space.petersmartlink.com/sign-in" className="hidden sm:inline-flex min-h-10 items-center rounded-full px-3.5 text-xs font-black">Sign in</a>}
           <div ref={accountWrap} className="relative">
-            <button onClick={() => signedIn ? setAccountOpen(value => !value) : window.location.assign('https://space.petersmartlink.com/sign-in')} aria-label={signedIn ? 'Open account menu' : 'Sign in'} className="inline-flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-black/[.08] dark:border-white/[.10] bg-black/[.025] dark:bg-white/[.04]">
+            <button onClick={() => signedIn ? setAccountOpen(value => !value) : window.location.assign('https://space.petersmartlink.com/sign-in')} aria-label={signedIn ? 'Open account menu' : 'Sign in'} className="inline-flex h-11 w-11 items-center justify-center overflow-hidden rounded-full border border-black/[.08] dark:border-white/[.10] bg-black/[.025] dark:bg-white/[.04]">
               {!signedIn ? <AccountGlyph/> : avatar ? <img src={avatar} alt="" className="h-full w-full object-cover" referrerPolicy="no-referrer"/> : <span className="text-xs font-black">{initials(user ?? undefined)}</span>}
             </button>
             {signedIn && accountOpen && <div className="absolute right-0 mt-2 w-[280px] overflow-hidden rounded-[22px] border border-black/[.08] dark:border-white/[.10] bg-[color:var(--cosmos-surface)] shadow-2xl">
@@ -119,10 +132,10 @@ export function SiteNav() {
       </div>
     </header>
 
-    <div className={`fixed inset-0 z-[70] lg:hidden ${menuOpen ? 'pointer-events-auto' : 'pointer-events-none'}`} aria-hidden={!menuOpen}>
+    <div className={`fixed inset-0 z-[70] lg:hidden ${menuOpen ? 'pointer-events-auto' : 'pointer-events-none'}`} aria-hidden={!menuOpen} inert={!menuOpen}>
       <button onClick={() => setMenuOpen(false)} aria-label="Close menu" className={`absolute inset-0 bg-black/40 backdrop-blur-[2px] transition-opacity ${menuOpen ? 'opacity-100' : 'opacity-0'}`}/>
-      <aside className={`absolute inset-y-0 left-0 w-[88vw] max-w-[360px] border-r border-black/[.08] dark:border-white/[.10] bg-[color:var(--cosmos-surface)] shadow-2xl transition-transform ${menuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-        <div className="h-16 flex items-center px-4 border-b border-black/[.06] dark:border-white/[.08]"><Brand/><button onClick={() => setMenuOpen(false)} aria-label="Close menu" className="ml-auto h-10 w-10 grid place-items-center rounded-full"><CloseGlyph/></button></div>
+      <aside ref={menuPanel} id="otya-mobile-menu" role="dialog" aria-modal={menuOpen} aria-label="Main navigation" className={`absolute inset-y-0 left-0 w-[88vw] max-w-[360px] border-r border-black/[.08] dark:border-white/[.10] bg-[color:var(--cosmos-surface)] shadow-2xl transition-transform ${menuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+        <div className="h-16 flex items-center px-4 border-b border-black/[.06] dark:border-white/[.08]"><Brand/><button onClick={() => setMenuOpen(false)} aria-label="Close menu" className="ml-auto h-11 w-11 grid place-items-center rounded-full"><CloseGlyph/></button></div>
         <div className="p-4 text-sm">
           {signedIn && <a href="https://space.petersmartlink.com" onClick={() => setMenuOpen(false)} className="mb-4 flex items-center gap-3 rounded-2xl px-3 py-3 font-black bg-black/[.035] dark:bg-white/[.05]"><SpaceGlyph/>Open Space</a>}
           <div className="space-y-1">{publicLinks.map(([label, href]) => <Link key={href} href={href.startsWith('/') ? `${OTYA.website}${href}` : href} onClick={() => setMenuOpen(false)} className="block rounded-2xl px-3 py-3 font-bold hover:bg-black/[.045] dark:hover:bg-white/[.06]">{label}</Link>)}</div>
