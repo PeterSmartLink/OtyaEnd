@@ -20,17 +20,19 @@ test('owner external writes are atomically claimed in D1 before provider executi
   )
 })
 
-test('owner email uses a stable provider idempotency key', () => {
+test('owner email uses a stable provider idempotency key and bounded provider call', () => {
   const source = read('ai-worker/src/owner-actions.mjs')
   assert.match(source, /'Idempotency-Key': `otya-owner-\$\{action\.id\}`/)
+  assert.match(source, /PROVIDER_TIMEOUT_MS = 12000/)
+  assert.match(source, /AbortSignal\.timeout\(PROVIDER_TIMEOUT_MS\)/)
 })
 
-test('owner action execution ledger has a migration and safe runtime fallback', () => {
+test('owner action execution ledger is migration-owned and fails closed if D1 is unavailable', () => {
   const migration = read('migrations/0005_owner_action_execution_guard.sql')
   const source = read('ai-worker/src/owner-actions.mjs')
 
   assert.match(migration, /CREATE TABLE IF NOT EXISTS owner_action_executions/)
   assert.match(migration, /id TEXT PRIMARY KEY/)
-  assert.match(source, /CREATE TABLE IF NOT EXISTS owner_action_executions/)
+  assert.doesNotMatch(source, /CREATE TABLE IF NOT EXISTS owner_action_executions/)
   assert.match(source, /D1 execution guard is not configured/)
 })
