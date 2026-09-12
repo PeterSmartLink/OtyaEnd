@@ -8,6 +8,8 @@
 import openNextWorker from '../.open-next/worker.js'
 
 const UPSTREAM_TIMEOUT_MS = 8000
+const MAX_DIRECT_TARGETS = 40
+const PUBLIC_FCM_TOPIC = 'otya_public'
 const TRANSIENT_FCM_STATUSES = new Set([401, 403, 408, 425, 429, 500, 502, 503, 504])
 const COMPACT_UPDATE_BODY = 'New features and improvements are ready. Tap to see what’s new.'
 
@@ -176,11 +178,19 @@ function canonicalPushCopy(msg) {
   }
 }
 
+function canonicalTopic(raw) {
+  const topic = String(raw ?? PUBLIC_FCM_TOPIC).trim()
+  if (!/^[a-zA-Z0-9-_.~%]+$/.test(topic)) {
+    throw new Error('Invalid FCM topic name')
+  }
+  return topic
+}
+
 function pushScope(msg) {
   if (msg?.deviceId) return `device:${msg.deviceId}`
   const userId = msg?.user_id ?? msg?.userId
   if (userId) return `user:${userId}`
-  return 'broadcast'
+  return `topic:${String(msg?.topic ?? PUBLIC_FCM_TOPIC).trim() || PUBLIC_FCM_TOPIC}`
 }
 
 /**
@@ -188,30 +198,28 @@ function pushScope(msg) {
  *
  * Target priority:
  *   1. deviceId — exactly one device
- *   2. user_id/userId — every registered device for exactly one OTYA user
- *   3. no target — intentional broadcast to all registered devices
+ *   2. user_id/userId — registered devices for exactly one Otya user
+ *   3. no private target — Firebase topic fanout for public Otya messages
  *
- * A whole queue message is retried only when no device was successfully sent
+ * Public broadcasts never enumerate every device inside a Worker invocation.
+ * Direct delivery is deliberately bounded so OAuth + FCM requests remain well
+ * below the Cloudflare Free Worker external-subrequest budget.
+ *
+ * A whole queue message is retried only when no target was successfully sent
  * and at least one failure was transient. After a partial success we do not
- * replay the whole broadcast because that would duplicate notifications to
+ * replay the whole message because that would duplicate notifications to
  * devices that already received it.
  */
 async function handlePushMessage(msg, env) {
   const { title, body, messageType } = canonicalPushCopy(msg)
   const { url, deviceId } = msg ?? {}
   const userId = msg?.user_id ?? msg?.userId ?? null
+  const topic = !deviceId && !userId ? canonicalTopic(msg?.topic) : null
   const scope = pushScope(msg)
 
   if (!title || !body) throw new Error('Missing required fields: title, body')
 
-  const serviceAccountJson = env.FCM_SERVICE_ACCOUNT_JSON
-  if (!serviceAccountJson) throw new Error('FCM_SERVICE_ACCOUNT_JSON secret is not set')
-
-  const sa = JSON.parse(serviceAccountJson)
-  const accessToken = await getFcmAccessToken(serviceAccountJson)
-  const fcmEndpoint = `https://fcm.googleapis.com/v1/projects/${sa.project_id}/messages:send`
   const link = url ?? env.WEBSITE_URL ?? 'https://petersmartlink.com/download/otya-player'
-
   const data = { url: String(link) }
   for (const [key, value] of Object.entries(msg?.data ?? {})) {
     if (value !== undefined && value !== null) data[String(key)] = String(value)
@@ -226,31 +234,29 @@ async function handlePushMessage(msg, env) {
     : 'otya_announcements'
 
   let tokens = []
-  if (deviceId) {
+  let overflow = 0
+  if (!topic && deviceId) {
     const row = await env.DB.prepare(
       'SELECT fcm_token FROM devices WHERE device_id = ? AND (? IS NULL OR user_id = ?) AND fcm_token IS NOT NULL',
     ).bind(deviceId, userId, userId).first()
     if (row?.fcm_token) tokens = [row.fcm_token]
-  } else if (userId) {
+  } else if (!topic && userId) {
+    const countRow = await env.DB.prepare(
+      'SELECT COUNT(DISTINCT fcm_token) AS count FROM devices WHERE user_id = ? AND fcm_token IS NOT NULL',
+    ).bind(userId).first()
+    const totalDirect = Number(countRow?.count ?? 0)
     const { results = [] } = await env.DB.prepare(
-      'SELECT DISTINCT fcm_token FROM devices WHERE user_id = ? AND fcm_token IS NOT NULL',
-    ).bind(userId).all()
+      'SELECT DISTINCT fcm_token FROM devices WHERE user_id = ? AND fcm_token IS NOT NULL LIMIT ?',
+    ).bind(userId, MAX_DIRECT_TARGETS).all()
     tokens = results.map((row) => row.fcm_token).filter(Boolean)
-  } else {
-    let offset = 0
-    const pageSize = 1000
-    while (true) {
-      const { results = [] } = await env.DB.prepare(
-        'SELECT DISTINCT fcm_token FROM devices WHERE fcm_token IS NOT NULL LIMIT ? OFFSET ?',
-      ).bind(pageSize, offset).all()
-      tokens.push(...results.map((row) => row.fcm_token).filter(Boolean))
-      if (results.length < pageSize) break
-      offset += pageSize
+    overflow = Math.max(0, totalDirect - MAX_DIRECT_TARGETS)
+    if (overflow > 0) {
+      console.error(`[PUSH_QUEUE] Direct target limit exceeded for ${scope}; ${overflow} device(s) were not attempted.`)
     }
   }
 
   tokens = [...new Set(tokens)]
-  if (tokens.length === 0) {
+  if (!topic && tokens.length === 0) {
     console.log('[PUSH_QUEUE] No matching registered devices — skipping.')
     return {
       queueName: 'otya-push', messageType, scope,
@@ -259,8 +265,70 @@ async function handlePushMessage(msg, env) {
     }
   }
 
+  const serviceAccountJson = env.FCM_SERVICE_ACCOUNT_JSON
+  if (!serviceAccountJson) throw new Error('FCM_SERVICE_ACCOUNT_JSON secret is not set')
+
+  const sa = JSON.parse(serviceAccountJson)
+  const accessToken = await getFcmAccessToken(serviceAccountJson)
+  const fcmEndpoint = `https://fcm.googleapis.com/v1/projects/${sa.project_id}/messages:send`
+
+  const baseMessage = {
+    notification: { title, body },
+    data,
+    android: {
+      priority: 'high',
+      ttl: messageType === 'update' ? '604800s' : '86400s',
+      collapse_key: `otya_${messageType}`,
+      notification: {
+        channel_id: channelId,
+        default_sound: true,
+        tag: `otya_${messageType}`,
+      },
+    },
+  }
+
+  if (topic) {
+    let response
+    try {
+      response = await fetch(fcmEndpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ message: { topic, ...baseMessage } }),
+        signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
+      })
+    } catch (error) {
+      console.warn('[PUSH_QUEUE] FCM topic request failed:', error?.message ?? error)
+      return {
+        queueName: 'otya-push', messageType, scope,
+        sent: 0, failed: 1, transientFailed: 1, removed: 0, total: 1,
+        outcome: 'retry', retry: true,
+      }
+    }
+
+    if (response.ok) {
+      console.log(`[PUSH_QUEUE] FCM accepted topic fanout for ${scope}.`)
+      return {
+        queueName: 'otya-push', messageType, scope,
+        sent: 1, failed: 0, transientFailed: 0, removed: 0, total: 1,
+        outcome: 'accepted-topic', retry: false,
+      }
+    }
+
+    const errorBody = await response.json().catch(() => null)
+    const transient = TRANSIENT_FCM_STATUSES.has(response.status)
+    console.warn('[PUSH_QUEUE] FCM topic send failed:', response.status, errorBody?.error?.status ?? 'unknown')
+    return {
+      queueName: 'otya-push', messageType, scope,
+      sent: 0, failed: 1, transientFailed: transient ? 1 : 0, removed: 0, total: 1,
+      outcome: transient ? 'retry' : 'failed', retry: transient,
+    }
+  }
+
   let sent = 0
-  let failed = 0
+  let failed = overflow
   let removed = 0
   let transientFailed = 0
   for (const token of tokens) {
@@ -275,18 +343,7 @@ async function handlePushMessage(msg, env) {
         body: JSON.stringify({
           message: {
             token,
-            notification: { title, body },
-            data,
-            android: {
-              priority: 'high',
-              ttl: messageType === 'update' ? '604800s' : '86400s',
-              collapse_key: `otya_${messageType}`,
-              notification: {
-                channel_id: channelId,
-                default_sound: true,
-                tag: `otya_${messageType}`,
-              },
-            },
+            ...baseMessage,
           },
         }),
         signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
@@ -322,9 +379,10 @@ async function handlePushMessage(msg, env) {
     }
   }
 
-  console.log(`[PUSH_QUEUE] Scope=${scope}, Sent=${sent}, Failed=${failed}, Transient=${transientFailed}, Removed=${removed}, Total=${tokens.length}`)
+  const total = tokens.length + overflow
+  console.log(`[PUSH_QUEUE] Scope=${scope}, Sent=${sent}, Failed=${failed}, Transient=${transientFailed}, Removed=${removed}, Total=${total}`)
 
-  const retry = sent === 0 && transientFailed > 0
+  const retry = sent === 0 && transientFailed > 0 && overflow === 0
   const outcome = retry ? 'retry' : failed > 0 ? 'partial' : 'success'
   if (sent > 0 && transientFailed > 0) {
     console.warn(`[PUSH_QUEUE] ${transientFailed} transient delivery failure(s) were not replayed because ${sent} device(s) already received this message.`)
@@ -332,7 +390,7 @@ async function handlePushMessage(msg, env) {
 
   return {
     queueName: 'otya-push', messageType, scope,
-    sent, failed, transientFailed, removed, total: tokens.length,
+    sent, failed, transientFailed, removed, total,
     outcome, retry,
   }
 }
