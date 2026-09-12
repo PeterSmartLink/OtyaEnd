@@ -6,6 +6,7 @@ import { handleGoogleLink } from './google-link'
 import { deliverNewDeviceAlert, deliverRegistrationEmails } from './production-email'
 import { handleSecureOtpRoute, type SecureOtpEnv } from './secure-otp'
 import { handleSecureAccountRoute, type SecureAccountEnv } from './secure-account'
+import { withAuthSecurityEvent } from './security-events'
 
 interface GoogleTokenPayload {
   aud?: string
@@ -169,37 +170,41 @@ async function normalizeAccountResponse(response: Response, env: ProductionEnv):
   }
 }
 
+async function audited(request: Request, response: Response, env: ProductionEnv): Promise<Response> {
+  return withAuthSecurityEvent(request, response, env)
+}
+
 export default {
   async fetch(request: Request, env: ProductionEnv): Promise<Response> {
     const url = new URL(request.url)
 
     if (url.pathname.startsWith('/auth/admin/')) {
       const response = await handleAdminMfa(request, env)
-      if (response) return response
+      if (response) return audited(request, response, env)
     }
 
     if (url.pathname.startsWith('/auth/telegram/')) {
       const response = await handleTelegramLogin(request, env)
-      if (response) return response
+      if (response) return audited(request, response, env)
     }
 
     const googleLinkResponse = await handleGoogleLink(request, env)
-    if (googleLinkResponse) return googleLinkResponse
+    if (googleLinkResponse) return audited(request, googleLinkResponse, env)
 
     const secureAccountResponse = await handleSecureAccountRoute(request, env)
-    if (secureAccountResponse) return secureAccountResponse
+    if (secureAccountResponse) return audited(request, secureAccountResponse, env)
 
     const secureOtpResponse = await handleSecureOtpRoute(request, env)
-    if (secureOtpResponse) return secureOtpResponse
+    if (secureOtpResponse) return audited(request, secureOtpResponse, env)
 
     if (createsIdentitySession(request, url)) {
       const schemaError = await ensureIdentitySchema(env)
-      if (schemaError) return schemaError
+      if (schemaError) return audited(request, schemaError, env)
     }
 
     if (request.method === 'POST' && url.pathname === '/auth/google') {
       const audience = await verifiedGoogleAudience(request, env)
-      if (audience instanceof Response) return audience
+      if (audience instanceof Response) return audited(request, audience, env)
       const requestEnv = { ...env, GOOGLE_CLIENT_ID: audience, EMAIL: undefined }
       const response = await authWorker.fetch(request, requestEnv as Parameters<typeof authWorker.fetch>[1])
       if (response.ok) {
@@ -207,7 +212,8 @@ export default {
           console.error('[auth/email] Google new-device alert failed:', (error as Error)?.message)
         })
       }
-      return normalizeAccountResponse(response, env)
+      const normalized = await normalizeAccountResponse(response, env)
+      return audited(request, normalized, env)
     }
 
     const compatibilityEnv = { ...env, EMAIL: undefined }
@@ -228,6 +234,7 @@ export default {
       })
     }
 
-    return normalizeAccountResponse(response, env)
+    const normalized = await normalizeAccountResponse(response, env)
+    return audited(request, normalized, env)
   },
 }
