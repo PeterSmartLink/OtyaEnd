@@ -26,8 +26,9 @@ test('Google link keeps one OTYA user and only adopts verified email when safe',
   assert.doesNotMatch(link, /INSERT INTO users/)
 })
 
-test('production auth wrapper routes protected Google link before compatibility sign-in', () => {
+test('production auth wrapper routes protected Google link before compatibility sign-in and audits the result', () => {
   assert.match(entry, /handleGoogleLink/)
   assert.match(entry, /const googleLinkResponse = await handleGoogleLink\(request, env\)/)
-  assert.match(entry, /if \(googleLinkResponse\) return googleLinkResponse/)
+  assert.match(entry, /if \(googleLinkResponse\) return audited\(request, googleLinkResponse, env\)/)
+  assert.match(entry, /withAuthSecurityEvent/)
 })
