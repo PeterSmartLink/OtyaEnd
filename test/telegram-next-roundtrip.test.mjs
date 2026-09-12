@@ -204,3 +204,14 @@ test('official Otya channel posts never trigger an AI echo loop', async t => {
   assert.equal(nextRequests.length, 0)
   assert.deepEqual(sent, [])
 })
+
+test('Telegram AI replies preserve paragraphs and lists', async t => {
+  const sent = installTelegramSendMock(t)
+  const answer = 'Hello!\n\nHere is how to start:\n1. Open Otya.\n2. Choose a song.'
+  const { env } = telegramEnv({ nextAnswer: answer })
+  await handleTelegramWebhook(webhookRequest({
+    update_id: 91001,
+    message: { message_id: 10, from: { id: 7, is_bot: false }, chat: { id: 7, type: 'private' }, text: 'Help me start' },
+  }), env)
+  assert.equal(sent.at(-1).text, answer)
+})

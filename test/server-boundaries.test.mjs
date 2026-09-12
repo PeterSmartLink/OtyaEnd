@@ -71,3 +71,32 @@ test('inbox list, counts, bulk reads and single lookup exclude other users and d
     assert.equal(db.prepare(sql[3]).get('own', 'alice').id, 'own')
   } finally { db.close() }
 })
+
+test('device pushes honor account ownership when both targets are present', () => {
+  const source = readFileSync(new URL('../src/queue-worker.mjs', import.meta.url), 'utf8')
+  const sql = source.match(/'(SELECT fcm_token FROM devices WHERE device_id[^']+)'/)[1]
+  const db = new DatabaseSync(':memory:')
+  try {
+    db.exec("CREATE TABLE devices (device_id TEXT,user_id TEXT,fcm_token TEXT); INSERT INTO devices VALUES ('phone','alice','token');")
+    assert.equal(db.prepare(sql).get('phone', 'bob', 'bob'), undefined)
+    assert.equal(db.prepare(sql).get('phone', 'alice', 'alice').fcm_token, 'token')
+    assert.equal(db.prepare(sql).get('phone', null, null).fcm_token, 'token')
+  } finally { db.close() }
+})
+
+test('failed login-alert email preserves the previous network so the next login can retry', async () => {
+  const source = readFileSync(new URL('../auth-worker/src/production-email.ts', import.meta.url), 'utf8')
+    .replace("import { generateOtp } from './crypto'", "const generateOtp = () => 'A1234'")
+    .replace("import { sendResendEmail } from './resend'", "const sendResendEmail = async (key) => { if (key === 'reject') throw new Error('mock provider rejection') }")
+  const { outputText } = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } })
+  const { deliverNewDeviceAlert } = await import(`data:text/javascript;base64,${Buffer.from(outputText).toString('base64')}`)
+  const values = new Map([['resend_last_login_ip:user', 'old-network']])
+  const env = { AUTH_KV: { get: async key => values.get(key), put: async (key, value) => values.set(key, value) }, RESEND_API_KEY: 'reject' }
+  const request = new Request('https://auth/login', { headers: { 'CF-Connecting-IP': 'new-network' } })
+  const response = () => Response.json({ user: { id: 'user', email: 'user@example.com' } })
+  await deliverNewDeviceAlert(request, response(), env)
+  assert.equal(values.get('resend_last_login_ip:user'), 'old-network')
+  env.RESEND_API_KEY = 'accept'
+  await deliverNewDeviceAlert(request, response(), env)
+  assert.equal(values.get('resend_last_login_ip:user'), 'new-network')
+})

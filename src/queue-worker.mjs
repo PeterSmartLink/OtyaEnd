@@ -228,8 +228,8 @@ async function handlePushMessage(msg, env) {
   let tokens = []
   if (deviceId) {
     const row = await env.DB.prepare(
-      'SELECT fcm_token FROM devices WHERE device_id = ? AND fcm_token IS NOT NULL',
-    ).bind(deviceId).first()
+      'SELECT fcm_token FROM devices WHERE device_id = ? AND (? IS NULL OR user_id = ?) AND fcm_token IS NOT NULL',
+    ).bind(deviceId, userId, userId).first()
     if (row?.fcm_token) tokens = [row.fcm_token]
   } else if (userId) {
     const { results = [] } = await env.DB.prepare(

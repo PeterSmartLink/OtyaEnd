@@ -92,12 +92,15 @@ export async function deliverNewDeviceAlert(request: Request, response: Response
   let previous: string | null = null
   try {
     previous = await env.AUTH_KV.get(key)
-    await env.AUTH_KV.put(key, ip, { expirationTtl: LAST_LOGIN_IP_TTL })
   } catch (error) {
     console.error('[auth/email] New-device state update failed:', (error as Error)?.message)
     return
   }
-  if (!previous || previous === ip) return
+  if (previous === ip) return
+  if (!previous) {
+    await env.AUTH_KV.put(key, ip, { expirationTtl: LAST_LOGIN_IP_TTL })
+    return
+  }
 
   try {
     await sendResendEmail(env.RESEND_API_KEY, {
@@ -116,6 +119,8 @@ export async function deliverNewDeviceAlert(request: Request, response: Response
         '— The Otya Security Team',
       ].join('\n'),
     })
+    // Advance the baseline only after the provider accepts the alert.
+    await env.AUTH_KV.put(key, ip, { expirationTtl: LAST_LOGIN_IP_TTL })
   } catch (error) {
     console.error('[auth/email] New-device alert delivery failed:', (error as Error)?.message)
   }

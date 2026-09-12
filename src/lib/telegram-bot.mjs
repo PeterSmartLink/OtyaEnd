@@ -95,8 +95,12 @@ export async function sendOtyaChannelAnnouncement(text, env) {
   return sendTelegramMessage(CHANNEL, text, env)
 }
 
+function cleanMessage(value, max = 16000) {
+  return String(value ?? '').replace(/\r\n?/g, '\n').replace(/[\u0000-\u0008\u000b-\u001f]/g, '').trim().slice(0, max)
+}
+
 function splitTelegramText(text) {
-  const source = clean(text, 16000)
+  const source = cleanMessage(text)
   if (source.length <= MAX_TEXT) return [source]
   const chunks = []
   let rest = source
@@ -130,10 +134,11 @@ async function askNext(text, env, { senderId = '', surface = 'telegram_private' 
     method: 'POST',
     headers,
     body: JSON.stringify(body),
+    signal: AbortSignal.timeout(20000),
   }))
   const data = await response.json().catch(() => ({}))
   if (!response.ok) throw new Error('Next request failed')
-  const answer = clean(data?.answer ?? data?.response ?? data?.message, 16000)
+  const answer = cleanMessage(data?.answer ?? data?.response ?? data?.message)
   if (!answer) throw new Error('Next returned an empty response')
   return answer
 }
@@ -156,7 +161,7 @@ function commandReply(text) {
 
 async function dynamicCommandReply(text) {
   if (text === '/updates') {
-    const response = await fetch('https://petersmartlink.com/api/bootstrap', { headers: { Accept: 'application/json' } })
+    const response = await fetch('https://petersmartlink.com/api/bootstrap', { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(8000) })
     if (!response.ok) return 'Otya update information is temporarily unavailable.'
     const data = await response.json().catch(() => ({}))
     const release = data?.release ?? data?.latest ?? data
