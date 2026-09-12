@@ -55,10 +55,8 @@ database_id = "ab157fc6-2cbb-4d46-9789-2e4392e16aea"
 binding = "KV"
 id = "3f179286e0fc4dbfa2332884cdf81312"
 
-[[queues.producers]]
-binding = "PUSH_QUEUE"
-queue = "otya-push"
-
+# Next consumes intelligence jobs only. Otya Core is the sole owner of the
+# public push queue so an AI-worker compromise cannot broadcast notifications.
 [[queues.consumers]]
 queue = "otya-next-jobs"
 max_batch_size = 5
@@ -71,7 +69,7 @@ dead_letter_queue = "otya-next-jobs-dlq"
 # 05:00 UTC = 08:00 Africa/Kampala: morning operations brief + churn signals.
 # Monday 06:00 UTC = 09:00 Africa/Kampala: deeper weekly review.
 crons = ["0 * * * *", "0 5 * * *", "0 6 * * 1"]
-# Next owns intelligence and approved provider actions. Core owns Telegram
-# transport/webhook credentials. Required secret: RESEND_API_KEY. Optional
-# integrations: INTERNAL_SECRET, GMAIL_GOOGLE_CLIENT_SECRET,
-# CONNECTOR_ENCRYPTION_KEY. Never commit secret values.
+# Next owns intelligence and approved provider actions. Core owns Telegram and
+# push transport. Required secret: RESEND_API_KEY. Optional integrations:
+# INTERNAL_SECRET, GMAIL_GOOGLE_CLIENT_SECRET, CONNECTOR_ENCRYPTION_KEY.
+# Never commit secret values.
