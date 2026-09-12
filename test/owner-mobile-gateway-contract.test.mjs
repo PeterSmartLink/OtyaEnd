@@ -4,9 +4,13 @@ import { readFileSync } from 'node:fs'
 
 const read = path => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
 
-test('mobile owner grant is short-lived, account-bound and revocable', () => {
+test('mobile owner grant is device-bound, renewable and revocable', () => {
   const source = read('auth-worker/src/admin-mfa.ts')
-  assert.match(source, /OWNER_GRANT_TTL = 60 \* 60/)
+  assert.match(source, /OWNER_GRANT_TTL = 30 \* 24 \* 60 \* 60/)
+  assert.match(source, /OWNER_GRANT_RENEW_AFTER = 7 \* 24 \* 60 \* 60/)
+  assert.match(source, /X-OTYA-Device-ID/)
+  assert.match(source, /device_hash/)
+  assert.match(source, /trusted_device: true/)
   assert.match(source, /\/auth\/admin\/mobile-grant/)
   assert.match(source, /\/auth\/admin\/verify-grant/)
   assert.match(source, /\/auth\/admin\/revoke-grant/)
