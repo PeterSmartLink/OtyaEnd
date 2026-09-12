@@ -30,6 +30,21 @@ updates:
         patterns:
           - "*"
 
+  - package-ecosystem: "npm"
+    directory: "/ai-worker"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "05:20"
+      timezone: "Africa/Kampala"
+    open-pull-requests-limit: 3
+    labels:
+      - "dependencies"
+    groups:
+      next-worker-dependencies:
+        patterns:
+          - "*"
+
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
