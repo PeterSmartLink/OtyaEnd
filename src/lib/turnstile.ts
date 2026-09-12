@@ -1,8 +1,11 @@
 import { getCloudflareContext } from '@opennextjs/cloudflare'
 import { NextRequest } from 'next/server'
 
+const TURNSTILE_VERIFY_TIMEOUT_MS = 8000
+
 type TurnstileVerification = {
   success?: boolean
+  hostname?: string
   'error-codes'?: string[]
 }
 
@@ -21,6 +24,15 @@ export async function getTurnstilePublicConfig() {
     ? env.TURNSTILE_SITE_KEY.trim()
     : ''
   return { turnstile: Boolean(siteKey), siteKey }
+}
+
+function invalidTurnstile(): TurnstileResult {
+  return {
+    ok: false,
+    status: 403,
+    error: 'The security check could not be verified. Please try again.',
+    code: 'TURNSTILE_INVALID',
+  }
 }
 
 export async function verifyTurnstileToken(
@@ -62,6 +74,7 @@ export async function verifyTurnstileToken(
       method: 'POST',
       body: form,
       cache: 'no-store',
+      signal: AbortSignal.timeout(TURNSTILE_VERIFY_TIMEOUT_MS),
     })
   } catch {
     return {
@@ -82,13 +95,17 @@ export async function verifyTurnstileToken(
   }
 
   const result = await response.json().catch(() => ({})) as TurnstileVerification
-  if (result.success !== true) {
-    return {
-      ok: false,
-      status: 403,
-      error: 'The security check could not be verified. Please try again.',
-      code: 'TURNSTILE_INVALID',
-    }
+  if (result.success !== true) return invalidTurnstile()
+
+  // A valid Turnstile proof is also bound to the hostname where the browser
+  // challenge was solved. This prevents a token minted on another allowed
+  // Turnstile hostname from being replayed against an Otya auth endpoint.
+  const expectedHostname = request.nextUrl.hostname.trim().toLowerCase()
+  const verifiedHostname = typeof result.hostname === 'string'
+    ? result.hostname.trim().toLowerCase()
+    : ''
+  if (!expectedHostname || verifiedHostname !== expectedHostname) {
+    return invalidTurnstile()
   }
 
   return { ok: true }
