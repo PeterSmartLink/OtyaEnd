@@ -7,8 +7,9 @@ import { handleOwnerActions } from './owner-actions.mjs'
 import { handleOwnerConsole } from './owner-console.mjs'
 
 const FAST_MODEL='@cf/meta/llama-3.1-8b-instruct-fast'
+const PROVIDER_TIMEOUT_MS=8000
+const MAX_CHURN_SIGNALS=50
 const output=r=>typeof r?.response==='string'?r.response.trim():''
-const parse=s=>{try{const m=String(s||'').match(/\{[\s\S]*\}/);return m?JSON.parse(m[0]):null}catch{return null}}
 const clean=(v,max=2000)=>String(v??'').replace(/[\u0000-\u001f]/g,' ').trim().slice(0,max)
 const crashEmailDetail=(v,max=420)=>clean(v,max)
   .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi,'[redacted-email]')
@@ -57,6 +58,7 @@ async function email(env,subject,text){
       subject,
       text,
     }),
+    signal:AbortSignal.timeout(PROVIDER_TIMEOUT_MS),
   })
   if(!r.ok)throw new Error(`Resend HTTP ${r.status}`)
 }
@@ -206,15 +208,37 @@ async function urgent(env){
   if(env.KV)await env.KV.put(key,'1',{expirationTtl:7200})
 }
 
+function churnRisk(days){
+  if(days>=12)return{risk:'high',reason:`No registered Otya activity for ${days} days.`}
+  if(days>=10)return{risk:'medium',reason:`No registered Otya activity for ${days} days.`}
+  return{risk:'low',reason:`No registered Otya activity for ${days} days.`}
+}
+
 async function churnSignals(env){
-  const {results=[]}=await env.DB.prepare("SELECT DISTINCT user_id FROM devices WHERE user_id IS NOT NULL AND last_seen_at>=datetime('now','-14 days') AND last_seen_at<datetime('now','-7 days') LIMIT 500").all()
+  if(!env.DB?.prepare||!env.KV?.put)return
+  const {results=[]}=await env.DB.prepare(`
+    SELECT user_id, MAX(last_seen_at) AS last_seen_at
+    FROM devices
+    WHERE user_id IS NOT NULL
+    GROUP BY user_id
+    HAVING MAX(last_seen_at)>=datetime('now','-14 days')
+       AND MAX(last_seen_at)<datetime('now','-7 days')
+    ORDER BY last_seen_at ASC
+    LIMIT ?
+  `).bind(MAX_CHURN_SIGNALS).all()
+
   for(const row of results){
-    const id=row.user_id;if(!id)continue
-    const d=await env.DB.prepare('SELECT last_seen_at FROM devices WHERE user_id=? ORDER BY last_seen_at DESC LIMIT 1').bind(id).first()
-    const days=Math.max(0,Math.floor((Date.now()-new Date(d?.last_seen_at||0).getTime())/86400000))
-    let risk={risk:'unknown',reason:'No model result'}
-    try{const r=await env.AI.run(env.OTYA_REPORT_MODEL||FAST_MODEL,{messages:[{role:'system',content:'Estimate churn risk from supplied activity only. JSON only: {"risk":"low|medium|high","reason":"brief"}. Do not recommend or send outreach.'},{role:'user',content:`Days since last seen: ${days}`}]});risk=parse(output(r))||risk}catch{}
-    await env.KV.put(`ai:churn:${id}`,JSON.stringify({risk:risk.risk||'unknown',reason:String(risk.reason||'').slice(0,300),updated_at:new Date().toISOString()}),{expirationTtl:604800})
+    const id=row.user_id
+    if(!id)continue
+    const lastSeen=new Date(row.last_seen_at||0).getTime()
+    if(!Number.isFinite(lastSeen)||lastSeen<=0)continue
+    const days=Math.max(0,Math.floor((Date.now()-lastSeen)/86400000))
+    const risk=churnRisk(days)
+    await env.KV.put(`ai:churn:${id}`,JSON.stringify({
+      risk:risk.risk,
+      reason:risk.reason,
+      updated_at:new Date().toISOString(),
+    }),{expirationTtl:604800})
   }
 }
 
