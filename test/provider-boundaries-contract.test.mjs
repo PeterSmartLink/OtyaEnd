@@ -23,6 +23,18 @@ test('support inbox stays inside Free Worker subrequest budget and uses migratio
   assert.match(migration, /CREATE TABLE IF NOT EXISTS ai_support_audit/)
 })
 
+test('support summary reads Gmail message IDs instead of mixing Resend receiving IDs', () => {
+  const source = read('ai-worker/src/support-email.mjs')
+  const summary = source.match(/async function handleSummary\(env,url\)[\s\S]*?async function handleAudit/)?.[0] ?? ''
+  assert.ok(summary, 'support summary implementation must be present')
+  assert.match(summary, /SUPPORT_SUMMARY_LIMIT/)
+  assert.match(summary, /listGmailMessages/)
+  assert.match(summary, /getGmailMessage/)
+  assert.match(summary, /provider:'gmail'/)
+  assert.doesNotMatch(summary, /emails\/receiving/)
+  assert.doesNotMatch(summary, /resend\(/)
+})
+
 test('Google Drive backup provider calls are bounded and do not surface raw provider bodies', () => {
   const source = read('auth-worker/src/drive.ts')
   assert.match(source, /DRIVE_TIMEOUT_MS = 8000/)
