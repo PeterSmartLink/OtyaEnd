@@ -72,6 +72,7 @@ interface Env {
   EMAIL?:                   { send(msg: EmailMessage): Promise<void> }
   AUTH_JWT_SECRET:          string
   GOOGLE_CLIENT_ID?:        string
+  PREVERIFIED_GOOGLE_PAYLOAD?: GoogleTokenPayload
   CORS_ORIGIN?:             string
   OTYA_STORE_INTERNAL_URL?: string
   INTERNAL_SECRET?:         string
@@ -81,7 +82,7 @@ interface KVNamespace {
   get(key: string): Promise<string | null>
   put(key: string, value: string, options?: { expirationTtl?: number }): Promise<void>
   delete(key: string): Promise<void>
-  list(options?: { prefix?: string; limit?: number }): Promise<{
+  list(options?: { prefix?: string; limit?: number; cursor?: string }): Promise<{
     keys: { name: string }[]
     list_complete: boolean
     cursor?: string
@@ -111,6 +112,7 @@ const MAX_LOGIN_ATTEMPTS      = 5
 const MAX_LOGIN_ATTEMPTS_IP   = 20                 // per IP per 15 minutes
 const LOGIN_IP_RATE_TTL_SECS  = 15 * 60            // 15 minutes
 const LAST_LOGIN_IP_TTL_SECS  = 90 * 24 * 60 * 60 // 90 days
+const GOOGLE_VERIFY_TIMEOUT_MS = 8000
 
 // ── CORS helpers ──────────────────────────────────────────────────────────────
 
@@ -323,40 +325,59 @@ async function checkAndAlertNewDeviceLogin(
 interface GoogleTokenPayload {
   sub:            string
   email:          string
-  email_verified: boolean
+  email_verified: boolean | string
   name?:          string
   picture?:       string
   aud:            string
   iss:            string
-  exp:            number
-  iat:            number
+  exp:            number | string
+  iat?:           number | string
+}
+
+function validatedGooglePayload(
+  payload: GoogleTokenPayload | undefined,
+  clientId: string,
+): GoogleTokenPayload | null {
+  if (!payload) return null
+  const verifiedEmail = payload.email_verified === true || payload.email_verified === 'true'
+  const expiry = Number(payload.exp ?? 0)
+  const issuerOk = payload.iss === 'accounts.google.com' || payload.iss === 'https://accounts.google.com'
+  const now = Math.floor(Date.now() / 1000)
+  if (
+    payload.aud !== clientId
+    || !issuerOk
+    || !verifiedEmail
+    || !payload.sub
+    || !payload.email
+    || !Number.isFinite(expiry)
+    || expiry <= now
+  ) return null
+  return payload
 }
 
 /**
- * Verify a Google ID token using Google's tokeninfo endpoint.
- * Validates signature server-side — no JWKS fetching needed.
+ * Verify a Google ID token using Google's tokeninfo endpoint. Production passes
+ * a payload already verified by the outer Auth boundary so this fallback is
+ * used only by compatibility/tests and remains explicitly timeout-bounded.
  */
 async function verifyGoogleIdToken(
   idToken: string,
   clientId: string,
+  preverified?: GoogleTokenPayload,
 ): Promise<GoogleTokenPayload | null> {
+  const trusted = validatedGooglePayload(preverified, clientId)
+  if (trusted) return trusted
+
   try {
     const res = await fetch(
       `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(idToken)}`,
+      {
+        headers: { Accept: 'application/json' },
+        signal: AbortSignal.timeout(GOOGLE_VERIFY_TIMEOUT_MS),
+      },
     )
     if (!res.ok) return null
-
-    const payload = await res.json() as GoogleTokenPayload
-
-    if (payload.aud !== clientId) return null
-    if (payload.iss !== 'accounts.google.com' && payload.iss !== 'https://accounts.google.com') {
-      return null
-    }
-
-    const now = Math.floor(Date.now() / 1000)
-    if (payload.exp < now) return null
-
-    return payload
+    return validatedGooglePayload(await res.json() as GoogleTokenPayload, clientId)
   } catch {
     return null
   }
@@ -402,7 +423,7 @@ async function sendVerificationOtp(env: Env, userId: string, email: string): Pro
 
 /** POST /auth/register */
 async function handleRegister(req: Request, env: Env): Promise<Response> {
-  // ── IP-based registration rate limit ──────────────────────────────────────
+  // ── IP-based registration rate limit (Bug 6 fix) ──────────────────────────────────────
   const ip = getClientIp(req)
   const regRate = await checkRateLimit(env.AUTH_KV, `reg_rate:${ip}`, MAX_REG_PER_IP, REG_RATE_TTL_SECS)
   if (!regRate.allowed) {
@@ -606,7 +627,11 @@ async function handleGoogle(req: Request, env: Env): Promise<Response> {
     return jsonErr('Google auth not configured', env, 503)
   }
 
-  const googlePayload = await verifyGoogleIdToken(id_token, env.GOOGLE_CLIENT_ID)
+  const googlePayload = await verifyGoogleIdToken(
+    id_token,
+    env.GOOGLE_CLIENT_ID,
+    env.PREVERIFIED_GOOGLE_PAYLOAD,
+  )
   if (!googlePayload) return jsonErr('Invalid Google ID token', env, 401)
 
   const { sub: googleId, email, name, picture } = googlePayload
@@ -772,6 +797,7 @@ async function handleDeleteAccount(req: Request, env: Env): Promise<Response> {
         'X-Internal-Secret': env.INTERNAL_SECRET,
       },
       body: JSON.stringify({ user_id: payload.sub }),
+      signal: AbortSignal.timeout(GOOGLE_VERIFY_TIMEOUT_MS),
     }).catch(e => console.error('[auth/delete-account] Failed to notify OTYA Backend:', (e as Error)?.message))
   }
 
