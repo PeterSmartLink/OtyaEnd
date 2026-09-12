@@ -6,71 +6,25 @@ const SUPPORT_ADDRESS = 'support@petersmartlink.com'
 const DEFAULT_MODEL = '@cf/meta/llama-3.1-8b-instruct-fast'
 const PROVIDER_TIMEOUT_MS = 8000
 const SUPPORT_INBOX_LIMIT = 20
+const SUPPORT_SUMMARY_LIMIT = 10
 
-const json = (data, status = 200) => new Response(JSON.stringify(data), {
-  status,
-  headers: {
-    'Content-Type': 'application/json; charset=utf-8',
-    'Cache-Control': 'no-store',
-    'X-Content-Type-Options': 'nosniff',
-  },
-})
-
-const clean = (value, max = 8000) => String(value ?? '')
-  .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, ' ')
-  .trim()
-  .slice(0, max)
-
-const aiText = (result) => typeof result?.response === 'string'
-  ? result.response
-  : (typeof result?.choices?.[0]?.message?.content === 'string' ? result.choices[0].message.content : '')
-
-const parseJson = (text) => {
-  try {
-    const match = String(text ?? '').match(/\{[\s\S]*\}/)
-    return match ? JSON.parse(match[0]) : null
-  } catch { return null }
-}
-
-function internalAuthorized(request, env) {
-  if (!env.INTERNAL_SECRET) return false
-  const supplied = request.headers.get('X-OTYA-Internal-Secret') || ''
-  return supplied.length > 20 && supplied === env.INTERNAL_SECRET
-}
-function requireResend(env) { if (!env.RESEND_API_KEY) throw new Error('RESEND_API_KEY is not configured') }
-async function resend(env, path, init = {}) {
-  requireResend(env)
-  const response = await fetch(`${RESEND_API}${path}`, {
-    ...init,
-    signal: init.signal ?? AbortSignal.timeout(PROVIDER_TIMEOUT_MS),
-    headers: { Authorization: `Bearer ${env.RESEND_API_KEY}`, 'Content-Type': 'application/json', ...(init.headers || {}) },
-  })
-  const data = await response.json().catch(() => ({}))
-  if (!response.ok) throw new Error(clean(data?.message || data?.name || `Resend HTTP ${response.status}`, 500))
-  return data
-}
-function extractAddress(value) { const raw=String(value??'').trim(); const bracket=raw.match(/<([^<>\s]+@[^<>\s]+)>/); const candidate=bracket?.[1]||raw; const match=candidate.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i); return match?.[0]?.toLowerCase()||'' }
-async function runAi(env,messages){ if(!env.AI?.run)throw new Error('AI binding unavailable'); const result=await env.AI.run(env.OTYA_AI_MODEL||DEFAULT_MODEL,{messages}); return clean(aiText(result),10000) }
-
+const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}})
+const clean=(value,max=8000)=>String(value??'').replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g,' ').trim().slice(0,max)
+const aiText=result=>typeof result?.response==='string'?result.response:(typeof result?.choices?.[0]?.message?.content==='string'?result.choices[0].message.content:'')
+const parseJson=text=>{try{const match=String(text??'').match(/\{[\s\S]*\}/);return match?JSON.parse(match[0]):null}catch{return null}}
+function internalAuthorized(request,env){if(!env.INTERNAL_SECRET)return false;const supplied=request.headers.get('X-OTYA-Internal-Secret')||'';return supplied.length>20&&supplied===env.INTERNAL_SECRET}
+function requireResend(env){if(!env.RESEND_API_KEY)throw new Error('RESEND_API_KEY is not configured')}
+async function resend(env,path,init={}){requireResend(env);const response=await fetch(`${RESEND_API}${path}`,{...init,signal:init.signal??AbortSignal.timeout(PROVIDER_TIMEOUT_MS),headers:{Authorization:`Bearer ${env.RESEND_API_KEY}`,'Content-Type':'application/json',...(init.headers||{})}});const data=await response.json().catch(()=>({}));if(!response.ok)throw new Error(clean(data?.message||data?.name||`Resend HTTP ${response.status}`,500));return data}
+function extractAddress(value){const raw=String(value??'').trim();const bracket=raw.match(/<([^<>\s]+@[^<>\s]+)>/);const candidate=bracket?.[1]||raw;const match=candidate.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);return match?.[0]?.toLowerCase()||''}
+async function runAi(env,messages){if(!env.AI?.run)throw new Error('AI binding unavailable');const result=await env.AI.run(env.OTYA_AI_MODEL||DEFAULT_MODEL,{messages});return clean(aiText(result),10000)}
 async function audit(env,row){try{await env.DB.prepare(`INSERT INTO ai_support_audit (received_email_id,sender_email,subject,action,risk,draft_text,resend_email_id) VALUES (?,?,?,?,?,?,?)`).bind(row.emailId||null,row.sender||null,clean(row.subject,500)||null,clean(row.action,40),clean(row.risk,30)||null,clean(row.draft,8000)||null,row.resendId||null).run()}catch(error){console.warn('[support-email] audit failed:',error?.message)}}
-
 async function requireSupportInbox(env){const status=await gmailStatus(env);if(!status.connected)throw new Error('Connect the support Gmail account in Next settings before reading support mail')}
-async function listInbox(env,url){await requireSupportInbox(env);const requested=Number.parseInt(url.searchParams.get('limit')||'20',10);const limit=Math.max(1,Math.min(Number.isFinite(requested)?requested:20,SUPPORT_INBOX_LIMIT));const rows=await listGmailMessages(env,`to:${SUPPORT_ADDRESS} in:inbox`,limit);const emails=rows.map((email)=>({id:email.id,thread_id:email.threadId,from:email.from,from_email:extractAddress(email.from),to:[email.to].filter(Boolean),subject:email.subject,created_at:email.date,message_id:'',attachments:[]}));return json({ok:true,provider:'gmail',emails,has_more:false})}
+async function listInbox(env,url){await requireSupportInbox(env);const requested=Number.parseInt(url.searchParams.get('limit')||'20',10);const limit=Math.max(1,Math.min(Number.isFinite(requested)?requested:20,SUPPORT_INBOX_LIMIT));const rows=await listGmailMessages(env,`to:${SUPPORT_ADDRESS} in:inbox`,limit);const emails=rows.map(email=>({id:email.id,thread_id:email.threadId,from:email.from,from_email:extractAddress(email.from),to:[email.to].filter(Boolean),subject:email.subject,created_at:email.date,message_id:'',attachments:[]}));return json({ok:true,provider:'gmail',emails,has_more:false})}
 async function getReceivedEmail(env,emailId){await requireSupportInbox(env);const data=await getGmailMessage(env,emailId);return{id:data.id,thread_id:data.threadId,from:data.from,from_email:extractAddress(data.reply_to)||extractAddress(data.from),to:[data.to].filter(Boolean),subject:data.subject,text:clean(data.text,12000),created_at:data.date,message_id:data.message_id,reply_to:[data.reply_to].filter(Boolean),attachments:data.attachments||[]}}
-
-async function draftReply(env,email,instruction=''){
-  if(!email.from_email)throw new Error('Could not determine sender email address')
-  const system=`You are the private Otya Support drafting assistant. Draft a personal human-quality email reply to an Otya user. Be warm, concise, technically accurate and specific to the user's message. Never request passwords, OTPs, JWTs, API keys, card/payment credentials or private keys. Never claim an account action, refund, deletion, outage, release or bug fix happened unless the supplied message proves it. Do not promise compensation. For security, billing disputes, legal threats, account deletion, data export, suspected compromise or anything requiring identity verification, mark risk high and explain that a human must approve. Return JSON only with keys: reply, risk (low|medium|high), reason, category, requires_human (boolean). Do not include a subject line in reply.`
-  const user=[`From: ${email.from}`,`Subject: ${email.subject||'(no subject)'}`,'','Customer message:',email.text||'(empty message)',instruction?`\nOwner instruction: ${clean(instruction,1500)}`:''].join('\n')
-  const parsed=parseJson(await runAi(env,[{role:'system',content:system},{role:'user',content:user}]))||{}
-  const reply=clean(parsed.reply,8000);if(!reply)throw new Error('AI did not produce a usable reply')
-  const risk=['low','medium','high'].includes(parsed.risk)?parsed.risk:'medium'
-  return{reply,risk,reason:clean(parsed.reason,800),category:clean(parsed.category,100)||'support',requires_human:parsed.requires_human!==false||risk!=='low'}
-}
+async function draftReply(env,email,instruction=''){if(!email.from_email)throw new Error('Could not determine sender email address');const system=`You are the private Otya Support drafting assistant. Draft a personal human-quality email reply to an Otya user. Be warm, concise, technically accurate and specific to the user's message. Never request passwords, OTPs, JWTs, API keys, card/payment credentials or private keys. Never claim an account action, refund, deletion, outage, release or bug fix happened unless the supplied message proves it. Do not promise compensation. For security, billing disputes, legal threats, account deletion, data export, suspected compromise or anything requiring identity verification, mark risk high and explain that a human must approve. Return JSON only with keys: reply, risk (low|medium|high), reason, category, requires_human (boolean). Do not include a subject line in reply.`;const user=[`From: ${email.from}`,`Subject: ${email.subject||'(no subject)'}`,'','Customer message:',email.text||'(empty message)',instruction?`\nOwner instruction: ${clean(instruction,1500)}`:''].join('\n');const parsed=parseJson(await runAi(env,[{role:'system',content:system},{role:'user',content:user}]))||{};const reply=clean(parsed.reply,8000);if(!reply)throw new Error('AI did not produce a usable reply');const risk=['low','medium','high'].includes(parsed.risk)?parsed.risk:'medium';return{reply,risk,reason:clean(parsed.reason,800),category:clean(parsed.category,100)||'support',requires_human:parsed.requires_human!==false||risk!=='low'}}
 async function handleDraft(request,env){let body;try{body=await request.json()}catch{return json({error:'Invalid JSON'},400)}const emailId=clean(body?.email_id,200);if(!emailId)return json({error:'email_id is required'},400);const email=await getReceivedEmail(env,emailId);const draft=await draftReply(env,email,body?.instruction);await audit(env,{emailId,sender:email.from_email,subject:email.subject,action:'draft',risk:draft.risk,draft:draft.reply});return json({ok:true,email,draft})}
 function safeReplySubject(subject){const value=clean(subject,450)||'Your Otya support request';return /^re:/i.test(value)?value:`Re: ${value}`}
 async function handleSend(request,env){let body;try{body=await request.json()}catch{return json({error:'Invalid JSON'},400)}const emailId=clean(body?.email_id,200);const reply=clean(body?.reply,8000);if(!emailId||!reply)return json({error:'email_id and reply are required'},400);const email=await getReceivedEmail(env,emailId);const recipient=email.from_email;if(!recipient||recipient===SUPPORT_ADDRESS)return json({error:'Invalid recipient'},400);const data=await resend(env,'/emails',{method:'POST',body:JSON.stringify({from:SUPPORT_FROM,to:[recipient],reply_to:SUPPORT_ADDRESS,subject:safeReplySubject(email.subject),text:reply,headers:email.message_id?{'In-Reply-To':email.message_id,References:email.message_id}:undefined,tags:[{name:'source',value:'otya-ai-support'},{name:'mode',value:'admin-approved'}]})});await audit(env,{emailId,sender:recipient,subject:email.subject,action:'sent',risk:clean(body?.risk,30),draft:reply,resendId:data?.id});return json({ok:true,sent:true,id:data?.id,to:recipient})}
-async function handleSummary(env,url){const requested=Number.parseInt(url.searchParams.get('limit')||'10',10);const limit=Math.max(1,Math.min(Number.isFinite(requested)?requested:10,20));const inbox=await resend(env,`/emails/receiving?limit=${limit}`);const refs=Array.isArray(inbox?.data)?inbox.data.slice(0,limit):[];const details=[];for(const item of refs){try{const email=await getReceivedEmail(env,item.id);details.push({id:email.id,from:email.from,subject:email.subject,text:email.text.slice(0,1600),created_at:email.created_at})}catch(error){console.warn('[support-email] could not read email:',item?.id,error?.message)}}if(!details.length)return json({ok:true,summary:'No received support emails were found.',emails:[]});const summary=await runAi(env,[{role:'system',content:'Summarize these recent Otya support emails for the owner. Group similar issues, identify urgent/security-sensitive messages, and recommend which need replies first. Do not invent facts. Be concise.'},{role:'user',content:details.map((e,i)=>`${i+1}. ${e.from} | ${e.subject}\n${e.text}`).join('\n\n')}]);return json({ok:true,summary,emails:details.map(({text,...rest})=>rest)})}
+async function handleSummary(env,url){await requireSupportInbox(env);const requested=Number.parseInt(url.searchParams.get('limit')||String(SUPPORT_SUMMARY_LIMIT),10);const limit=Math.max(1,Math.min(Number.isFinite(requested)?requested:SUPPORT_SUMMARY_LIMIT,SUPPORT_SUMMARY_LIMIT));const refs=await listGmailMessages(env,`to:${SUPPORT_ADDRESS} in:inbox`,limit);const details=[];for(const item of refs){try{const email=await getGmailMessage(env,item.id);details.push({id:email.id,from:email.from,subject:email.subject,text:clean(email.text||item.snippet,1600),created_at:email.date})}catch(error){console.warn('[support-email] could not read Gmail message:',item?.id,error?.message)}}if(!details.length)return json({ok:true,provider:'gmail',summary:'No received support emails were found.',emails:[]});const summary=await runAi(env,[{role:'system',content:'Summarize these recent Otya support emails for the owner. Group similar issues, identify urgent/security-sensitive messages, and recommend which need replies first. Do not invent facts. Be concise.'},{role:'user',content:details.map((e,i)=>`${i+1}. ${e.from} | ${e.subject}\n${e.text}`).join('\n\n')}]);return json({ok:true,provider:'gmail',summary,emails:details.map(({text,...rest})=>rest)})}
 async function handleAudit(env,url){const requested=Number.parseInt(url.searchParams.get('limit')||'30',10);const limit=Math.max(1,Math.min(Number.isFinite(requested)?requested:30,100));const{results=[]}=await env.DB.prepare(`SELECT id, received_email_id, sender_email, subject, action, risk, resend_email_id, created_at FROM ai_support_audit ORDER BY id DESC LIMIT ?`).bind(limit).all();return json({ok:true,audit:results})}
-
 export async function handleSupportEmailAdmin(request,env){if(!internalAuthorized(request,env)){if(!env.INTERNAL_SECRET)return json({error:'AI admin channel is not configured'},503);return json({error:'Unauthorized'},401)}const url=new URL(request.url);try{if(url.pathname==='/api/admin/ai/support/inbox'&&request.method==='GET')return await listInbox(env,url);if(url.pathname==='/api/admin/ai/support/summary'&&request.method==='GET')return await handleSummary(env,url);if(url.pathname==='/api/admin/ai/support/audit'&&request.method==='GET')return await handleAudit(env,url);if(url.pathname==='/api/admin/ai/support/email'&&request.method==='GET'){const id=clean(url.searchParams.get('id'),200);if(!id)return json({error:'id is required'},400);return json({ok:true,email:await getReceivedEmail(env,id)})}if(url.pathname==='/api/admin/ai/support/draft'&&request.method==='POST')return await handleDraft(request,env);if(url.pathname==='/api/admin/ai/support/send'&&request.method==='POST')return await handleSend(request,env);return json({error:'Not found'},404)}catch(error){console.error('[support-email] request failed:',error?.message??error);return json({error:'Support email operation failed',detail:clean(error?.message,500)},502)}}
