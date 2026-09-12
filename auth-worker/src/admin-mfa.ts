@@ -22,6 +22,8 @@ const OTP_MAX_SENDS = 5
 const OTP_MAX_ATTEMPTS = 8
 const TELEGRAM_WINDOW_TTL = 10 * 60
 const COMPLETE_TTL = 5 * 60
+const OWNER_GRANT_TTL = 60 * 60
+const OWNER_GRANT_HEADER = 'X-OTYA-Owner-Grant'
 
 function json(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), {
@@ -55,7 +57,7 @@ async function bump(env: AdminMfaEnv, key: string, max: number, ttl: number): Pr
   return true
 }
 
-function randomToken(bytes = 24): string {
+function randomToken(bytes = 32): string {
   const data = crypto.getRandomValues(new Uint8Array(bytes))
   let binary = ''
   for (const byte of data) binary += String.fromCharCode(byte)
@@ -66,11 +68,18 @@ function toHex(bytes: Uint8Array): string {
   return Array.from(bytes).map(byte => byte.toString(16).padStart(2, '0')).join('')
 }
 
+async function digest(value: string): Promise<string> {
+  const raw = new TextEncoder().encode(value)
+  const hashed = await crypto.subtle.digest('SHA-256', raw)
+  return toHex(new Uint8Array(hashed))
+}
+
 async function otpDigest(userId: string, otp: string): Promise<string> {
-  const normalized = otp.trim().toUpperCase()
-  const data = new TextEncoder().encode(`otya-admin-mfa:${userId}:${normalized}`)
-  const digest = await crypto.subtle.digest('SHA-256', data)
-  return toHex(new Uint8Array(digest))
+  return digest(`otya-admin-mfa:${userId}:${otp.trim().toUpperCase()}`)
+}
+
+async function ownerGrantDigest(userId: string, token: string): Promise<string> {
+  return digest(`otya-owner-grant:${userId}:${token.trim()}`)
 }
 
 function timingSafeEqual(a: string, b: string): boolean {
@@ -82,8 +91,27 @@ function timingSafeEqual(a: string, b: string): boolean {
 
 async function requireAllowedAdmin(request: Request, env: AdminMfaEnv) {
   const user = await currentUser(request, env)
-  if (!user?.email || !allowlist(env).has(user.email!.toLowerCase())) return null
+  if (!user?.email || !allowlist(env).has(user.email.toLowerCase())) return null
   return user
+}
+
+async function issueMobileOwnerGrant(env: AdminMfaEnv, userId: string): Promise<string> {
+  const grant = randomToken()
+  await env.AUTH_KV.put(
+    `admin_owner_grant:${userId}`,
+    await ownerGrantDigest(userId, grant),
+    { expirationTtl: OWNER_GRANT_TTL },
+  )
+  return grant
+}
+
+async function verifyMobileOwnerGrant(request: Request, env: AdminMfaEnv, userId: string): Promise<boolean> {
+  const grant = request.headers.get(OWNER_GRANT_HEADER)?.trim() ?? ''
+  if (!grant) return false
+  const stored = await env.AUTH_KV.get(`admin_owner_grant:${userId}`)
+  if (!stored) return false
+  const supplied = await ownerGrantDigest(userId, grant)
+  return timingSafeEqual(stored, supplied)
 }
 
 export async function consumeAdminMfaCompletion(request: Request, env: AdminMfaEnv): Promise<{ ok: boolean; email?: string }> {
@@ -164,6 +192,31 @@ export async function handleAdminMfa(request: Request, env: AdminMfaEnv): Promis
     if (!marker) return json({ error: 'Complete Telegram verification first.' }, 401)
     await env.AUTH_KV.delete(`admin_mfa_complete:${user.id}`)
     return json({ ok: true, email: user.email!.toLowerCase() })
+  }
+
+  if (url.pathname === '/auth/admin/mobile-grant') {
+    const marker = await env.AUTH_KV.get(`admin_mfa_complete:${user.id}`)
+    if (!marker) return json({ error: 'Complete Telegram verification first.' }, 401)
+    await env.AUTH_KV.delete(`admin_mfa_complete:${user.id}`)
+    const grant = await issueMobileOwnerGrant(env, user.id)
+    return json({
+      ok: true,
+      email: user.email!.toLowerCase(),
+      owner_grant: grant,
+      expires_in: OWNER_GRANT_TTL,
+    })
+  }
+
+  if (url.pathname === '/auth/admin/verify-grant') {
+    const ok = await verifyMobileOwnerGrant(request, env, user.id)
+    return ok
+      ? json({ ok: true, email: user.email!.toLowerCase(), expires_in: OWNER_GRANT_TTL })
+      : json({ error: 'Owner verification is required.' }, 401)
+  }
+
+  if (url.pathname === '/auth/admin/revoke-grant') {
+    await env.AUTH_KV.delete(`admin_owner_grant:${user.id}`)
+    return json({ ok: true })
   }
 
   return json({ error: 'Not found' }, 404)
