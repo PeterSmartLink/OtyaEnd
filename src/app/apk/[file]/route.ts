@@ -9,6 +9,7 @@ const LATEST_MAP: Record<string, string> = {
 const LEGACY_VERSION_RE = /^\d+\.\d+\.\d+$/
 const BUILD_TAG_RE = /^v\d+\.\d+\.\d+\+[1-9]\d*$/
 const DOWNLOAD_RATE_WINDOW_SECONDS = 60
+const APK_CONTENT_TYPE = 'application/vnd.android.package-archive'
 
 type DownloadKV = {
   get(key: string): Promise<string | null>
@@ -163,8 +164,11 @@ export async function GET(
 
     const filename = `Otya-${file}.apk`
     const headers = new Headers()
-    const contentType = object.httpMetadata?.contentType ?? 'application/vnd.android.package-archive'
-    headers.set('Content-Type', contentType)
+    // This endpoint is an APK authority, not a generic R2 object proxy. Never
+    // trust stale or incorrect object metadata to change how Android handles
+    // the response.
+    headers.set('Content-Type', APK_CONTENT_TYPE)
+    headers.set('X-Content-Type-Options', 'nosniff')
     headers.set('Content-Disposition', `attachment; filename="${filename}"`)
     if (object.size > 0) headers.set('Content-Length', String(object.size))
     headers.set(
