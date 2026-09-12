@@ -1,5 +1,6 @@
 import { handleConsoleAdmin } from './console-tools.mjs'
 import { handleOwnerActions, latestPendingOwnerAction } from './owner-actions.mjs'
+import { handleSupportEmailAdmin } from './support-email.mjs'
 
 const clean = (value, max = 5000) => String(value ?? '')
   .replace(/[\u0000-\u001f]/g, ' ')
@@ -41,17 +42,17 @@ function isChatPath(url, method) {
 }
 
 function approvalIntent(message) {
-  return /^(approve|approve it|yes approve|yes, approve|go ahead|send it|post it|publish it|do it)$/i
+  return /^(approve|approve it|yes approve|yes, approve|go ahead|send it|post it|publish it|do it|confirm|confirm it)$/i
     .test(message.trim())
 }
 
 function cancellationIntent(message) {
-  return /^(cancel|cancel it|don't send it|do not send it|don't post it|do not post it)$/i
+  return /^(cancel|cancel it|stop|don't send it|do not send it|don't post it|do not post it)$/i
     .test(message.trim())
 }
 
 function mayContainWriteIntent(message) {
-  return /\b(telegram|channel|email|send|post|publish|announce|announcement)\b/i.test(message)
+  return /\b(telegram|channel|email|send|post|publish|announce|announcement|reply|respond|support|customer)\b/i.test(message)
 }
 
 async function actionRequest(request, path, body) {
@@ -65,17 +66,31 @@ async function actionRequest(request, path, body) {
   })
 }
 
+function supportRequest(request, path, { method = 'GET', body } = {}) {
+  const headers = new Headers({ Accept: 'application/json' })
+  const secret = request.headers.get('X-OTYA-Internal-Secret')
+  if (secret) headers.set('X-OTYA-Internal-Secret', secret)
+  if (body !== undefined) headers.set('Content-Type', 'application/json')
+  return new Request(`https://otya.internal${path}`, {
+    method,
+    headers,
+    body: body === undefined ? undefined : JSON.stringify(body),
+  })
+}
+
 async function routeWriteIntent(env, message) {
   if (!env.AI?.run || !mayContainWriteIntent(message)) return null
   const system = `You route explicit owner write requests for OTYA. Return JSON only.
 Supported actions:
 - telegram_post: only when the owner clearly asks to post/publish/send an announcement to the official OTYA Telegram channel.
 - owner_email: only when the owner clearly asks OTYA to email the owner themself. Never use this for emailing another person.
-- none: questions, drafts, plans, suggestions, reading email, asking what could be posted, or any ambiguous request.
+- support_reply: only when the owner clearly asks to reply/respond to a received OTYA support/customer email. Never use it for a new outbound email. Return a selector and the owner's reply instruction; do not invent an email ID.
+- none: questions, drafts, plans, suggestions, reading/reviewing email, support summaries, asking what could be posted, or any ambiguous request.
 For telegram_post return {"action":"telegram_post","payload":{"text":"exact professional friendly message to post"}}.
 For owner_email return {"action":"owner_email","payload":{"subject":"short subject","text":"exact email body"}}.
+For support_reply return {"action":"support_reply","payload":{"selector":"latest or words identifying sender/subject","instruction":"what the owner wants the reply to communicate"}}.
 Otherwise return {"action":"none"}.
-Never claim anything has been sent. Keep the owner's meaning; do not invent release dates, outage facts or product claims.`
+Never claim anything has been sent. Never select a support recipient yourself. Keep the owner's meaning; do not invent release dates, outage facts, fixes or product claims.`
   try {
     const result = await env.AI.run(env.OTYA_AI_MODEL || '@cf/meta/llama-3.1-8b-instruct-fast', {
       messages: [
@@ -84,7 +99,7 @@ Never claim anything has been sent. Keep the owner's meaning; do not invent rele
       ],
     })
     const routed = parse(aiText(result))
-    return routed && ['telegram_post', 'owner_email', 'none'].includes(routed.action)
+    return routed && ['telegram_post', 'owner_email', 'support_reply', 'none'].includes(routed.action)
       ? routed
       : null
   } catch {
@@ -97,7 +112,7 @@ async function approveLatest(request, env) {
   if (!pending) {
     return json({
       ok: true,
-      answer: 'There is no pending owner action to approve. Tell me what you want to send or post first.',
+      answer: 'There is no pending owner action to approve. Tell me what you want to send, post or reply to first.',
       action: null,
     })
   }
@@ -137,20 +152,115 @@ async function cancelLatest(request, env) {
   }, response.status)
 }
 
-async function prepareFromChat(request, env, routed) {
+async function prepareAction(request, env, type, payload) {
   const response = await handleOwnerActions(
-    await actionRequest(request, '/api/admin/ai/actions/prepare', {
-      type: routed.action,
-      payload: routed.payload || {},
-    }),
+    await actionRequest(request, '/api/admin/ai/actions/prepare', { type, payload }),
     env,
   )
   const data = await response.json().catch(() => ({}))
-  if (!response.ok) return json(data, response.status)
-  const action = data.action
+  if (!response.ok) return { response: json(data, response.status), action: null }
+  return { response: null, action: data.action }
+}
+
+async function prepareFromChat(request, env, routed) {
+  const prepared = await prepareAction(request, env, routed.action, routed.payload || {})
+  if (prepared.response) return prepared.response
+  const action = prepared.action
   return json({
     ok: true,
-    answer: `I prepared this action but have not executed it yet. ${action.summary}. Review the exact content below, then say “approve” or “go ahead” to execute it.`,
+    answer: `I prepared this action but have not executed it yet. ${action.summary}. Review the exact content on Next, then approve it to execute.`,
+    approval_required: true,
+    action,
+  })
+}
+
+function resolveSupportEmail(emails, selector, originalMessage) {
+  if (!Array.isArray(emails) || !emails.length) return { email: null, reason: 'empty' }
+  const raw = clean(selector, 240).toLowerCase()
+  if (!raw || /^(latest|newest|most recent|last|recent)$/i.test(raw)) {
+    return { email: emails[0], reason: 'latest' }
+  }
+
+  const candidates = emails.filter((email) => {
+    const haystack = [email?.from, email?.from_email, email?.subject]
+      .map(value => clean(value, 500).toLowerCase())
+      .join(' ')
+    return haystack.includes(raw)
+  })
+  if (candidates.length === 1) return { email: candidates[0], reason: 'selector' }
+
+  const message = clean(originalMessage, 1000).toLowerCase()
+  const exact = emails.filter((email) => {
+    const address = clean(email?.from_email, 300).toLowerCase()
+    return address && message.includes(address)
+  })
+  if (exact.length === 1) return { email: exact[0], reason: 'address' }
+  return { email: null, reason: candidates.length > 1 ? 'ambiguous' : 'not_found' }
+}
+
+async function prepareSupportReply(request, env, routed, originalMessage) {
+  const inboxResponse = await handleSupportEmailAdmin(
+    supportRequest(request, '/api/admin/ai/support/inbox?limit=10'),
+    env,
+  )
+  const inbox = await inboxResponse.json().catch(() => ({}))
+  if (!inboxResponse.ok) {
+    return json({
+      ok: true,
+      answer: clean(inbox?.detail || inbox?.error || 'I could not read the support inbox right now.', 500),
+      action: null,
+    })
+  }
+
+  const resolved = resolveSupportEmail(
+    inbox.emails,
+    routed?.payload?.selector,
+    originalMessage,
+  )
+  if (!resolved.email) {
+    const recent = Array.isArray(inbox.emails)
+      ? inbox.emails.slice(0, 3).map((email, index) => `${index + 1}. ${clean(email?.from, 120)} — ${clean(email?.subject, 120)}`).join(' | ')
+      : ''
+    return json({
+      ok: true,
+      answer: resolved.reason === 'empty'
+        ? 'There are no received support emails to reply to.'
+        : `I will not guess which customer you mean. Say “reply to the latest support email” or identify the sender or subject.${recent ? ` Recent: ${recent}` : ''}`,
+      action: null,
+    })
+  }
+
+  const draftResponse = await handleSupportEmailAdmin(
+    supportRequest(request, '/api/admin/ai/support/draft', {
+      method: 'POST',
+      body: {
+        email_id: resolved.email.id,
+        instruction: clean(routed?.payload?.instruction || originalMessage, 1500),
+      },
+    }),
+    env,
+  )
+  const draftData = await draftResponse.json().catch(() => ({}))
+  if (!draftResponse.ok || !draftData?.draft?.reply) {
+    return json({
+      ok: true,
+      answer: clean(draftData?.detail || draftData?.error || 'I could not prepare a safe support reply.', 500),
+      action: null,
+    })
+  }
+
+  const prepared = await prepareAction(request, env, 'support_reply', {
+    email_id: resolved.email.id,
+    recipient: resolved.email.from_email || resolved.email.from,
+    subject: resolved.email.subject,
+    reply: draftData.draft.reply,
+    risk: draftData.draft.risk,
+  })
+  if (prepared.response) return prepared.response
+  const action = prepared.action
+  return json({
+    ok: true,
+    answer: `I drafted a ${clean(draftData.draft.risk, 30) || 'reviewed'}-risk reply to ${clean(resolved.email.from, 180)} about “${clean(resolved.email.subject, 180)}”. Nothing has been sent. Review the exact reply on Next and approve it to send.`,
     approval_required: true,
     action,
   })
@@ -169,12 +279,13 @@ export async function handleOwnerConsole(request, env) {
   if (cancellationIntent(message)) return cancelLatest(request, env)
 
   const routed = await routeWriteIntent(env, message)
+  if (routed?.action === 'support_reply') {
+    return prepareSupportReply(request, env, routed, message)
+  }
   if (routed?.action && routed.action !== 'none') {
     return prepareFromChat(request, env, routed)
   }
 
-  // The body was consumed for write-intent routing, so rebuild the request
-  // before handing ordinary conversation back to the established Console AI.
   const forwarded = new Request(request.url, {
     method: request.method,
     headers: request.headers,
