@@ -21,10 +21,8 @@ export async function announceRelease(env, release, send = sendTelegramReleaseCa
   if (!env.TELEGRAM_BOT_TOKEN) return { status: 'not-configured' }
   if (!env.DB) return { status: 'storage-unavailable' }
   try {
-    await env.DB.prepare(`CREATE TABLE IF NOT EXISTS release_announcements (
-      tag TEXT PRIMARY KEY, status TEXT NOT NULL, message_id TEXT,
-      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-    )`).run()
+    // release_announcements is migration-owned (0009). Release publication must
+    // never execute DDL while attempting an external Telegram write.
     const reservation = await env.DB.prepare(
       "INSERT OR IGNORE INTO release_announcements (tag, status) VALUES (?, 'pending-review')",
     ).bind(release.tag).run()
@@ -38,7 +36,8 @@ export async function announceRelease(env, release, send = sendTelegramReleaseCa
       .bind(String(result.message_id), release.tag).run()
     return { status: 'sent', messageId: result.message_id }
   } catch {
-    // Do not log provider URLs, tokens or release payloads.
+    // Do not log provider URLs, tokens or release payloads. Missing migration or
+    // uncertain provider acceptance both remain reviewable instead of replayed.
     return { status: 'pending-review' }
   }
 }
