@@ -69,6 +69,17 @@ ensure_column linked_identities provider_email "TEXT"
 ensure_column linked_identities linked_at "TEXT"
 ensure_column linked_identities last_used_at "TEXT"
 
+# Durable identity security evidence. The ledger is deliberately narrow: it
+# stores event/outcome metadata and request correlation only, never credentials,
+# OTPs, request bodies or raw IP addresses.
+run_sql "CREATE TABLE IF NOT EXISTS auth_security_events (id INTEGER PRIMARY KEY AUTOINCREMENT, event_type TEXT NOT NULL, user_id TEXT, status TEXT NOT NULL, http_status INTEGER NOT NULL, request_id TEXT, created_at TEXT NOT NULL DEFAULT (datetime('now')))"
+ensure_column auth_security_events event_type "TEXT"
+ensure_column auth_security_events user_id "TEXT"
+ensure_column auth_security_events status "TEXT"
+ensure_column auth_security_events http_status "INTEGER"
+ensure_column auth_security_events request_id "TEXT"
+ensure_column auth_security_events created_at "TEXT"
+
 # Indexes are idempotent. If preserved data violates a uniqueness invariant,
 # deployment fails here so the problem is visible instead of becoming a 503.
 run_sql "CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)"
@@ -77,5 +88,7 @@ run_sql "CREATE UNIQUE INDEX IF NOT EXISTS idx_users_otya_id ON users(otya_id) W
 run_sql "CREATE UNIQUE INDEX IF NOT EXISTS idx_users_phone ON users(phone_number) WHERE phone_number IS NOT NULL"
 run_sql "CREATE INDEX IF NOT EXISTS idx_user_products_product ON user_products(product_id, last_seen_at DESC)"
 run_sql "CREATE INDEX IF NOT EXISTS idx_linked_identities_user ON linked_identities(user_id, provider)"
+run_sql "CREATE INDEX IF NOT EXISTS idx_auth_security_events_created ON auth_security_events(created_at DESC)"
+run_sql "CREATE INDEX IF NOT EXISTS idx_auth_security_events_user_created ON auth_security_events(user_id, created_at DESC) WHERE user_id IS NOT NULL"
 
 echo 'Remote OTYA auth schema is compatible.'
