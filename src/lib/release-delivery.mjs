@@ -8,11 +8,8 @@ export async function queueReleaseOnce(env, tag, message) {
   if (await env.KV?.get(marker)) {
     return { queued: false, duplicate: true, status: 'queued-legacy' }
   }
-  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS release_push_dispatch (
-    tag TEXT PRIMARY KEY, status TEXT NOT NULL,
-    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-  )`).run()
+  // release_push_dispatch is owned by the Core D1 migration ledger. Runtime
+  // delivery code must not mutate production schema while handling a release.
   const reservation = await env.DB.prepare(
     "INSERT OR IGNORE INTO release_push_dispatch (tag, status) VALUES (?, 'pending-review')",
   ).bind(tag).run()
