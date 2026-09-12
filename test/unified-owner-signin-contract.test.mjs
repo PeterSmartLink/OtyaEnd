@@ -57,7 +57,7 @@ test('Admin is a protected Space route rather than a separate public identity su
 
 test('PeterSmart Link owns the organization hierarchy while Otya remains a product', () => {
   assert.match(home, /PeterSmart Link is the developer and publisher behind Otya Player/)
-  assert.match(home, /PeterSmart Link is the developer\. Otya is a product family\./)
+  assert.match(home, /Meet Otya from PeterSmart Link\./)
   assert.match(products, /title: 'Products \| PeterSmart Link'/)
   assert.match(developers, /title: 'Developers \| PeterSmart Link'/)
   assert.match(docs, /title: 'Documentation \| PeterSmart Link'/)
