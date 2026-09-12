@@ -8,7 +8,11 @@ export default function robots(): MetadataRoute.Robots {
         allow: '/',
         disallow: [
           '/api/',
-          '/admin/',
+          '/admin',
+          '/account',
+          '/my-account',
+          '/sign-in',
+          '/telegram',
           '/auth/',
           '/apk/',
           '/apps/played',

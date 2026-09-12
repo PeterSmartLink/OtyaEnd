@@ -11,9 +11,9 @@ export const metadata: Metadata = {
 
 const publicChecks = [
   {
-    title: 'Public edge',
-    state: 'Operational',
-    detail: 'This page is being served successfully from Otya’s public edge.',
+    title: 'Website',
+    state: 'Page available',
+    detail: 'If you can read this page, this page loaded. That alone does not confirm sign-in, downloads or other services are working.',
   },
   {
     title: 'Local playback',
@@ -46,15 +46,15 @@ export default function StatusPage() {
 
         <section className="pt-14 sm:pt-20">
           <div className="text-[11px] font-black uppercase tracking-[.16em] opacity-60">Public status</div>
-          <h1 className="mt-3 text-4xl sm:text-6xl font-black tracking-[-.06em] leading-[.95]">Otya is reachable.</h1>
+          <h1 className="mt-3 text-4xl sm:text-6xl font-black tracking-[-.06em] leading-[.95]">Otya service information.</h1>
           <p className="mt-5 max-w-[700px] text-base sm:text-lg leading-8 opacity-70">
-            This page reports only safe public information. It never publishes customer data, logs, secrets,
-            internal resource names, account identifiers or private diagnostics.
+            Having trouble with Otya? Use the links below for downloads, guidance and support.
+            Live service monitoring is not displayed on this page, so it cannot confirm an outage or an all-clear.
           </p>
         </section>
 
         <section className="mt-10 grid gap-3 sm:grid-cols-3" aria-label="Public service status">
-          {publicChecks.map((check, index) => (
+          {publicChecks.map((check) => (
             <article
               key={check.title}
               className="rounded-[24px] border border-black/[.07] dark:border-white/[.09] bg-[color:var(--cosmos-surface)] p-5"
@@ -62,29 +62,29 @@ export default function StatusPage() {
               <div className="flex items-center gap-2">
                 <span
                   aria-hidden="true"
-                  className={`h-2.5 w-2.5 rounded-full ${index === 0 ? 'bg-emerald-500' : 'bg-[color:var(--cosmos-primary)]'}`}
+                  className="h-2.5 w-2.5 rounded-full bg-[color:var(--cosmos-primary)]"
                 />
                 <span className="text-xs font-black uppercase tracking-[.08em] opacity-60">{check.state}</span>
               </div>
               <h2 className="mt-4 text-lg font-black">{check.title}</h2>
-              <p className="mt-2 text-sm leading-6 opacity-68">{check.detail}</p>
+              <p className="mt-2 text-sm leading-6 otya-muted">{check.detail}</p>
             </article>
           ))}
         </section>
 
         <section className="mt-10 rounded-[28px] border border-black/[.07] dark:border-white/[.09] bg-black/[.018] dark:bg-white/[.025] p-6 sm:p-7">
           <h2 className="text-xl font-black tracking-[-.025em]">Public checks</h2>
-          <p className="mt-2 text-sm leading-6 opacity-68">
+          <p className="mt-2 text-sm leading-6 otya-muted">
             These destinations expose only information intended for customers and can be checked without private admin access.
           </p>
           <div className="mt-5 grid gap-2 sm:grid-cols-3">
             <Link href="https://petersmartlink.com" className="rounded-2xl bg-[color:var(--cosmos-surface)] px-4 py-3 text-sm font-black">Website</Link>
-            <Link href="https://petersmartlink.com/latest" className="rounded-2xl bg-[color:var(--cosmos-surface)] px-4 py-3 text-sm font-black">Release state</Link>
+            <Link href="https://petersmartlink.com/download/otya-player" className="rounded-2xl bg-[color:var(--cosmos-surface)] px-4 py-3 text-sm font-black">Downloads & updates</Link>
             <Link href="https://docs.petersmartlink.com" className="rounded-2xl bg-[color:var(--cosmos-surface)] px-4 py-3 text-sm font-black">Documentation</Link>
           </div>
         </section>
 
-        <footer className="pt-10 pb-8 text-xs leading-6 opacity-55">
+        <footer className="pt-10 pb-8 text-xs leading-6 otya-muted">
           Account-specific or private operational issues are intentionally not shown here. Use Otya Help for customer support.
         </footer>
       </div>

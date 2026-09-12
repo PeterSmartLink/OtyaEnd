@@ -8,8 +8,8 @@ test('public Status uses canonical Otya naming and exposes only safe public mean
   const status = read('src/app/status/page.tsx')
 
   assert.match(status, /title: 'Otya Status'/)
-  assert.match(status, /Otya is reachable\./)
-  assert.match(status, /never publishes customer data, logs, secrets/)
+  assert.match(status, /Otya service information\./)
+  assert.match(status, /Live service monitoring is not displayed/)
   assert.match(status, /Local playback/)
   assert.doesNotMatch(status, /OTYA/)
   assert.doesNotMatch(status, /music-provider/i)
