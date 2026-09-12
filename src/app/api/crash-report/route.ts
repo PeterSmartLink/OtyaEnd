@@ -31,6 +31,24 @@ function text(value: unknown, max: number): string | null {
   return cleaned ? cleaned.slice(0, max) : null
 }
 
+function telemetryText(value: unknown, max: number): string | null {
+  if (typeof value !== 'string') return null
+  let cleaned = value.trim().slice(0, Math.max(max * 2, max))
+  if (!cleaned) return null
+
+  cleaned = cleaned
+    .replace(/Bearer\s+[A-Za-z0-9._~+/=-]+/gi, 'Bearer <redacted>')
+    .replace(/\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b/g, '<redacted-jwt>')
+    .replace(/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi, '<redacted-email>')
+    .replace(/(?:file:\/\/)?\/(?:storage\/emulated\/\d+|sdcard)\/[^\r\n]*/gi, '<redacted-device-path>')
+    .replace(/(?:file:\/\/)?\/(?:data\/user\/\d+|data\/data)\/com\.otyaplayer\.app\/[^\r\n]*/gi, '<redacted-app-path>')
+    .replace(/(["']?(?:access_token|refresh_token|id_token|password|api_key)["']?\s*[:=]\s*)["']?[^\s,"'}&]+/gi, '$1<redacted>')
+    .replace(/([?&](?:token|key|code|secret|password)=)[^&#\s]+/gi, '$1<redacted>')
+
+  cleaned = cleaned.trim()
+  return cleaned ? cleaned.slice(0, max) : null
+}
+
 function integer(value: unknown): number | null {
   if (value == null) return null
   const parsed = Number(value)
@@ -92,8 +110,8 @@ export async function POST(req: NextRequest) {
   const appVersion  = text(body.app_version, 64)
   const versionCode = integer(body.version_code)
   const errorType   = text(body.error_type, 160)
-  const stackTrace  = text(body.stack_trace, 4000)
-  const description = text(body.description, 2000)
+  const stackTrace  = telemetryText(body.stack_trace, 4000)
+  const description = telemetryText(body.description, 2000)
 
   if (!description && !errorType) {
     return errorJson('description or error_type is required', 400)
