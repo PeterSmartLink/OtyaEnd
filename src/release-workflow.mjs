@@ -1,5 +1,6 @@
 import { WorkflowEntrypoint } from 'cloudflare:workers'
 import { announceRelease } from './lib/release-announcement.mjs'
+import { queueReleaseOnce, sendReleaseReport as sendAdminReport } from './lib/release-delivery.mjs'
 import { mirrorApkToFirebaseAppDistribution } from './lib/firebase_app_distribution'
 import { decodeWorkflowPayload } from './lib/workflow_payload.mjs'
 
@@ -85,32 +86,6 @@ function normalizePayload(raw = {}) {
     forceUpdate: raw.forceUpdate === true,
     workerUrl: normalizeWorkerUrl(raw.workerUrl),
   }
-}
-
-async function sendAdminReport(env, subject, text) {
-  if (!env.RESEND_API_KEY || !env.ADMIN_REPORT_EMAIL) {
-    return { sent: false, reason: 'RESEND_API_KEY or ADMIN_REPORT_EMAIL is not configured' }
-  }
-
-  const response = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${env.RESEND_API_KEY}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      from: 'OTYA Releases <noreply@petersmartlink.com>',
-      to: [env.ADMIN_REPORT_EMAIL],
-      subject,
-      text,
-    }),
-  })
-
-  if (!response.ok) {
-    throw new Error(`Resend admin report failed with HTTP ${response.status}`)
-  }
-  const data = await response.json().catch(() => ({}))
-  return { sent: true, id: data.id ?? null }
 }
 
 export class OtyaReleaseWorkflow extends WorkflowEntrypoint {
@@ -247,9 +222,8 @@ export class OtyaReleaseWorkflow extends WorkflowEntrypoint {
       const notification = await step.do('queue update notification once', async () => {
         try {
           const markerKey = `release:push:${release.tag}`
-          if (await this.env.KV.get(markerKey)) return { queued: false, duplicate: true }
           const url = `${release.workerUrl}/download/otya-player`
-          await this.env.PUSH_QUEUE.send({
+          return await queueReleaseOnce(this.env, release.tag, {
             title: `Otya ${release.version} is ready`,
             body: 'New features and improvements are ready. Tap to see what’s new.',
             url,
@@ -264,8 +238,6 @@ export class OtyaReleaseWorkflow extends WorkflowEntrypoint {
               dedupeKey: markerKey,
             },
           })
-          await this.env.KV.put(markerKey, new Date().toISOString(), { expirationTtl: 90 * 24 * 60 * 60 })
-          return { queued: true, duplicate: false }
         } catch (error) {
           console.error('[release] Push notification queue failed:', error?.message)
           return {
@@ -306,7 +278,7 @@ export class OtyaReleaseWorkflow extends WorkflowEntrypoint {
               `arm64: ${release.arm64Key}`,
               `arm32: ${release.arm32Key}`,
               `Firebase test mirror: ${firebaseDistribution.mirrored ? 'yes' : 'no'}`,
-              `Push queued: ${notification.queued}`,
+              `Push queue submission: ${notification.status || (notification.queued ? "queued" : "failed")}`,
               `Telegram announcement: ${telegram.status}`,
               'Status: completed',
             ].join('\n'),
