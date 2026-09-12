@@ -22,8 +22,21 @@ const OTP_MAX_SENDS = 5
 const OTP_MAX_ATTEMPTS = 8
 const TELEGRAM_WINDOW_TTL = 10 * 60
 const COMPLETE_TTL = 5 * 60
-const OWNER_GRANT_TTL = 60 * 60
+// Next is a private owner device, not a browser admin session. Once the owner
+// completes the strong enrollment ceremony, keep the trusted device usable and
+// renew it at most weekly. A new enrollment automatically replaces the previous
+// trusted phone. Logout/revocation still removes access immediately.
+const OWNER_GRANT_TTL = 30 * 24 * 60 * 60
+const OWNER_GRANT_RENEW_AFTER = 7 * 24 * 60 * 60
 const OWNER_GRANT_HEADER = 'X-OTYA-Owner-Grant'
+const OWNER_DEVICE_HEADER = 'X-OTYA-Device-ID'
+
+type OwnerGrantRecord = {
+  digest: string
+  device_hash: string
+  issued_at: number
+  renewed_at: number
+}
 
 function json(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), {
@@ -78,8 +91,17 @@ async function otpDigest(userId: string, otp: string): Promise<string> {
   return digest(`otya-admin-mfa:${userId}:${otp.trim().toUpperCase()}`)
 }
 
-async function ownerGrantDigest(userId: string, token: string): Promise<string> {
-  return digest(`otya-owner-grant:${userId}:${token.trim()}`)
+function deviceIdFrom(request: Request): string {
+  const raw = request.headers.get(OWNER_DEVICE_HEADER)?.trim() ?? ''
+  return /^[A-Za-z0-9._:-]{20,180}$/.test(raw) ? raw : ''
+}
+
+async function deviceDigest(deviceId: string): Promise<string> {
+  return digest(`otya-owner-device:${deviceId}`)
+}
+
+async function ownerGrantDigest(userId: string, deviceId: string, token: string): Promise<string> {
+  return digest(`otya-owner-grant:${userId}:${deviceId}:${token.trim()}`)
 }
 
 function timingSafeEqual(a: string, b: string): boolean {
@@ -95,23 +117,63 @@ async function requireAllowedAdmin(request: Request, env: AdminMfaEnv) {
   return user
 }
 
-async function issueMobileOwnerGrant(env: AdminMfaEnv, userId: string): Promise<string> {
+async function issueMobileOwnerGrant(env: AdminMfaEnv, userId: string, deviceId: string): Promise<string> {
   const grant = randomToken()
+  const now = Math.floor(Date.now() / 1000)
+  const record: OwnerGrantRecord = {
+    digest: await ownerGrantDigest(userId, deviceId, grant),
+    device_hash: await deviceDigest(deviceId),
+    issued_at: now,
+    renewed_at: now,
+  }
+  // One trusted owner phone at a time. Enrolling another phone replaces this
+  // record, which silently revokes the previous device without a browser step.
   await env.AUTH_KV.put(
     `admin_owner_grant:${userId}`,
-    await ownerGrantDigest(userId, grant),
+    JSON.stringify(record),
     { expirationTtl: OWNER_GRANT_TTL },
   )
   return grant
 }
 
+async function readOwnerGrant(env: AdminMfaEnv, userId: string): Promise<OwnerGrantRecord | null> {
+  const raw = await env.AUTH_KV.get(`admin_owner_grant:${userId}`)
+  if (!raw) return null
+  try {
+    const parsed = JSON.parse(raw) as Partial<OwnerGrantRecord>
+    if (!parsed.digest || !parsed.device_hash || !parsed.issued_at || !parsed.renewed_at) return null
+    return parsed as OwnerGrantRecord
+  } catch {
+    // Old one-hour string grants intentionally do not migrate into a trusted
+    // device. The owner completes the stronger enrollment once on Next.
+    return null
+  }
+}
+
 async function verifyMobileOwnerGrant(request: Request, env: AdminMfaEnv, userId: string): Promise<boolean> {
   const grant = request.headers.get(OWNER_GRANT_HEADER)?.trim() ?? ''
-  if (!grant) return false
-  const stored = await env.AUTH_KV.get(`admin_owner_grant:${userId}`)
-  if (!stored) return false
-  const supplied = await ownerGrantDigest(userId, grant)
-  return timingSafeEqual(stored, supplied)
+  const deviceId = deviceIdFrom(request)
+  if (!grant || !deviceId) return false
+
+  const record = await readOwnerGrant(env, userId)
+  if (!record) return false
+  const suppliedDevice = await deviceDigest(deviceId)
+  if (!timingSafeEqual(record.device_hash, suppliedDevice)) return false
+  const supplied = await ownerGrantDigest(userId, deviceId, grant)
+  if (!timingSafeEqual(record.digest, supplied)) return false
+
+  // Sliding trusted-device session, but deliberately bounded to one KV renewal
+  // write per week instead of a write on every AI request.
+  const now = Math.floor(Date.now() / 1000)
+  if (now - record.renewed_at >= OWNER_GRANT_RENEW_AFTER) {
+    record.renewed_at = now
+    await env.AUTH_KV.put(
+      `admin_owner_grant:${userId}`,
+      JSON.stringify(record),
+      { expirationTtl: OWNER_GRANT_TTL },
+    )
+  }
+  return true
 }
 
 export async function consumeAdminMfaCompletion(request: Request, env: AdminMfaEnv): Promise<{ ok: boolean; email?: string }> {
@@ -153,15 +215,17 @@ export async function handleAdminMfa(request: Request, env: AdminMfaEnv): Promis
     await sendResendEmail(env.RESEND_API_KEY, {
       from: 'OTYA <noreply@petersmartlink.com>',
       to: [user.email!],
-      subject: 'Your Otya Admin verification code',
+      subject: 'Trust this phone for Next',
       text: [
-        'A request was made to open Otya Admin.',
+        'A request was made to enroll a trusted owner phone for Next.',
         '',
         `Verification code: ${otp}`,
         '',
-        'This code expires in 10 minutes. Telegram verification is also required before admin access is granted.',
+        'This code expires in 10 minutes. Telegram confirmation is also required for first-time device enrollment.',
         '',
-        'If you did not request this, do not share the code and review your Otya account security.',
+        'After enrollment, Next stays signed in on this phone until you sign out, revoke it, replace the trusted phone, or a security event requires re-verification.',
+        '',
+        'If you did not request this, do not share the code and review your OTYA account security.',
       ].join('\n'),
     })
     return json({ ok: true, next: 'otp' })
@@ -197,21 +261,31 @@ export async function handleAdminMfa(request: Request, env: AdminMfaEnv): Promis
   if (url.pathname === '/auth/admin/mobile-grant') {
     const marker = await env.AUTH_KV.get(`admin_mfa_complete:${user.id}`)
     if (!marker) return json({ error: 'Complete Telegram verification first.' }, 401)
+    const deviceId = deviceIdFrom(request)
+    if (!deviceId) return json({ error: 'A valid Next device identity is required.' }, 400)
     await env.AUTH_KV.delete(`admin_mfa_complete:${user.id}`)
-    const grant = await issueMobileOwnerGrant(env, user.id)
+    const grant = await issueMobileOwnerGrant(env, user.id, deviceId)
     return json({
       ok: true,
       email: user.email!.toLowerCase(),
       owner_grant: grant,
+      trusted_device: true,
       expires_in: OWNER_GRANT_TTL,
+      renew_after: OWNER_GRANT_RENEW_AFTER,
     })
   }
 
   if (url.pathname === '/auth/admin/verify-grant') {
     const ok = await verifyMobileOwnerGrant(request, env, user.id)
     return ok
-      ? json({ ok: true, email: user.email!.toLowerCase(), expires_in: OWNER_GRANT_TTL })
-      : json({ error: 'Owner verification is required.' }, 401)
+      ? json({
+          ok: true,
+          email: user.email!.toLowerCase(),
+          trusted_device: true,
+          expires_in: OWNER_GRANT_TTL,
+          renew_after: OWNER_GRANT_RENEW_AFTER,
+        })
+      : json({ error: 'Owner device verification is required.' }, 401)
   }
 
   if (url.pathname === '/auth/admin/revoke-grant') {
