@@ -82,7 +82,10 @@ async function supportInbox(env,limit=8){
 }
 
 async function operationsSnapshot(env,window='-24 hours'){
-  const [users,devices,active,downloads,crashes,feedback,supportActions,crashGroups,feedbackRows,support]=await Promise.all([
+  const [
+    users,devices,active,downloads,crashes,feedback,supportActions,
+    queueFailures,queueDeliveryRows,crashGroups,feedbackRows,support,
+  ]=await Promise.all([
     scalar(env,'SELECT COUNT(*) count FROM users'),
     scalar(env,'SELECT COUNT(*) count FROM devices'),
     scalar(env,`SELECT COUNT(*) count FROM devices WHERE last_seen_at>=datetime('now',?)`,[window]),
@@ -90,6 +93,8 @@ async function operationsSnapshot(env,window='-24 hours'){
     scalar(env,`SELECT COUNT(*) count FROM crash_reports WHERE created_at>=datetime('now',?)`,[window]),
     scalar(env,`SELECT COUNT(*) count FROM feedback WHERE created_at>=datetime('now',?)`,[window]),
     scalar(env,`SELECT COUNT(*) count FROM ai_support_audit WHERE created_at>=datetime('now',?)`,[window]),
+    scalar(env,`SELECT COALESCE(SUM(failed_count),0) count FROM queue_delivery_events WHERE created_at>=datetime('now',?)`,[window]),
+    rows(env,`SELECT queue_name,outcome,COUNT(*) events,COALESCE(SUM(sent_count),0) sent,COALESCE(SUM(failed_count),0) failed,COALESCE(SUM(transient_failed),0) transient_failed,COALESCE(SUM(removed_count),0) removed,COALESCE(SUM(total_count),0) total,MAX(created_at) latest FROM queue_delivery_events WHERE created_at>=datetime('now',?) GROUP BY queue_name,outcome ORDER BY failed DESC,events DESC LIMIT 12`,[window]),
     rows(env,`SELECT group_id,error_type,COUNT(*) count,MAX(created_at) latest FROM crash_reports WHERE created_at>=datetime('now',?) GROUP BY group_id,error_type ORDER BY count DESC LIMIT 8`,[window]),
     rows(env,`SELECT category,sentiment,description,created_at FROM feedback WHERE created_at>=datetime('now',?) ORDER BY created_at DESC LIMIT 12`,[window]),
     supportInbox(env,8),
@@ -100,6 +105,8 @@ async function operationsSnapshot(env,window='-24 hours'){
     generated_at:new Date().toISOString(),
     services:{database:Boolean(env.DB),kv:Boolean(env.KV),ai:Boolean(env.AI?.run),email:Boolean(env.RESEND_API_KEY),push:Boolean(env.PUSH_QUEUE?.send)},
     users,devices,active_devices:active,downloads,crashes,feedback,support_actions:supportActions,
+    queue_delivery_failures:queueFailures,
+    queue_delivery:queueDeliveryRows,
     latest_release:latestRelease,
     crash_groups:crashGroups,
     feedback_items:feedbackRows.map(x=>({...x,description:clean(x.description,500)})),
@@ -110,8 +117,8 @@ async function operationsSnapshot(env,window='-24 hours'){
 async function summarize(env,snapshot,kind){
   if(!env.AI?.run)return''
   const system=kind==='weekly'
-    ? 'You are the private operations analyst for OTYA. Produce a concise executive weekly review for the owner. Use only supplied data. Structure: Executive summary, Product health, Support/customer signals, Risks, Recommended actions. Prioritize facts and action; do not use hype.'
-    : 'You are the private operations analyst for OTYA. Produce a concise morning operations brief for the owner. Use only supplied data. Structure: Needs attention, Health, Customer/support signals, Release, Today. If nothing is urgent, say so clearly. Do not invent facts.'
+    ? 'You are the private operations analyst for OTYA. Produce a concise executive weekly review for the owner. Use only supplied data. Structure: Executive summary, Product health, Delivery health, Support/customer signals, Risks, Recommended actions. Treat queue delivery failures as operational risks and distinguish transient failures from permanent failures. Prioritize facts and action; do not use hype.'
+    : 'You are the private operations analyst for OTYA. Produce a concise morning operations brief for the owner. Use only supplied data. Structure: Needs attention, Health, Delivery health, Customer/support signals, Release, Today. Treat queue delivery failures as operational risks and distinguish transient failures from permanent failures. If nothing is urgent, say so clearly. Do not invent facts.'
   try{return output(await env.AI.run(kind==='weekly'?(env.OTYA_AI_MODEL||FAST_MODEL):(env.OTYA_REPORT_MODEL||FAST_MODEL),{messages:[{role:'system',content:system},{role:'user',content:JSON.stringify(snapshot).slice(0,24000)}]}))}catch{return''}
 }
 
@@ -122,6 +129,7 @@ function rawFallback(snapshot){
     `Active devices: ${snapshot.active_devices}`,
     `Downloads: ${snapshot.downloads}`,
     `Crashes: ${snapshot.crashes}`,
+    `Push delivery failures: ${snapshot.queue_delivery_failures}`,
     `Feedback: ${snapshot.feedback}`,
     `Support actions: ${snapshot.support_actions}`,
     `Latest release: ${snapshot.latest_release?.version||snapshot.latest_release?.tag||'unknown'}`,
