@@ -52,7 +52,7 @@ async function email(env,subject,text){
     method:'POST',
     headers:{Authorization:`Bearer ${env.RESEND_API_KEY}`,'Content-Type':'application/json'},
     body:JSON.stringify({
-      from:'OTYA <noreply@petersmartlink.com>',
+      from:'Otya <noreply@petersmartlink.com>',
       to:[env.ADMIN_REPORT_EMAIL||'petersmartlink@gmail.com'],
       reply_to:'support@petersmartlink.com',
       subject,
@@ -103,7 +103,7 @@ async function operationsSnapshot(env,window='-24 hours'){
   try{latestRelease=await env.DB.prepare('SELECT tag,version,released_at FROM releases ORDER BY released_at DESC LIMIT 1').first()}catch{}
   return{
     generated_at:new Date().toISOString(),
-    services:{database:Boolean(env.DB),kv:Boolean(env.KV),ai:Boolean(env.AI?.run),email:Boolean(env.RESEND_API_KEY),push:Boolean(env.PUSH_QUEUE?.send)},
+    services:{database:Boolean(env.DB),kv:Boolean(env.KV),ai:Boolean(env.AI?.run),email:Boolean(env.RESEND_API_KEY),delivery_evidence:Boolean(env.DB?.prepare)},
     users,devices,active_devices:active,downloads,crashes,feedback,support_actions:supportActions,
     queue_delivery_failures:queueFailures,
     queue_delivery:queueDeliveryRows,
@@ -117,8 +117,8 @@ async function operationsSnapshot(env,window='-24 hours'){
 async function summarize(env,snapshot,kind){
   if(!env.AI?.run)return''
   const system=kind==='weekly'
-    ? 'You are the private operations analyst for OTYA. Produce a concise executive weekly review for the owner. Use only supplied data. Structure: Executive summary, Product health, Delivery health, Support/customer signals, Risks, Recommended actions. Treat queue delivery failures as operational risks and distinguish transient failures from permanent failures. Prioritize facts and action; do not use hype.'
-    : 'You are the private operations analyst for OTYA. Produce a concise morning operations brief for the owner. Use only supplied data. Structure: Needs attention, Health, Delivery health, Customer/support signals, Release, Today. Treat queue delivery failures as operational risks and distinguish transient failures from permanent failures. If nothing is urgent, say so clearly. Do not invent facts.'
+    ? 'You are the private operations analyst for Otya. Produce a concise executive weekly review for the owner. Use only supplied data. Structure: Executive summary, Product health, Delivery health, Support/customer signals, Risks, Recommended actions. Treat queue delivery failures as operational risks and distinguish transient failures from permanent failures. Prioritize facts and action; do not use hype.'
+    : 'You are the private operations analyst for Otya. Produce a concise morning operations brief for the owner. Use only supplied data. Structure: Needs attention, Health, Delivery health, Customer/support signals, Release, Today. Treat queue delivery failures as operational risks and distinguish transient failures from permanent failures. If nothing is urgent, say so clearly. Do not invent facts.'
   try{return output(await env.AI.run(kind==='weekly'?(env.OTYA_AI_MODEL||FAST_MODEL):(env.OTYA_REPORT_MODEL||FAST_MODEL),{messages:[{role:'system',content:system},{role:'user',content:JSON.stringify(snapshot).slice(0,24000)}]}))}catch{return''}
 }
 
@@ -140,14 +140,14 @@ async function daily(env){
   const snapshot=await operationsSnapshot(env,'-24 hours')
   const summary=await summarize(env,snapshot,'daily')
   const date=new Intl.DateTimeFormat('en-UG',{timeZone:'Africa/Kampala',dateStyle:'medium'}).format(new Date())
-  await email(env,`OTYA · Morning operations · ${date}`,[summary||rawFallback(snapshot),'',`Generated ${snapshot.generated_at}`].join('\n'))
+  await email(env,`Otya · Morning operations · ${date}`,[summary||rawFallback(snapshot),'',`Generated ${snapshot.generated_at}`].join('\n'))
 }
 
 async function weekly(env){
   const snapshot=await operationsSnapshot(env,'-7 days')
   const summary=await summarize(env,snapshot,'weekly')
   const date=new Intl.DateTimeFormat('en-UG',{timeZone:'Africa/Kampala',dateStyle:'medium'}).format(new Date())
-  await email(env,`OTYA · Weekly review · ${date}`,[summary||rawFallback(snapshot),'',`Generated ${snapshot.generated_at}`].join('\n'))
+  await email(env,`Otya · Weekly review · ${date}`,[summary||rawFallback(snapshot),'',`Generated ${snapshot.generated_at}`].join('\n'))
 }
 
 async function urgent(env){
@@ -205,12 +205,12 @@ async function urgent(env){
     if(stack)lines.push(`  Stack: ${stack}`)
     return lines
   })
-  await email(env,`OTYA alert · ${crashes} crashes in the last hour`,[
-    `OTYA recorded ${crashes} crash reports in the last hour.`,
+  await email(env,`Otya alert · ${crashes} crashes in the last hour`,[
+    `Otya recorded ${crashes} crash reports in the last hour.`,
     '',
     ...groupLines,
     '',
-    'Review the OTYA Console before taking any destructive or customer-facing action.',
+    'Review the Otya Console before taking any destructive or customer-facing action.',
     `Generated ${new Date().toISOString()}`,
   ].join('\n'))
   if(env.KV)await env.KV.put(key,'1',{expirationTtl:7200})
