@@ -100,3 +100,99 @@ test('failed login-alert email preserves the previous network so the next login 
   await deliverNewDeviceAlert(request, response(), env)
   assert.equal(values.get('resend_last_login_ip:user'), 'new-network')
 })
+
+test('direct push batches continue after network failure with bounded concurrency and accurate counts', async t => {
+  const source = readFileSync(new URL('../src/lib/fcm.ts', import.meta.url), 'utf8')
+    .replace("import { getGoogleAccessToken } from './google_oauth'", "const getGoogleAccessToken = async () => 'mock'")
+  const { outputText } = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } })
+  const { sendFcmWithToken } = await import(`data:text/javascript;base64,${Buffer.from(outputText).toString('base64')}`)
+  const original = globalThis.fetch
+  t.after(() => { globalThis.fetch = original })
+  let active = 0, peak = 0
+  const seen = []
+  globalThis.fetch = async (_, options) => {
+    assert.ok(options.signal instanceof AbortSignal)
+    const token = JSON.parse(options.body).message.token
+    seen.push(token)
+    active++
+    peak = Math.max(peak, active)
+    await new Promise(resolve => setTimeout(resolve, 1))
+    active--
+    if (token === '1') throw new Error('mock network failure')
+    return new Response(null, { status: token === '2' ? 429 : 200 })
+  }
+  const tokens = Array.from({ length: 20 }, (_, i) => String(i))
+  const result = await sendFcmWithToken([...tokens, '0'], 'Title', 'Body', 'https://petersmartlink.com', 'mock', 'mock')
+  assert.deepEqual(result, { sent: 18, failed: 2 })
+  assert.equal(seen.length, 20)
+  assert.ok(peak <= 8 && peak > 1)
+})
+
+test('anonymous device refresh clears the old account before replacing its token', () => {
+  const source = readFileSync(new URL('../src/app/api/device/route.ts', import.meta.url), 'utf8')
+  const sql = source.match(/db\.prepare\(`([\s\S]*?)`\)/)[1]
+  const db = new DatabaseSync(':memory:')
+  try {
+    db.exec('CREATE TABLE devices (device_id TEXT PRIMARY KEY, user_id TEXT, fcm_token TEXT, app_version TEXT, version_code INTEGER, abi TEXT, platform TEXT, model TEXT, android_version TEXT, locale TEXT, registered_at TEXT, last_seen_at TEXT)')
+    const update = (user, token) => db.prepare(sql).run('phone', user, token, '1.0', 3, 'arm64', 'android', null, null, null)
+    update('alice', 'private-token')
+    update(null, 'replacement-token')
+    assert.equal(db.prepare('SELECT user_id FROM devices').get().user_id, null)
+    assert.equal(db.prepare('SELECT fcm_token FROM devices').get().fcm_token, 'replacement-token')
+    update('alice', 'rotated-token')
+    assert.equal(db.prepare('SELECT fcm_token FROM devices').get().fcm_token, 'rotated-token')
+  } finally { db.close() }
+})
+
+test('operational email resolves secret bindings and requires provider acceptance', async t => {
+  const { sendAlertEmail } = await moduleAt('../src/lib/monitor.ts')
+  const original = globalThis.fetch
+  t.after(() => { globalThis.fetch = original })
+  let payload = {}
+  globalThis.fetch = async (_, options) => {
+    assert.equal(options.headers.Authorization, 'Bearer mock-key')
+    assert.ok(options.signal instanceof AbortSignal)
+    return Response.json(payload)
+  }
+  const env = { RESEND_API_KEY: { get: async () => 'mock-key' }, ALERT_EMAIL_TO: 'test@example.com' }
+  await assert.rejects(sendAlertEmail(env, 'Test', 'Test'), /confirm alert acceptance/)
+  payload = { id: 'accepted-id' }
+  await sendAlertEmail(env, 'Test', 'Test')
+})
+
+test('device, feedback and push routes reject non-object JSON before database work', async () => {
+  for (const route of ['device', 'feedback', 'push']) {
+    const source = readFileSync(new URL(`../src/app/api/${route}/route.ts`, import.meta.url), 'utf8').replace(/^import .*$/gm, '')
+    const mocks = `
+      const getCloudflareContext = async () => ({ env: { FCM_SERVICE_ACCOUNT_JSON: '{}' } });
+      const verifyFirebaseAppCheck = async () => ({ valid: true });
+      const appCheckEnforced = () => false;
+      const dualAuth = async () => ({ mode: 'none' });
+      const verifyRequest = () => {};
+      const verifyAdminSession = async () => true;
+      const errorJson = (error, status) => Response.json({ error }, { status });
+      const getDB = () => { throw new Error('unexpected database access'); };
+    `
+    const { outputText } = ts.transpileModule(mocks + source, { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } })
+    const { POST } = await import(`data:text/javascript;base64,${Buffer.from(outputText).toString('base64')}`)
+    for (const body of [null, [], 1, 'text']) {
+      const response = await POST(new Request(`https://example.com/${route}`, { method: 'POST', body: JSON.stringify(body) }))
+      assert.equal(response.status, 400, `${route}: ${JSON.stringify(body)}`)
+    }
+    if (route === 'device') {
+      const response = await POST(new Request('https://example.com/device', { method: 'POST', headers: { Authorization: 'Bearer expired' }, body: '{}' }))
+      assert.equal(response.status, 401)
+    }
+  }
+})
+
+test('admin notification URLs reject embedded credentials and nonstandard ports', async () => {
+  const source = readFileSync(new URL('../src/app/api/push/route.ts', import.meta.url), 'utf8')
+  const helper = source.slice(source.indexOf('function officialNotificationUrl'), source.indexOf('const CORS_HEADERS'))
+  const { outputText } = ts.transpileModule(helper + '\nexport { officialNotificationUrl }', { compilerOptions: { module: ts.ModuleKind.ESNext } })
+  const { officialNotificationUrl } = await import(`data:text/javascript;base64,${Buffer.from(outputText).toString('base64')}`)
+  for (const url of ['https://user:password@petersmartlink.com/', 'https://petersmartlink.com:8443/', 'https://petersmartlink.com.evil.example/']) {
+    assert.equal(officialNotificationUrl(url), null)
+  }
+  assert.equal(officialNotificationUrl('https://petersmartlink.com/help'), 'https://petersmartlink.com/help')
+})

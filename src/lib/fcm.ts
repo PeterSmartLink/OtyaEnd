@@ -28,33 +28,46 @@ export async function sendFcmWithToken(
 
   let sent = 0
   let failed = 0
-  for (const token of tokens) {
-    const response = await fetch(fcmEndpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${accessToken}`,
-      },
-      body: JSON.stringify({
-        message: {
-          token,
-          notification: { title, body },
-          data: { url },
-          android: {
-            priority: 'high',
-            ttl: '86400s',
-            collapse_key: 'otya_announcement',
-            notification: {
-              channel_id: 'otya_announcements',
-              default_sound: true,
-            },
+  const uniqueTokens = [...new Set(tokens.filter(Boolean))]
+  let next = 0
+  const worker = async () => {
+    while (next < uniqueTokens.length) {
+      const token = uniqueTokens[next++]
+      try {
+        const response = await fetch(fcmEndpoint, {
+          method: 'POST',
+          signal: AbortSignal.timeout(8000),
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${accessToken}`,
           },
-        },
-      }),
-    })
-    if (response.ok) sent++
-    else failed++
+          body: JSON.stringify({
+            message: {
+              token,
+              notification: { title, body },
+              data: { url },
+              android: {
+                priority: 'high',
+                ttl: '86400s',
+                collapse_key: 'otya_announcement',
+                notification: {
+                  channel_id: 'otya_announcements',
+                  default_sound: true,
+                },
+              },
+            },
+          }),
+        })
+        if (response.ok) sent++
+        else failed++
+      } catch {
+        // One unreachable device must not discard the rest of the batch or
+        // erase counts for requests the provider already accepted.
+        failed++
+      }
+    }
   }
+  await Promise.all(Array.from({ length: Math.min(8, uniqueTokens.length) }, worker))
 
   return { sent, failed }
 }

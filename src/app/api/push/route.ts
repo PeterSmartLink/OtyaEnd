@@ -12,7 +12,8 @@ function officialNotificationUrl(value: string): string | null {
   try {
     const url = new URL(value)
     const host = url.hostname.toLowerCase()
-    if (url.protocol !== 'https:' ||
+    if (url.protocol !== 'https:' || url.username || url.password ||
+        (url.port && url.port !== '443') ||
         (host !== 'petersmartlink.com' && !host.endsWith('.petersmartlink.com'))) {
       return null
     }
@@ -41,6 +42,9 @@ export async function POST(req: NextRequest) {
     body = await req.json() as Record<string, unknown>
   } catch {
     return errorJson('Invalid JSON body', 400)
+  }
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    return errorJson('JSON body must be an object', 400)
   }
 
   const title = typeof body.title === 'string' ? body.title.trim().slice(0, 120) : ''

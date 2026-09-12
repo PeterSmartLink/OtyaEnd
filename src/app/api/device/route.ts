@@ -58,12 +58,18 @@ export async function POST(request: NextRequest) {
 
   // Attempt JWT verification, but do not reject a clean anonymous install.
   const auth = await dualAuth(request, env, verifyRequest)
+  if (request.headers.has('Authorization') && auth.mode !== 'jwt') {
+    return errorJson('Invalid or expired authorization', 401)
+  }
 
   let body: DevicePayload
   try {
     body = await request.json() as DevicePayload
   } catch {
     return errorJson('Invalid JSON body', 400)
+  }
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    return errorJson('JSON body must be an object', 400)
   }
 
   const deviceId = cleanText(body.device_id, 128)

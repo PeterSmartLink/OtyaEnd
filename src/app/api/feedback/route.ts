@@ -38,6 +38,9 @@ export async function POST(req: NextRequest) {
   } catch {
     return errorJson('Invalid JSON body', 400)
   }
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    return errorJson('JSON body must be an object', 400)
+  }
 
   const deviceId    = cleanText(body.device_id, 128)
   const appVersion  = cleanText(body.app_version, 64)

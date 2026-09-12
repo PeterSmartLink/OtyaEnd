@@ -156,7 +156,8 @@ export async function sendAlertEmail(
   subject: string,
   body: string,
 ): Promise<void> {
-  const apiKey = env.RESEND_API_KEY
+  const binding = env.RESEND_API_KEY
+  const apiKey = typeof binding === 'string' ? binding : await binding?.get?.()
   if (!apiKey) throw new Error('RESEND_API_KEY is not configured')
 
   const to = env.ALERT_EMAIL_TO || 'petersmartlink@gmail.com'
@@ -177,5 +178,9 @@ export async function sendAlertEmail(
 
   if (!response.ok) {
     throw new Error(`Resend alert failed with HTTP ${response.status}`)
+  }
+  const result = await response.json().catch(() => null) as { id?: unknown } | null
+  if (typeof result?.id !== 'string' || !result.id.trim()) {
+    throw new Error('Resend did not confirm alert acceptance')
   }
 }
