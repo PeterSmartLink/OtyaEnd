@@ -1,0 +1,101 @@
+name: One-shot Actions optimization
+
+on:
+  push:
+    paths:
+      - '.github/workflows/optimize-actions-once.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: optimize-actions-once
+  cancel-in-progress: true
+
+jobs:
+  optimize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          ref: main
+
+      - name: Reduce duplicate and unnecessary Actions work
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          from pathlib import Path
+
+          def replace_required(path, old, new, count=None):
+              p = Path(path)
+              text = p.read_text()
+              found = text.count(old)
+              if found == 0:
+                  raise SystemExit(f'Expected pattern not found in {path}: {old!r}')
+              if count is not None and found != count:
+                  raise SystemExit(f'Expected {count} matches in {path}, found {found}: {old!r}')
+              p.write_text(text.replace(old, new))
+
+          # Workflow-only edits should not trigger a full backend validation run.
+          replace_required(
+              '.github/workflows/deploy.yml',
+              "paths-ignore: ['**/*.md', 'docs/**', '.github/ISSUE_TEMPLATE/**']",
+              "paths-ignore: ['**/*.md', 'docs/**', '.github/**']",
+              count=2,
+          )
+          replace_required(
+              '.github/workflows/deploy.yml',
+              '  cancel-in-progress: false',
+              '  cancel-in-progress: true',
+              count=1,
+          )
+
+          # Post-deploy smoke suites should run only after an actual manual
+          # production deployment, not after ordinary validation pushes.
+          old_gate = "(github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main')"
+          new_gate = "(github.event.workflow_run.event == 'workflow_dispatch' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main')"
+          for path in [
+              '.github/workflows/auth-smoke.yml',
+              '.github/workflows/next-production-smoke.yml',
+              '.github/workflows/telegram-provider-smoke.yml',
+          ]:
+              replace_required(path, old_gate, new_gate)
+
+          # Keep fast secret scanning on every main push, but reserve the
+          # expensive dependency audits/tests for PR, scheduled and manual runs.
+          security = Path('.github/workflows/security.yml')
+          text = security.read_text()
+          heavy_markers = [
+              '      - uses: actions/setup-node@v6\n',
+              '      - name: Validate and audit web/backend runtime\n',
+              '      - name: Validate and audit auth worker runtime\n',
+              '      - name: Validate and audit Next worker runtime\n',
+              '      - name: Track upstream build-tool advisories\n',
+          ]
+          for marker in heavy_markers:
+              if marker not in text:
+                  raise SystemExit(f'Expected security marker missing: {marker!r}')
+              text = text.replace(marker, marker + "        if: github.event_name != 'push'\n", 1)
+          old_codeql = "    if: github.event_name != 'pull_request' && vars.GHAS_ENABLED == 'true'"
+          new_codeql = "    if: (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && vars.GHAS_ENABLED == 'true'"
+          if old_codeql not in text:
+              raise SystemExit('Expected CodeQL condition missing')
+          text = text.replace(old_codeql, new_codeql, 1)
+          security.write_text(text)
+
+          # Remove this one-shot workflow from the final repository state.
+          Path('.github/workflows/optimize-actions-once.yml').unlink()
+          PY
+
+      - name: Commit optimized workflow policy
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'PeterSmart Link Automation'
+          git config user.email 'petersmartlink@gmail.com'
+          git add .github/workflows
+          git diff --cached --check
+          git commit -m 'ci: reduce duplicate Actions usage and smoke fan-out'
+          git push origin HEAD:main
