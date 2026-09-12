@@ -4,6 +4,9 @@ export interface GoogleServiceAccount {
   token_uri?: string
 }
 
+const GOOGLE_TOKEN_ORIGIN = 'https://oauth2.googleapis.com'
+const GOOGLE_TOKEN_PATH = '/token'
+
 function base64urlEncode(buf: ArrayBuffer): string {
   const bytes = new Uint8Array(buf)
   let binary = ''
@@ -17,6 +20,28 @@ function encodeUtf8(value: string): ArrayBuffer {
     encoded.byteOffset,
     encoded.byteOffset + encoded.byteLength,
   ) as ArrayBuffer
+}
+
+function googleTokenUri(value?: string): string {
+  const candidate = value?.trim() || `${GOOGLE_TOKEN_ORIGIN}${GOOGLE_TOKEN_PATH}`
+  let parsed: URL
+  try {
+    parsed = new URL(candidate)
+  } catch {
+    throw new Error('Firebase service account token_uri is invalid')
+  }
+  if (
+    parsed.protocol !== 'https:'
+    || parsed.origin !== GOOGLE_TOKEN_ORIGIN
+    || parsed.pathname !== GOOGLE_TOKEN_PATH
+    || parsed.username
+    || parsed.password
+    || parsed.search
+    || parsed.hash
+  ) {
+    throw new Error('Firebase service account token_uri is not an approved Google OAuth endpoint')
+  }
+  return parsed.toString()
 }
 
 export async function getGoogleAccessToken(
@@ -38,7 +63,7 @@ export async function getGoogleAccessToken(
   }
 
   const now = Math.floor(Date.now() / 1000)
-  const tokenUri = serviceAccount.token_uri ?? 'https://oauth2.googleapis.com/token'
+  const tokenUri = googleTokenUri(serviceAccount.token_uri)
   const header = base64urlEncode(
     encodeUtf8(JSON.stringify({ alg: 'RS256', typ: 'JWT' })),
   )
@@ -83,8 +108,7 @@ export async function getGoogleAccessToken(
     signal: AbortSignal.timeout(8000),
   })
   if (!response.ok) {
-    const body = await response.text()
-    throw new Error(`Google OAuth token exchange failed (${response.status}): ${body.slice(0, 500)}`)
+    throw new Error(`Google OAuth token exchange failed (HTTP ${response.status})`)
   }
 
   const data = await response.json() as { access_token?: string }
