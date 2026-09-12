@@ -9,16 +9,21 @@ import { handleSecureAccountRoute, type SecureAccountEnv } from './secure-accoun
 import { withAuthSecurityEvent } from './security-events'
 
 interface GoogleTokenPayload {
+  sub?: string
   aud?: string
   iss?: string
   exp?: string | number
+  iat?: string | number
   email?: string
   email_verified?: string | boolean
+  name?: string
+  picture?: string
 }
 
 type ProductionEnv = Record<string, unknown> & AdminMfaEnv & TelegramLoginEnv & SecureOtpEnv & SecureAccountEnv & {
   GOOGLE_CLIENT_ID?: string
   GOOGLE_WEB_CLIENT_ID?: string
+  PREVERIFIED_GOOGLE_PAYLOAD?: GoogleTokenPayload
 }
 
 let identitySchemaReady: Promise<void> | null = null
@@ -72,7 +77,7 @@ function createsIdentitySession(request: Request, url: URL): boolean {
   return request.method === 'POST' && ['/auth/register', '/auth/login', '/auth/google'].includes(url.pathname)
 }
 
-async function verifiedGoogleAudience(request: Request, env: ProductionEnv): Promise<string | Response> {
+async function verifiedGooglePayload(request: Request, env: ProductionEnv): Promise<GoogleTokenPayload | Response> {
   const audiences = configuredGoogleAudiences(env)
   if (audiences.size === 0) return googleError('Google auth not configured', 503)
 
@@ -99,10 +104,10 @@ async function verifiedGoogleAudience(request: Request, env: ProductionEnv): Pro
     const expiry = Number(payload.exp ?? 0)
     const now = Math.floor(Date.now() / 1000)
 
-    if (!isAllowedGoogleAudience(payload.aud, env) || !issuerOk || !Number.isFinite(expiry) || expiry <= now || !verifiedEmail || !payload.email) {
+    if (!payload.sub || !isAllowedGoogleAudience(payload.aud, env) || !issuerOk || !Number.isFinite(expiry) || expiry <= now || !verifiedEmail || !payload.email) {
       return googleError('Google account verification failed', 401)
     }
-    return payload.aud as string
+    return payload
   } catch {
     return googleError('Google verification service unavailable', 503)
   }
@@ -203,9 +208,14 @@ export default {
     }
 
     if (request.method === 'POST' && url.pathname === '/auth/google') {
-      const audience = await verifiedGoogleAudience(request, env)
-      if (audience instanceof Response) return audited(request, audience, env)
-      const requestEnv = { ...env, GOOGLE_CLIENT_ID: audience, EMAIL: undefined }
+      const googlePayload = await verifiedGooglePayload(request, env)
+      if (googlePayload instanceof Response) return audited(request, googlePayload, env)
+      const requestEnv = {
+        ...env,
+        GOOGLE_CLIENT_ID: googlePayload.aud,
+        PREVERIFIED_GOOGLE_PAYLOAD: googlePayload,
+        EMAIL: undefined,
+      }
       const response = await authWorker.fetch(request, requestEnv as Parameters<typeof authWorker.fetch>[1])
       if (response.ok) {
         await deliverNewDeviceAlert(request, response, env).catch(error => {
