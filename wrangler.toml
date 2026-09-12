@@ -82,7 +82,9 @@ binding = "PUSH_QUEUE"
 queue   = "otya-push"
 [[queues.consumers]]
 queue             = "otya-push"
-max_batch_size    = 10
+# Process one logical push at a time so one invocation cannot multiply direct
+# FCM fanout across a batch and exceed the Free Worker subrequest budget.
+max_batch_size    = 1
 max_retries       = 3
 dead_letter_queue = "otya-push-dlq"
 
