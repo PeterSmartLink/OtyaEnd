@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs'
 
 const read = path => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
 
-test('Turnstile verification stays server-side and fail-closed', () => {
+test('Turnstile verification stays server-side, bounded, same-host and fail-closed', () => {
   const helper = read('src/lib/turnstile.ts')
   const publicConfig = read('src/app/api/security/turnstile/config/route.ts')
 
@@ -12,11 +12,17 @@ test('Turnstile verification stays server-side and fail-closed', () => {
   assert.match(helper, /TURNSTILE_SITE_KEY/)
   assert.match(helper, /https:\/\/challenges\.cloudflare\.com\/turnstile\/v0\/siteverify/)
   assert.match(helper, /CF-Connecting-IP/)
+  assert.match(helper, /TURNSTILE_VERIFY_TIMEOUT_MS = 8000/)
+  assert.match(helper, /signal: AbortSignal\.timeout\(TURNSTILE_VERIFY_TIMEOUT_MS\)/)
+  assert.match(helper, /request\.nextUrl\.hostname/)
+  assert.match(helper, /result\.hostname/)
+  assert.match(helper, /verifiedHostname !== expectedHostname/)
   assert.match(helper, /TURNSTILE_REQUIRED/)
   assert.match(helper, /TURNSTILE_UNAVAILABLE/)
   assert.match(helper, /TURNSTILE_INVALID/)
 
   assert.match(publicConfig, /getTurnstilePublicConfig/)
+  assert.match(publicConfig, /'Cache-Control': 'no-store'/)
   assert.doesNotMatch(publicConfig, /TURNSTILE_SECRET_KEY/)
 })
 
