@@ -44,7 +44,7 @@ test('Google Drive backup provider calls are bounded and do not surface raw prov
   assert.doesNotMatch(source, /await fetch\(/)
 })
 
-test('service-account OAuth is fixed to the approved Google endpoint and sanitizes failures', () => {
+test('shared service-account OAuth is fixed to the approved Google endpoint and sanitizes failures', () => {
   const source = read('src/lib/google_oauth.ts')
   assert.match(source, /GOOGLE_TOKEN_ORIGIN = 'https:\/\/oauth2\.googleapis\.com'/)
   assert.match(source, /parsed\.origin !== GOOGLE_TOKEN_ORIGIN/)
@@ -52,4 +52,13 @@ test('service-account OAuth is fixed to the approved Google endpoint and sanitiz
   assert.match(source, /AbortSignal\.timeout\(8000\)/)
   assert.match(source, /Google OAuth token exchange failed \(HTTP \$\{response\.status\}\)/)
   assert.doesNotMatch(source, /await response\.text\(\)/)
+})
+
+test('FCM queue OAuth is pinned to Google and never trusts service-account token_uri', () => {
+  const source = read('src/queue-worker.mjs')
+  assert.match(source, /GOOGLE_TOKEN_URI = 'https:\/\/oauth2\.googleapis\.com\/token'/)
+  assert.match(source, /const tokenUri = GOOGLE_TOKEN_URI/)
+  assert.match(source, /AbortSignal\.timeout\(UPSTREAM_TIMEOUT_MS\)/)
+  assert.doesNotMatch(source, /const tokenUri = sa\.token_uri/)
+  assert.match(source, /OAuth2 token exchange failed: HTTP \$\{tokenRes\.status\}/)
 })
