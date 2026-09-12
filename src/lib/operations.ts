@@ -7,7 +7,12 @@ function clean(value: unknown, max = 4000): string {
 function safeJson(value: unknown, max = 12000): string | null {
   if (value === undefined || value === null) return null
   try {
-    return JSON.stringify(value).slice(0, max)
+    const serialized = JSON.stringify(value)
+    if (serialized === undefined) return null
+    return serialized.length <= max ? serialized : JSON.stringify({
+      truncated: true,
+      preview: serialized.slice(0, Math.max(0, Math.floor((max - 64) / 6))),
+    })
   } catch {
     return JSON.stringify({ error: 'unserializable' })
   }
@@ -29,6 +34,9 @@ export type NotificationEventInput = {
 }
 
 export async function recordNotificationEvent(db: D1, input: NotificationEventInput): Promise<string> {
+  if (input.deviceId && !input.userId) {
+    throw new Error('Device-targeted inbox notifications require a user identity')
+  }
   const id = input.id || crypto.randomUUID()
   await db.prepare(`
     INSERT INTO notification_events (

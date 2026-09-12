@@ -39,3 +39,13 @@ Updated 2026-09-11. This is a coverage register, not certification or a claim of
 ## Current delivery boundary
 
 Local commits are not proof of production deployment. No category is marked universally complete. The new Core operations migration, durable notification API, queue evidence, security/operational events and recovery checks must still pass the newest CI head and then be explicitly deployed before they can be described as live. Android/device behavior also remains a separate evidence level and must not be inferred from server-source validation.
+
+## Server repository verification — 2026-09-12
+
+This pass reconciled main at `792bf50` before editing. Core configuration and migration-layout checks, all 245 core tests, 11 auth-worker tests and 20 AI-worker tests passed. Auth typechecking and AI packaging dry-run passed. These are local checks, not proof of production deployment or device delivery.
+
+Fixed account notification visibility: device-only records are excluded from listing, unread counts, bulk read updates and individual lookups. New device-targeted inbox writes require a user identity. SQLite regression fixtures exercise the actual route queries with own-account, other-account, global and device-only records.
+
+Shared auth verification now supplies an eight-second abort signal and rejects malformed success responses. Oversized notification, security and operational JSON remains parseable within the storage limit instead of being cut mid-document. Runtime worker logging has the same behavior.
+
+Remaining release acceptance evidence: deployed commit and production migrations; authenticated account/admin flows; Firebase delivery during playback/background use; Resend delivery and Telegram rendering; Android download/update installation; recovery drill and sustained-load measurements. This pass does not certify every feature or replace those live checks.

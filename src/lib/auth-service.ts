@@ -31,6 +31,7 @@ export async function verifyJwtViaService(
       new Request('https://auth/auth/verify', {
         method: 'GET',
         headers: { Authorization: `Bearer ${token}` },
+        signal: AbortSignal.timeout(8000),
       }),
     )
 
@@ -38,8 +39,11 @@ export async function verifyJwtViaService(
       return { ok: false, error: 'Invalid or expired token' }
     }
 
-    const data = await res.json() as JwtVerifyResult
-    return data
+    const data = await res.json() as Partial<JwtVerifyResult> | null
+    if (data?.ok !== true || typeof data.user_id !== 'string' || !data.user_id.trim()) {
+      return { ok: false, error: 'Invalid auth service response' }
+    }
+    return { ok: true, user_id: data.user_id, ...(typeof data.email === 'string' ? { email: data.email } : {}) }
   } catch (e) {
     console.error('[auth-service] verifyJwtViaService failed:', (e as Error)?.message)
     return { ok: false, error: 'Auth service error' }

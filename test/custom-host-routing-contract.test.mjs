@@ -85,7 +85,7 @@ test('custom surfaces keep HTTPS and generated OpenNext routing explicit', () =>
 
 test('public status page avoids exposing internal monitoring details', () => {
   assert.ok(status.includes("title: 'Otya Status'"))
-  assert.ok(status.includes('never publishes customer data, logs, secrets'))
+  assert.ok(status.includes('Live service monitoring is not displayed'))
   assert.ok(status.includes('Account-specific or private operational issues are intentionally not shown here'))
   assert.ok(!status.includes('CLOUDFLARE_ACCOUNT_ID'))
   assert.ok(!status.includes('INTERNAL_SECRET'))

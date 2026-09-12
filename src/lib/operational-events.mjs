@@ -4,7 +4,14 @@ function clean(value, max = 4000) {
 
 function safeJson(value, max = 12000) {
   if (value === undefined || value === null) return null
-  try { return JSON.stringify(value).slice(0, max) }
+  try {
+    const serialized = JSON.stringify(value)
+    if (serialized === undefined) return null
+    return serialized.length <= max ? serialized : JSON.stringify({
+      truncated: true,
+      preview: serialized.slice(0, Math.max(0, Math.floor((max - 64) / 6))),
+    })
+  }
   catch { return JSON.stringify({ error: 'unserializable' }) }
 }
 

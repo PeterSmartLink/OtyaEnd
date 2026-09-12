@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
     FROM notification_events ne
     LEFT JOIN notification_reads nr
       ON nr.notification_id = ne.id AND nr.user_id = ?
-    WHERE (ne.user_id = ? OR ne.user_id IS NULL)
+    WHERE (ne.user_id = ? OR (ne.user_id IS NULL AND ne.device_id IS NULL))
       AND (ne.expires_at IS NULL OR ne.expires_at > CURRENT_TIMESTAMP)
       ${unreadClause}
     ORDER BY ne.created_at DESC
@@ -44,7 +44,7 @@ export async function GET(req: NextRequest) {
     FROM notification_events ne
     LEFT JOIN notification_reads nr
       ON nr.notification_id = ne.id AND nr.user_id = ?
-    WHERE (ne.user_id = ? OR ne.user_id IS NULL)
+    WHERE (ne.user_id = ? OR (ne.user_id IS NULL AND ne.device_id IS NULL))
       AND nr.read_at IS NULL
       AND (ne.expires_at IS NULL OR ne.expires_at > CURRENT_TIMESTAMP)
   `).bind(identity.userId, identity.userId).first<{ count: number }>()
@@ -80,7 +80,7 @@ export async function POST(req: NextRequest) {
       INSERT INTO notification_reads (notification_id, user_id, read_at)
       SELECT id, ?, CURRENT_TIMESTAMP
       FROM notification_events
-      WHERE (user_id = ? OR user_id IS NULL)
+      WHERE (user_id = ? OR (user_id IS NULL AND device_id IS NULL))
         AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
       ON CONFLICT(notification_id, user_id)
       DO UPDATE SET read_at = excluded.read_at
@@ -94,7 +94,7 @@ export async function POST(req: NextRequest) {
   const visible = await db.prepare(`
     SELECT id FROM notification_events
     WHERE id = ?
-      AND (user_id = ? OR user_id IS NULL)
+      AND (user_id = ? OR (user_id IS NULL AND device_id IS NULL))
       AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
     LIMIT 1
   `).bind(id, identity.userId).first<{ id: string }>()

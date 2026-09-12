@@ -23,8 +23,8 @@ test('notification inbox keeps read state per user and enforces authenticated vi
   const route = read('src/app/api/notifications/route.ts')
   assert.match(route, /verifyJwtViaService/)
   assert.match(route, /LEFT JOIN notification_reads/)
-  assert.match(route, /ne\.user_id = \? OR ne\.user_id IS NULL/)
-  assert.match(route, /WHERE id = \?[\s\S]*user_id = \? OR user_id IS NULL/)
+  assert.match(route, /ne\.user_id IS NULL AND ne\.device_id IS NULL/)
+  assert.match(route, /WHERE id = \?[\s\S]*user_id IS NULL AND device_id IS NULL/)
   assert.match(route, /MAX_LIMIT = 100/)
 })
 
