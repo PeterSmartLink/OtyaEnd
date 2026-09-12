@@ -5,6 +5,8 @@
 
 import { D1, KVNamespaceLocal } from '@/lib/d1'
 
+const PROVIDER_TIMEOUT_MS = 8000
+
 export interface EndpointHealth {
   url: string
   status: number
@@ -29,7 +31,7 @@ export async function checkEndpointHealth(endpoints: string[]): Promise<Endpoint
         const res = await fetch(url, {
           method: 'GET',
           redirect: 'follow',
-          signal: AbortSignal.timeout(8000),
+          signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS),
           headers: {
             'User-Agent': 'OTYA-HealthCheck/2.0',
             Accept: 'application/json,text/plain;q=0.9,*/*;q=0.8',
@@ -155,9 +157,7 @@ export async function sendAlertEmail(
   body: string,
 ): Promise<void> {
   const apiKey = env.RESEND_API_KEY
-  if (!apiKey) {
-    throw new Error('RESEND_API_KEY is not configured')
-  }
+  if (!apiKey) throw new Error('RESEND_API_KEY is not configured')
 
   const to = env.ALERT_EMAIL_TO || 'petersmartlink@gmail.com'
   const response = await fetch('https://api.resend.com/emails', {
@@ -172,10 +172,10 @@ export async function sendAlertEmail(
       subject,
       text: body,
     }),
+    signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS),
   })
 
   if (!response.ok) {
-    const reason = await response.text().catch(() => '')
-    throw new Error(`Resend alert failed: HTTP ${response.status}${reason ? ` — ${reason}` : ''}`)
+    throw new Error(`Resend alert failed with HTTP ${response.status}`)
   }
 }
