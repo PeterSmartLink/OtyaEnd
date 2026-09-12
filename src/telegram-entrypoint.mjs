@@ -13,6 +13,7 @@ const APP_ORIGIN = 'https://petersmartlink.com'
 const TELEGRAM_WEBHOOK_URL = 'https://petersmartlink.com/api/telegram/webhook'
 const TELEGRAM_WEBHOOK_FINGERPRINT_KEY = 'telegram:webhook:fingerprint:v1'
 const TELEGRAM_HEALTH_CRON = '*/5 * * * *'
+const AUTH_TIMEOUT_MS = 5000
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' } })
@@ -92,12 +93,19 @@ async function probeNext(env) {
 async function adminUser(request, env) {
   const token = cookieValue(request, ACCESS_COOKIE)
   if (!token || !env.AUTH?.fetch) return null
-  const response = await env.AUTH.fetch(new Request('https://auth/auth/verify', { headers: { Authorization: `Bearer ${token}` } }))
-  const data = await response.json().catch(() => ({}))
-  if (!response.ok || data?.ok !== true || !data?.email) return null
-  const email = String(data.email).toLowerCase()
-  const admins = new Set(String(env.ADMIN_EMAILS || env.ADMIN_REPORT_EMAIL || '').split(',').map(x => x.trim().toLowerCase()).filter(Boolean))
-  return admins.has(email) ? { email, id: String(data.user_id || '') } : null
+  try {
+    const response = await env.AUTH.fetch(new Request('https://auth/auth/verify', {
+      headers: { Authorization: `Bearer ${token}` },
+      signal: AbortSignal.timeout(AUTH_TIMEOUT_MS),
+    }))
+    const data = await response.json().catch(() => ({}))
+    if (!response.ok || data?.ok !== true || !data?.email) return null
+    const email = String(data.email).toLowerCase()
+    const admins = new Set(String(env.ADMIN_EMAILS || env.ADMIN_REPORT_EMAIL || '').split(',').map(x => x.trim().toLowerCase()).filter(Boolean))
+    return admins.has(email) ? { email, id: String(data.user_id || '') } : null
+  } catch {
+    return null
+  }
 }
 async function elevated(request, env) {
   const secret = String(env.ADMIN_SESSION_SECRET || '').trim()
