@@ -1,6 +1,7 @@
 const RESEND_API = 'https://api.resend.com/emails'
 const OTYA_CORE_URL = 'https://petersmartlink.com'
 const ACTION_TTL_SECONDS = 15 * 60
+const PROVIDER_TIMEOUT_MS = 12000
 const LATEST_ACTION_KEY = 'owner-action:latest'
 
 const clean = (value, max = 4000) => String(value ?? '')
@@ -65,32 +66,26 @@ function normalizeAction(type, payload, env) {
 
 async function executeTelegram(env, action) {
   if (!env.INTERNAL_SECRET) throw new Error('Otya internal Telegram gateway is not configured')
-  const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), 12000)
-  try {
-    const response = await fetch(`${OTYA_CORE_URL}/api/admin/telegram/test`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-        'X-OTYA-Internal-Secret': env.INTERNAL_SECRET,
-        'X-OTYA-Admin-Action': 'telegram',
-      },
-      body: JSON.stringify({
-        destination: 'channel',
-        text: action.payload.text,
-      }),
-      signal: controller.signal,
-    })
-    const data = await response.json().catch(() => ({}))
-    if (!response.ok || data?.ok !== true) throw new Error(`Otya Telegram gateway HTTP ${response.status}`)
-    return {
-      provider: 'telegram',
-      message_id: data?.message_id ?? null,
-      target: telegramTarget(env),
-    }
-  } finally {
-    clearTimeout(timeout)
+  const response = await fetch(`${OTYA_CORE_URL}/api/admin/telegram/test`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+      'X-OTYA-Internal-Secret': env.INTERNAL_SECRET,
+      'X-OTYA-Admin-Action': 'telegram',
+    },
+    body: JSON.stringify({
+      destination: 'channel',
+      text: action.payload.text,
+    }),
+    signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS),
+  })
+  const data = await response.json().catch(() => ({}))
+  if (!response.ok || data?.ok !== true) throw new Error(`Otya Telegram gateway HTTP ${response.status}`)
+  return {
+    provider: 'telegram',
+    message_id: data?.message_id ?? null,
+    target: telegramTarget(env),
   }
 }
 
@@ -114,6 +109,7 @@ async function executeOwnerEmail(env, action) {
       subject: action.payload.subject,
       text: action.payload.text,
     }),
+    signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS),
   })
   const data = await response.json().catch(() => ({}))
   if (!response.ok) throw new Error(`Resend HTTP ${response.status}`)
@@ -126,25 +122,10 @@ async function execute(env, action) {
   throw new Error('Unsupported owner action')
 }
 
-async function ensureExecutionSchema(env) {
-  if (!env.DB?.prepare) throw new Error('D1 execution guard is not configured')
-  await env.DB.prepare(`
-    CREATE TABLE IF NOT EXISTS owner_action_executions (
-      id TEXT PRIMARY KEY,
-      action_type TEXT NOT NULL,
-      status TEXT NOT NULL CHECK (status IN ('executing', 'completed', 'failed')),
-      claimed_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      completed_at TEXT,
-      failed_at TEXT,
-      provider TEXT,
-      provider_reference TEXT,
-      error TEXT
-    )
-  `).run()
-}
-
 async function claimExecution(env, action) {
-  await ensureExecutionSchema(env)
+  if (!env.DB?.prepare) throw new Error('D1 execution guard is not configured')
+  // owner_action_executions is migration-owned (0005). Never create schema in
+  // an approval request: missing schema is a deployment/readiness failure.
   const result = await env.DB.prepare(`
     INSERT INTO owner_action_executions (id, action_type, status)
     VALUES (?, ?, 'executing')
