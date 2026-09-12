@@ -1,10 +1,17 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import { DatabaseSync } from 'node:sqlite'
 import { queueReleaseOnce, sendReleaseReport } from '../src/lib/release-delivery.mjs'
 
+const releaseDispatchMigration = readFileSync(
+  new URL('../migrations/0008_release_push_dispatch.sql', import.meta.url),
+  'utf8',
+)
+
 function database(t) {
   const sqlite = new DatabaseSync(':memory:')
+  sqlite.exec(releaseDispatchMigration)
   t.after(() => sqlite.close())
   return { prepare(sql) {
     const statement = sqlite.prepare(sql)
