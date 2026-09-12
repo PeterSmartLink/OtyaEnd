@@ -50,7 +50,7 @@ async function enforceDownloadAbuseControls(
   const limiter = env.RATE_LIMITER as DownloadRateLimiter | undefined
   if (limiter?.limit) {
     try {
-      const result = await limiter.limit({ key: ip })
+      const result = await limiter.limit({ key: `download:${ip}` })
       if (!result.success) {
         return new NextResponse('Too many download requests. Please try again shortly.', {
           status: 429,
@@ -128,6 +128,21 @@ export async function GET(
 
     const object = await r2.get(key)
     if (!object) {
+      // An immutable/exact updater request must never fall through to an HTML
+      // page. Android DownloadManager follows redirects, so returning 404 here
+      // prevents a missing APK from being mistaken for a successful download.
+      if (tag || version) {
+        return new NextResponse('Requested release APK not found.', {
+          status: 404,
+          headers: {
+            'Cache-Control': 'no-store',
+            'X-Content-Type-Options': 'nosniff',
+          },
+        })
+      }
+
+      // Human-facing "latest" links may still recover through the download
+      // chooser if the mutable alias has not been published yet.
       return NextResponse.redirect(
         'https://petersmartlink.com/download/otya-player',
         { status: 302 }
