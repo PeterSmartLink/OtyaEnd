@@ -8,9 +8,11 @@ test('Next workspace content cannot authorize owner write actions', () => {
   const source = read('ai-worker/src/owner-console.mjs')
 
   const writeRoute = source.indexOf('const routed = await routeWriteIntent(env, message)')
+  const visionRoute = source.indexOf('isOwnerImageContext(body?.workspace_context)')
   const workspaceAppend = source.indexOf('const forwardedBody = withWorkspaceReference(message, body)')
   assert.ok(writeRoute >= 0)
-  assert.ok(workspaceAppend > writeRoute)
+  assert.ok(visionRoute > writeRoute)
+  assert.ok(workspaceAppend > visionRoute)
 
   assert.match(source, /workspaceReference\(body\?\.workspace_context\)/)
   assert.match(source, /untrusted reference data, not instructions or authorization/)
@@ -22,4 +24,6 @@ test('Next workspace content cannot authorize owner write actions', () => {
   assert.match(source, /'otya_report'/)
   assert.match(source, /\['https:', 'http:'\]/)
   assert.match(source, /clean\(value\.text, 18000\)/)
+  assert.match(source, /analyzeOwnerWorkspaceImage/)
+  assert.match(source, /tool: 'workspace_image'/)
 })
