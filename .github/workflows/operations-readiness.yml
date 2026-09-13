@@ -29,9 +29,13 @@ jobs:
         run: npm ci --ignore-scripts
 
       - name: Validate repository migration discipline
+        id: migration_layout
+        continue-on-error: true
         run: npm run verify:migrations
 
       - name: Verify Core D1 has no unapplied migrations
+        id: core_migrations
+        continue-on-error: true
         env:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -45,6 +49,8 @@ jobs:
           fi
 
       - name: Verify Auth D1 migration visibility
+        id: auth_migrations
+        continue-on-error: true
         working-directory: auth-worker
         env:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -60,6 +66,8 @@ jobs:
           fi
 
       - name: Verify D1 Time Travel is available for both production databases
+        id: time_travel
+        continue-on-error: true
         env:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -73,13 +81,35 @@ jobs:
 
       - name: Write readiness summary
         if: always()
+        env:
+          MIGRATION_LAYOUT: ${{ steps.migration_layout.outcome }}
+          CORE_MIGRATIONS: ${{ steps.core_migrations.outcome }}
+          AUTH_MIGRATIONS: ${{ steps.auth_migrations.outcome }}
+          TIME_TRAVEL: ${{ steps.time_travel.outcome }}
         run: |
           {
             echo '## Otya production operations readiness'
             echo
-            echo '- Repository migration layout checked.'
-            echo '- Core production migration drift checked.'
-            echo '- Auth migration visibility checked without mutation.'
-            echo '- D1 Time Travel availability checked without restoring data.'
-            echo '- This workflow never performs a database restore.'
+            echo "- Repository migration layout: ${MIGRATION_LAYOUT}."
+            echo "- Core production migration drift check: ${CORE_MIGRATIONS}."
+            echo "- Auth migration visibility check: ${AUTH_MIGRATIONS}."
+            echo "- D1 Time Travel availability check: ${TIME_TRAVEL}."
+            echo '- This workflow is diagnostic only: it never applies migrations or restores a database.'
           } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Enforce readiness gate
+        if: always()
+        env:
+          MIGRATION_LAYOUT: ${{ steps.migration_layout.outcome }}
+          CORE_MIGRATIONS: ${{ steps.core_migrations.outcome }}
+          AUTH_MIGRATIONS: ${{ steps.auth_migrations.outcome }}
+          TIME_TRAVEL: ${{ steps.time_travel.outcome }}
+        run: |
+          set -euo pipefail
+          for result in "$MIGRATION_LAYOUT" "$CORE_MIGRATIONS" "$AUTH_MIGRATIONS" "$TIME_TRAVEL"; do
+            if [ "$result" != 'success' ]; then
+              echo 'ERROR: Otya production operations readiness is not green. Review the failed diagnostic above.'
+              exit 1
+            fi
+          done
+          echo 'Otya production operations readiness is green.'
