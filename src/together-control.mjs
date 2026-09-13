@@ -8,6 +8,8 @@ const AUTH_REQUEST_TIMEOUT_MS = 5_000
 const TURN_REQUEST_TIMEOUT_MS = 5_000
 const MAX_SIGNAL_BYTES = 24 * 1024
 const MAX_SIGNAL_SCAN_KEYS = 500
+const USERNAME_PATTERN = /^[a-z][a-z0-9_]{2,23}$/
+const ROOM_ID_PATTERN = /^[A-Za-z0-9_-]{20,32}$/
 const ALLOWED_SIGNAL_TYPES = new Set(['offer', 'answer', 'ice', 'bye'])
 const DEFAULT_ICE_SERVERS = Object.freeze([
   Object.freeze({
@@ -52,6 +54,10 @@ function rateLimited() {
   }, 429, { 'Retry-After': '60' })
 }
 
+function normalizeUsername(value) {
+  return String(value || '').trim().replace(/^@+/, '').toLowerCase()
+}
+
 function randomToken(bytes = 18) {
   const data = crypto.getRandomValues(new Uint8Array(bytes))
   let binary = ''
@@ -88,9 +94,9 @@ async function currentPublicIdentity(request, env) {
     const data = await response.json().catch(() => ({}))
     if (!response.ok || data?.ok !== true || !data?.user) return null
     const user = data.user
-    const username = typeof user.username === 'string' ? user.username.trim().toLowerCase() : ''
+    const username = normalizeUsername(user.username)
     const otyaId = typeof user.otya_id === 'string' ? user.otya_id.trim().toUpperCase() : ''
-    if (!username || !otyaId) return null
+    if (!USERNAME_PATTERN.test(username) || !otyaId) return null
     return {
       otyaId,
       username,
@@ -108,8 +114,8 @@ async function lookupUsername(request, env, value) {
   if (!env.AUTH?.fetch) return null
   const authorization = authHeader(request)
   if (!authorization) return null
-  const username = String(value || '').trim().replace(/^@+/, '').toLowerCase()
-  if (!username) return null
+  const username = normalizeUsername(value)
+  if (!USERNAME_PATTERN.test(username)) return null
 
   const controller = new AbortController()
   const deadline = setTimeout(() => controller.abort(), AUTH_REQUEST_TIMEOUT_MS)
@@ -124,9 +130,12 @@ async function lookupUsername(request, env, value) {
     const data = await response.json().catch(() => ({}))
     if (!response.ok || data?.ok !== true || !data?.user) return null
     const user = data.user
+    const resolvedUsername = normalizeUsername(user.username)
+    const otyaId = String(user.otya_id || '').trim().toUpperCase()
+    if (!USERNAME_PATTERN.test(resolvedUsername) || !otyaId) return null
     return {
-      otyaId: String(user.otya_id || '').trim().toUpperCase(),
-      username: String(user.username || '').trim().toLowerCase(),
+      otyaId,
+      username: resolvedUsername,
       name: typeof user.name === 'string' ? user.name.trim().slice(0, 120) : '',
       avatarUrl: typeof user.avatar_url === 'string' ? user.avatar_url : '',
     }
@@ -172,11 +181,11 @@ async function writeRoom(env, room) {
 }
 
 function inviteKey(username, roomId) {
-  return `${INVITE_PREFIX}${String(username || '').trim().toLowerCase()}:${roomId}`
+  return `${INVITE_PREFIX}${normalizeUsername(username)}:${roomId}`
 }
 
 function invitePrefix(username) {
-  return `${INVITE_PREFIX}${String(username || '').trim().toLowerCase()}:`
+  return `${INVITE_PREFIX}${normalizeUsername(username)}:`
 }
 
 async function getPendingInvites(request, env) {
@@ -194,6 +203,10 @@ async function getPendingInvites(request, env) {
 
   for (const item of listed.keys || []) {
     const roomId = item.name.slice(prefix.length)
+    if (!ROOM_ID_PATTERN.test(roomId)) {
+      if (typeof env.KV.delete === 'function') await env.KV.delete(item.name)
+      continue
+    }
     const room = await readRoom(env, roomId)
     if (!room || room.status === 'closed' || room.guest?.username !== identity.username) {
       if (typeof env.KV.delete === 'function') await env.KV.delete(item.name)
@@ -305,8 +318,14 @@ async function createRoom(request, env, user) {
   if (!await mutationAllowed(env, `together:create:${user.id}`)) return rateLimited()
 
   const body = await request.json().catch(() => null)
-  const inviteUsername = String(body?.invite_username || '').trim().replace(/^@+/, '').toLowerCase()
+  const inviteUsername = normalizeUsername(body?.invite_username)
   if (!inviteUsername) return json({ error: 'invite_username is required' }, 400)
+  if (!USERNAME_PATTERN.test(inviteUsername)) {
+    return json({
+      error: 'Enter a valid Otya username.',
+      code: 'INVALID_USERNAME',
+    }, 400)
+  }
 
   const host = await currentPublicIdentity(request, env)
   if (!host) {
@@ -368,6 +387,9 @@ async function joinRoom(request, env, user, roomId) {
 
   const body = await request.json().catch(() => null)
   const inviteToken = typeof body?.invite_token === 'string' ? body.invite_token : ''
+  if (inviteToken.length > 256) {
+    return json({ error: 'Invalid or expired Together invite.', code: 'INVALID_INVITE' }, 403)
+  }
   if (inviteToken) {
     if (await sha256(inviteToken) !== room.inviteTokenHash) {
       return json({ error: 'Invalid or expired Together invite.', code: 'INVALID_INVITE' }, 403)
@@ -437,6 +459,11 @@ async function postSignal(request, env, user, roomId) {
   if (!recipient) return json({ error: 'The invited guest has not joined yet.', code: 'GUEST_NOT_JOINED' }, 409)
   if (!await mutationAllowed(env, `together:signal:${user.id}`)) return rateLimited()
 
+  const contentLength = Number.parseInt(request.headers.get('Content-Length') || '0', 10)
+  if (Number.isFinite(contentLength) && contentLength > MAX_SIGNAL_BYTES) {
+    return json({ error: 'Signaling message is too large.' }, 413)
+  }
+
   const text = await request.text()
   if (new TextEncoder().encode(text).byteLength > MAX_SIGNAL_BYTES) {
     return json({ error: 'Signaling message is too large.' }, 413)
@@ -469,6 +496,7 @@ async function getSignals(url, env, user, roomId) {
   if (!roleFor(room, user.id)) return json({ error: 'Not a participant in this room.' }, 403)
 
   const after = String(url.searchParams.get('after') || '')
+  if (after.length > 64) return json({ error: 'Invalid signal cursor.' }, 400)
   const prefix = `${SIGNAL_PREFIX}${room.id}:${user.id}:`
   const signals = []
   let cursor = ''
@@ -522,11 +550,14 @@ export async function handleTogetherControl(request, env, user) {
 
   const parts = url.pathname.split('/').filter(Boolean)
   // /api/together/rooms/:roomId[/join|signals|ice]
-  if (parts.length < 4 || parts[0] !== 'api' || parts[1] !== 'together' || parts[2] !== 'rooms') {
+  if (parts.length < 4 || parts.length > 5 || parts[0] !== 'api' || parts[1] !== 'together' || parts[2] !== 'rooms') {
     return json({ error: 'Not found' }, 404)
   }
   const roomId = parts[3]
   const action = parts[4] || ''
+  if (!ROOM_ID_PATTERN.test(roomId)) {
+    return json({ error: 'Invalid Together room identifier.', code: 'INVALID_ROOM_ID' }, 400)
+  }
 
   if (!action && request.method === 'GET') return getRoom(env, user, roomId)
   if (!action && request.method === 'DELETE') return closeRoom(env, user, roomId)
