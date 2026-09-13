@@ -4,7 +4,10 @@ const INVITE_PREFIX = 'together:invite:'
 const ROOM_TTL_SECONDS = 8 * 60 * 60
 const SIGNAL_TTL_SECONDS = 5 * 60
 const TURN_CREDENTIAL_TTL_SECONDS = ROOM_TTL_SECONDS
+const AUTH_REQUEST_TIMEOUT_MS = 5_000
+const TURN_REQUEST_TIMEOUT_MS = 5_000
 const MAX_SIGNAL_BYTES = 24 * 1024
+const MAX_SIGNAL_SCAN_KEYS = 500
 const ALLOWED_SIGNAL_TYPES = new Set(['offer', 'answer', 'ice', 'bye'])
 const DEFAULT_ICE_SERVERS = Object.freeze([
   Object.freeze({
@@ -51,10 +54,13 @@ async function currentPublicIdentity(request, env) {
   const authorization = authHeader(request)
   if (!authorization) return null
 
+  const controller = new AbortController()
+  const deadline = setTimeout(() => controller.abort(), AUTH_REQUEST_TIMEOUT_MS)
   try {
     const response = await env.AUTH.fetch(new Request('https://otya-auth/auth/account', {
       method: 'GET',
       headers: { Authorization: authorization },
+      signal: controller.signal,
     }))
     const data = await response.json().catch(() => ({}))
     if (!response.ok || data?.ok !== true || !data?.user) return null
@@ -70,6 +76,8 @@ async function currentPublicIdentity(request, env) {
     }
   } catch {
     return null
+  } finally {
+    clearTimeout(deadline)
   }
 }
 
@@ -80,12 +88,15 @@ async function lookupUsername(request, env, value) {
   const username = String(value || '').trim().replace(/^@+/, '').toLowerCase()
   if (!username) return null
 
+  const controller = new AbortController()
+  const deadline = setTimeout(() => controller.abort(), AUTH_REQUEST_TIMEOUT_MS)
   try {
     const url = new URL('https://otya-auth/auth/account')
     url.searchParams.set('lookup_username', username)
     const response = await env.AUTH.fetch(new Request(url, {
       method: 'GET',
       headers: { Authorization: authorization },
+      signal: controller.signal,
     }))
     const data = await response.json().catch(() => ({}))
     if (!response.ok || data?.ok !== true || !data?.user) return null
@@ -98,6 +109,8 @@ async function lookupUsername(request, env, value) {
     }
   } catch {
     return null
+  } finally {
+    clearTimeout(deadline)
   }
 }
 
@@ -170,7 +183,6 @@ async function getPendingInvites(request, env) {
   return json({ ok: true, invites })
 }
 
-
 function roleFor(room, userId) {
   if (room.hostUserId === userId) return 'host'
   if (room.guestUserId === userId) return 'guest'
@@ -223,6 +235,8 @@ async function getIceServers(env, user, roomId) {
     })
   }
 
+  const controller = new AbortController()
+  const deadline = setTimeout(() => controller.abort(), TURN_REQUEST_TIMEOUT_MS)
   try {
     const response = await fetch(
       `https://rtc.live.cloudflare.com/v1/turn/keys/${encodeURIComponent(turnKeyId)}/credentials/generate-ice-servers`,
@@ -233,6 +247,7 @@ async function getIceServers(env, user, roomId) {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ ttl: TURN_CREDENTIAL_TTL_SECONDS }),
+        signal: controller.signal,
       },
     )
     const data = await response.json().catch(() => ({}))
@@ -245,7 +260,11 @@ async function getIceServers(env, user, roomId) {
         ice_servers: generated,
       })
     }
-  } catch {}
+  } catch {
+    // Fall through to STUN-only degraded mode below.
+  } finally {
+    clearTimeout(deadline)
+  }
 
   // A temporary TURN control-plane outage must not break direct WebRTC. STUN
   // remains free and sufficient on networks where a direct peer path exists.
@@ -320,17 +339,17 @@ async function joinRoom(request, env, user, roomId) {
   }
 
   const body = await request.json().catch(() => null)
-const inviteToken = typeof body?.invite_token === 'string' ? body.invite_token : ''
-if (inviteToken) {
-  if (await sha256(inviteToken) !== room.inviteTokenHash) {
-    return json({ error: 'Invalid or expired Together invite.', code: 'INVALID_INVITE' }, 403)
+  const inviteToken = typeof body?.invite_token === 'string' ? body.invite_token : ''
+  if (inviteToken) {
+    if (await sha256(inviteToken) !== room.inviteTokenHash) {
+      return json({ error: 'Invalid or expired Together invite.', code: 'INVALID_INVITE' }, 403)
+    }
+  } else {
+    const pending = await env.KV.get(inviteKey(identity.username, room.id))
+    if (!pending) {
+      return json({ error: 'This Together invite is no longer pending.', code: 'INVITE_NOT_PENDING' }, 403)
+    }
   }
-} else {
-  const pending = await env.KV.get(inviteKey(identity.username, room.id))
-  if (!pending) {
-    return json({ error: 'This Together invite is no longer pending.', code: 'INVITE_NOT_PENDING' }, 403)
-  }
-}
 
   if (room.guestUserId && room.guestUserId !== user.id) {
     return json({ error: 'This Together room already has its guest.', code: 'ROOM_FULL' }, 409)
@@ -420,19 +439,38 @@ async function getSignals(url, env, user, roomId) {
 
   const after = String(url.searchParams.get('after') || '')
   const prefix = `${SIGNAL_PREFIX}${room.id}:${user.id}:`
-  const listed = await env.KV.list({ prefix, limit: 100 })
   const signals = []
+  let cursor = ''
+  let scanned = 0
+  let listComplete = false
 
-  for (const item of listed.keys || []) {
-    const signalId = item.name.slice(prefix.length)
-    if (after && signalId <= after) continue
-    const raw = await env.KV.get(item.name)
-    if (!raw) continue
-    try { signals.push(JSON.parse(raw)) } catch {}
-  }
+  do {
+    const remaining = MAX_SIGNAL_SCAN_KEYS - scanned
+    if (remaining <= 0) break
+    const options = { prefix, limit: Math.min(100, remaining) }
+    if (cursor) options.cursor = cursor
+    const listed = await env.KV.list(options)
+    const keys = listed.keys || []
+    scanned += keys.length
+
+    for (const item of keys) {
+      const signalId = item.name.slice(prefix.length)
+      if (after && signalId <= after) continue
+      const raw = await env.KV.get(item.name)
+      if (!raw) continue
+      try { signals.push(JSON.parse(raw)) } catch {}
+    }
+
+    listComplete = listed.list_complete === true
+    cursor = typeof listed.cursor === 'string' ? listed.cursor : ''
+  } while (!listComplete && cursor && scanned < MAX_SIGNAL_SCAN_KEYS)
 
   signals.sort((a, b) => String(a.id).localeCompare(String(b.id)))
-  return json({ ok: true, signals })
+  return json({
+    ok: true,
+    signals,
+    truncated: !listComplete && Boolean(cursor),
+  })
 }
 
 /// Handles only authenticated remote/Anywhere Together control traffic.
