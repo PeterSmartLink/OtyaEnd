@@ -12,6 +12,7 @@ type OwnerEnv = Record<string, unknown> & {
 }
 
 const VERIFY_TIMEOUT_MS = 5000
+const MAX_OWNER_REQUEST_BYTES = 7 * 1024 * 1024
 
 async function verifyOwnerGrant(request: NextRequest, env: OwnerEnv): Promise<{ ok: boolean; email?: string }> {
   const authorization = request.headers.get('Authorization')?.trim() ?? ''
@@ -58,6 +59,14 @@ async function forward(request: NextRequest, context: Context) {
     )
   }
 
+  const declaredLength = Number(request.headers.get('content-length') ?? 0)
+  if (Number.isFinite(declaredLength) && declaredLength > MAX_OWNER_REQUEST_BYTES) {
+    return NextResponse.json(
+      { error: 'Next owner request is too large.' },
+      { status: 413, headers: { 'Cache-Control': 'no-store' } },
+    )
+  }
+
   const { path } = await context.params
   const incoming = new URL(request.url)
   const target = new URL(`/api/admin/ai/console/${path.join('/')}`, incoming.origin)
@@ -76,6 +85,12 @@ async function forward(request: NextRequest, context: Context) {
   const body = request.method === 'GET' || request.method === 'HEAD'
     ? undefined
     : await request.arrayBuffer()
+  if (body && body.byteLength > MAX_OWNER_REQUEST_BYTES) {
+    return NextResponse.json(
+      { error: 'Next owner request is too large.' },
+      { status: 413, headers: { 'Cache-Control': 'no-store' } },
+    )
+  }
 
   const response = await recordEnv.AI_SUPPORT.fetch(new Request(target, {
     method: request.method,
