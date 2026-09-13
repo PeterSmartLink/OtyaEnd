@@ -8,7 +8,7 @@ import {
 
 const KEY = 'app:remote-config'
 const FIREBASE_CACHE_KEY = 'app:remote-config:firebase-cache-v1'
-const CURRENT_REVISION = 10
+const CURRENT_REVISION = 11
 const FIREBASE_CACHE_FRESH_MS = 10 * 60 * 1000
 const FIREBASE_CACHE_TTL_SECS = 60 * 60
 
@@ -50,6 +50,9 @@ const DEFAULT_CONFIG = {
     feedback: true,
     aiAssistant: true,
     cloudPush: true,
+    together: true,
+    togetherNearby: true,
+    togetherAnywhere: true,
   },
   home: {
     featuredCard: {
@@ -153,11 +156,17 @@ function asRecord(value: unknown): ConfigRecord {
 }
 
 function enforceProductScope(value: ConfigRecord): ConfigRecord {
-  const features = { ...asRecord(value.features) }
+  const features = {
+    ...asRecord(value.features),
+    together: true,
+    togetherNearby: true,
+    togetherAnywhere: true,
+  }
   delete features.onlineMusic
 
   return {
     ...value,
+    revision: CURRENT_REVISION,
     features,
     search: {
       ...asRecord(value.search),
@@ -200,6 +209,9 @@ function migrateConfig(stored: unknown): ConfigRecord {
     feedback: oldFeatures.feedback ?? true,
     aiAssistant: oldFeatures.aiAssistant ?? true,
     cloudPush: oldFeatures.cloudPush ?? true,
+    together: true,
+    togetherNearby: true,
+    togetherAnywhere: true,
   }
 
   const links = { ...DEFAULT_CONFIG.links, ...asRecord(source.links), ai: DEFAULT_CONFIG.links.ai }
