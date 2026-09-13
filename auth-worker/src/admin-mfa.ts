@@ -14,6 +14,7 @@ export interface AdminMfaEnv {
   AUTH_JWT_SECRET: string
   RESEND_API_KEY?: string
   ADMIN_EMAILS?: string
+  INTERNAL_SECRET?: string
 }
 
 const OTP_TTL = 10 * 60
@@ -22,6 +23,7 @@ const OTP_MAX_SENDS = 5
 const OTP_MAX_ATTEMPTS = 8
 const TELEGRAM_WINDOW_TTL = 10 * 60
 const COMPLETE_TTL = 5 * 60
+const TELEGRAM_CHALLENGE_PREFIX = 'admin_mfa_challenge:'
 // Next is a private owner device, not a browser admin session. Once the owner
 // completes the strong enrollment ceremony, keep the trusted device usable and
 // renew it at most weekly. A new enrollment automatically replaces the previous
@@ -89,6 +91,10 @@ async function digest(value: string): Promise<string> {
 
 async function otpDigest(userId: string, otp: string): Promise<string> {
   return digest(`otya-admin-mfa:${userId}:${otp.trim().toUpperCase()}`)
+}
+
+async function telegramChallengeDigest(challenge: string): Promise<string> {
+  return digest(`otya-admin-telegram-challenge:${challenge.trim()}`)
 }
 
 function deviceIdFrom(request: Request): string {
@@ -189,6 +195,7 @@ export async function markAdminTelegramComplete(env: AdminMfaEnv, userId: string
   const pending = await env.AUTH_KV.get(`admin_mfa_telegram:${userId}`)
   if (!pending) throw new Error('Admin email verification expired')
   await env.AUTH_KV.delete(`admin_mfa_telegram:${userId}`)
+  await env.AUTH_KV.delete(`${TELEGRAM_CHALLENGE_PREFIX}${pending}`)
   await env.AUTH_KV.put(`admin_mfa_complete:${userId}`, randomToken(), { expirationTtl: COMPLETE_TTL })
 }
 
@@ -196,10 +203,62 @@ export async function adminTelegramPending(env: AdminMfaEnv, userId: string): Pr
   return Boolean(await env.AUTH_KV.get(`admin_mfa_telegram:${userId}`))
 }
 
+export async function confirmAdminTelegramChallenge(
+  env: AdminMfaEnv,
+  challenge: string,
+  telegramUserId: string,
+): Promise<boolean> {
+  const normalizedChallenge = challenge.trim()
+  const telegramSubject = telegramUserId.trim()
+  if (!/^[A-Za-z0-9_-]{16,80}$/.test(normalizedChallenge)) return false
+  if (!/^\d{4,24}$/.test(telegramSubject)) return false
+
+  const challengeHash = await telegramChallengeDigest(normalizedChallenge)
+  const userId = await env.AUTH_KV.get(`${TELEGRAM_CHALLENGE_PREFIX}${challengeHash}`)
+  if (!userId) return false
+
+  const pending = await env.AUTH_KV.get(`admin_mfa_telegram:${userId}`)
+  if (!pending || !timingSafeEqual(pending, challengeHash)) return false
+
+  await assertSchemaReady(env.AUTH_DB)
+  const user = await getUserById(env.AUTH_DB, userId)
+  if (!user?.email || !allowlist(env).has(user.email.toLowerCase())) return false
+
+  const linked = await env.AUTH_DB.prepare(
+    "SELECT user_id FROM linked_identities WHERE provider = 'telegram' AND provider_subject = ? LIMIT 1",
+  ).bind(telegramSubject).first<{ user_id?: string }>()
+  if (!linked?.user_id || linked.user_id !== userId) return false
+
+  await env.AUTH_DB.prepare(
+    "UPDATE linked_identities SET last_used_at = datetime('now') WHERE provider = 'telegram' AND provider_subject = ? AND user_id = ?",
+  ).bind(telegramSubject, userId).run()
+  await markAdminTelegramComplete(env, userId)
+  return true
+}
+
 export async function handleAdminMfa(request: Request, env: AdminMfaEnv): Promise<Response | null> {
   const url = new URL(request.url)
   if (!url.pathname.startsWith('/auth/admin/')) return null
   if (request.method !== 'POST') return json({ error: 'Method not allowed' }, 405)
+
+  if (url.pathname === '/auth/admin/telegram-challenge/confirm') {
+    const suppliedSecret = request.headers.get('X-OTYA-Internal-Secret')?.trim() ?? ''
+    if (!env.INTERNAL_SECRET || !suppliedSecret || !timingSafeEqual(suppliedSecret, env.INTERNAL_SECRET)) {
+      return json({ error: 'Unauthorized' }, 401)
+    }
+    const body = await request.json().catch(() => ({})) as {
+      challenge?: string
+      telegram_user_id?: string | number
+    }
+    const ok = await confirmAdminTelegramChallenge(
+      env,
+      String(body.challenge ?? ''),
+      String(body.telegram_user_id ?? ''),
+    )
+    return ok
+      ? json({ ok: true, owner_verified: true })
+      : json({ error: 'This Next enrollment challenge is invalid, expired, or belongs to another Telegram account.', code: 'TELEGRAM_CHALLENGE_INVALID' }, 401)
+  }
 
   const user = await requireAllowedAdmin(request, env)
   if (!user) return json({ error: 'Additional verification is required.' }, 403)
@@ -247,8 +306,20 @@ export async function handleAdminMfa(request: Request, env: AdminMfaEnv): Promis
 
     await env.AUTH_KV.delete(`admin_mfa_otp:${user.id}`)
     await env.AUTH_KV.delete(`admin_mfa_attempt:${user.id}`)
-    await env.AUTH_KV.put(`admin_mfa_telegram:${user.id}`, randomToken(), { expirationTtl: TELEGRAM_WINDOW_TTL })
-    return json({ ok: true, next: 'telegram' })
+
+    const oldChallengeHash = await env.AUTH_KV.get(`admin_mfa_telegram:${user.id}`)
+    if (oldChallengeHash) await env.AUTH_KV.delete(`${TELEGRAM_CHALLENGE_PREFIX}${oldChallengeHash}`)
+
+    const telegramChallenge = randomToken(18)
+    const challengeHash = await telegramChallengeDigest(telegramChallenge)
+    await env.AUTH_KV.put(`admin_mfa_telegram:${user.id}`, challengeHash, { expirationTtl: TELEGRAM_WINDOW_TTL })
+    await env.AUTH_KV.put(`${TELEGRAM_CHALLENGE_PREFIX}${challengeHash}`, user.id, { expirationTtl: TELEGRAM_WINDOW_TTL })
+    return json({
+      ok: true,
+      next: 'telegram',
+      telegram_challenge: telegramChallenge,
+      expires_in: TELEGRAM_WINDOW_TTL,
+    })
   }
 
   if (url.pathname === '/auth/admin/consume') {
