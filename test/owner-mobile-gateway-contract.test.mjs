@@ -32,4 +32,8 @@ test('Next mobile gateway verifies the owner grant against the exact device befo
   assert.match(source, /headers\.delete\('x-otya-device-id'\)/)
   assert.match(source, /X-OTYA-Internal-Secret/)
   assert.match(source, /next-android/)
+  assert.match(source, /MAX_OWNER_REQUEST_BYTES = 7 \* 1024 \* 1024/)
+  assert.match(source, /declaredLength > MAX_OWNER_REQUEST_BYTES/)
+  assert.match(source, /body\.byteLength > MAX_OWNER_REQUEST_BYTES/)
+  assert.match(source, /status: 413/)
 })
