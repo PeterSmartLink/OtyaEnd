@@ -18,15 +18,38 @@ const DEFAULT_ICE_SERVERS = Object.freeze([
   }),
 ])
 
-function json(data, status = 200) {
+function json(data, status = 200, extraHeaders = {}) {
   return new Response(JSON.stringify(data), {
     status,
     headers: {
       'Content-Type': 'application/json; charset=utf-8',
       'Cache-Control': 'no-store',
       'X-Content-Type-Options': 'nosniff',
+      ...extraHeaders,
     },
   })
+}
+
+async function mutationAllowed(env, key) {
+  const limiter = env.RATE_LIMITER
+  if (!limiter?.limit) return true
+  try {
+    const result = await limiter.limit({ key })
+    return result?.success !== false
+  } catch (error) {
+    console.error('[Together] RATE_LIMITER failed:', error?.message || 'unknown error')
+    // Availability wins over a limiter outage. Authentication, room membership,
+    // payload bounds and KV TTLs remain enforced even when this optional guard
+    // cannot answer.
+    return true
+  }
+}
+
+function rateLimited() {
+  return json({
+    error: 'Too many Together actions. Try again shortly.',
+    code: 'RATE_LIMITED',
+  }, 429, { 'Retry-After': '60' })
 }
 
 function randomToken(bytes = 18) {
@@ -279,6 +302,7 @@ async function getIceServers(env, user, roomId) {
 
 async function createRoom(request, env, user) {
   if (!env.KV?.put) return json({ error: 'Together rooms are unavailable.' }, 503)
+  if (!await mutationAllowed(env, `together:create:${user.id}`)) return rateLimited()
 
   const body = await request.json().catch(() => null)
   const inviteUsername = String(body?.invite_username || '').trim().replace(/^@+/, '').toLowerCase()
@@ -338,6 +362,10 @@ async function joinRoom(request, env, user, roomId) {
     return json({ error: 'This Together invite belongs to another Otya account.', code: 'NOT_INVITED' }, 403)
   }
 
+  if (room.guestUserId === user.id && room.status === 'connected') {
+    return json({ ok: true, room: publicRoom(room) })
+  }
+
   const body = await request.json().catch(() => null)
   const inviteToken = typeof body?.invite_token === 'string' ? body.invite_token : ''
   if (inviteToken) {
@@ -354,6 +382,7 @@ async function joinRoom(request, env, user, roomId) {
   if (room.guestUserId && room.guestUserId !== user.id) {
     return json({ error: 'This Together room already has its guest.', code: 'ROOM_FULL' }, 409)
   }
+  if (!await mutationAllowed(env, `together:join:${user.id}`)) return rateLimited()
 
   room.guestUserId = user.id
   room.status = 'connected'
@@ -374,9 +403,10 @@ async function getRoom(env, user, roomId) {
 
 async function closeRoom(env, user, roomId) {
   const room = await readRoom(env, roomId)
-  if (!room) return json({ ok: true })
+  if (!room || room.status === 'closed') return json({ ok: true })
   const role = roleFor(room, user.id)
   if (!role) return json({ error: 'Not a participant in this room.' }, 403)
+  if (!await mutationAllowed(env, `together:close:${user.id}`)) return rateLimited()
 
   // The host ends the room for everyone. A guest leaving marks the room closed
   // in v1 because the first release is intentionally private one-to-one.
@@ -405,6 +435,7 @@ async function postSignal(request, env, user, roomId) {
   if (!senderRole) return json({ error: 'Not a participant in this room.' }, 403)
   const recipient = signalRecipient(room, senderRole)
   if (!recipient) return json({ error: 'The invited guest has not joined yet.', code: 'GUEST_NOT_JOINED' }, 409)
+  if (!await mutationAllowed(env, `together:signal:${user.id}`)) return rateLimited()
 
   const text = await request.text()
   if (new TextEncoder().encode(text).byteLength > MAX_SIGNAL_BYTES) {
