@@ -156,7 +156,7 @@ function asRecord(value: unknown): ConfigRecord {
 }
 
 function enforceProductScope(value: ConfigRecord): ConfigRecord {
-  const features = {
+  const features: ConfigRecord = {
     ...asRecord(value.features),
     together: true,
     togetherNearby: true,
