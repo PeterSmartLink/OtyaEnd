@@ -8,6 +8,25 @@ const clean = (value, max = 5000) => String(value ?? '')
   .trim()
   .slice(0, max)
 
+const cleanWorkspaceText = (value, max = 18000) => {
+  let text = String(value ?? '')
+    .replace(/\r\n?/g, '\n')
+    .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, ' ')
+  text = text.replace(
+    /-----BEGIN [^-]*PRIVATE KEY-----[\s\S]*?-----END [^-]*PRIVATE KEY-----/gi,
+    '[private key redacted by OTYA]',
+  )
+  text = text.replace(
+    /^(\s*["']?(?:api[_-]?key|secret|token|password|passwd|authorization|auth[_-]?token|access[_-]?token|refresh[_-]?token|client[_-]?secret|private[_-]?key)["']?\s*[:=]\s*)(.+)$/gim,
+    '$1[redacted by OTYA]',
+  )
+  text = text.replace(
+    /\bBearer\s+[A-Za-z0-9._~+\-/]+=*/gi,
+    'Bearer [redacted by OTYA]',
+  )
+  return text.trim().slice(0, max)
+}
+
 const json = (data, status = 200) => new Response(JSON.stringify(data), {
   status,
   headers: {
@@ -68,7 +87,7 @@ function workspaceReference(value) {
   ].includes(kind)) return null
   const title = clean(value.title, 240)
   const source = clean(value.source, 800)
-  const text = clean(value.text, 18000)
+  const text = cleanWorkspaceText(value.text, 18000)
   if (!text) return null
   if (kind === 'web_page') {
     try {
