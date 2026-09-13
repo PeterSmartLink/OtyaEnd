@@ -3,6 +3,7 @@ import {
   getTelegramWebhookInfo,
   handleTelegramAdmin,
   handleTelegramWebhook,
+  sendTelegramMessage,
   setTelegramWebhook,
 } from './lib/telegram-bot.mjs'
 export { OtyaReleaseWorkflow } from './entrypoint.mjs'
@@ -12,6 +13,7 @@ const ADMIN_COOKIE = 'otya_admin_session'
 const APP_ORIGIN = 'https://petersmartlink.com'
 const TELEGRAM_WEBHOOK_URL = 'https://petersmartlink.com/api/telegram/webhook'
 const TELEGRAM_WEBHOOK_FINGERPRINT_KEY = 'telegram:webhook:fingerprint:v1'
+const TELEGRAM_OWNER_UPDATE_PREFIX = 'telegram:owner-enrollment:update:'
 const TELEGRAM_HEALTH_CRON = '*/5 * * * *'
 const AUTH_TIMEOUT_MS = 5000
 
@@ -162,11 +164,82 @@ async function telegramStatus(env) {
   }
 }
 
+function ownerChallengeFromUpdate(update) {
+  const message = update?.message
+  if (!message || message?.from?.is_bot === true || message?.chat?.type !== 'private') return null
+  const text = String(message?.text || '').trim()
+  const match = text.match(/^\/start(?:@OtyaPlayerBot)?\s+owner_([A-Za-z0-9_-]{16,80})$/i)
+  if (!match) return null
+  const chatId = message?.chat?.id
+  const telegramUserId = message?.from?.id
+  if (!chatId || !telegramUserId) return null
+  return {
+    challenge: match[1],
+    chatId,
+    telegramUserId: String(telegramUserId),
+    updateId: Number.isSafeInteger(update?.update_id) ? update.update_id : null,
+  }
+}
+
+async function handleOwnerEnrollmentWebhook(request, env) {
+  if (request.method !== 'POST') return null
+  const expected = await bindingValue(env.TELEGRAM_WEBHOOK_SECRET)
+  const provided = request.headers.get('X-Telegram-Bot-Api-Secret-Token') || ''
+  if (!expected || !equal(provided, expected)) return null
+
+  const update = await request.clone().json().catch(() => null)
+  const enrollment = ownerChallengeFromUpdate(update)
+  if (!enrollment) return null
+
+  if (enrollment.updateId !== null && env.KV?.get && env.KV?.put) {
+    const key = `${TELEGRAM_OWNER_UPDATE_PREFIX}${enrollment.updateId}`
+    if (await env.KV.get(key)) return json({ ok: true, duplicate: true })
+    await env.KV.put(key, '1', { expirationTtl: 24 * 60 * 60 })
+  }
+
+  let verified = false
+  if (env.AUTH?.fetch && env.INTERNAL_SECRET) {
+    try {
+      const response = await env.AUTH.fetch(new Request('https://otya-auth/auth/admin/telegram-challenge/confirm', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+          'X-OTYA-Internal-Secret': String(env.INTERNAL_SECRET),
+        },
+        body: JSON.stringify({
+          challenge: enrollment.challenge,
+          telegram_user_id: enrollment.telegramUserId,
+        }),
+        signal: AbortSignal.timeout(AUTH_TIMEOUT_MS),
+      }))
+      const data = await response.json().catch(() => ({}))
+      verified = response.ok && data?.ok === true && data?.owner_verified === true
+    } catch (error) {
+      console.error('[telegram] owner enrollment verification failed:', error instanceof Error ? error.message : 'unknown error')
+    }
+  }
+
+  const text = verified
+    ? 'Identity confirmed for Next. Return to the Next app; this phone will finish trusted-device enrollment automatically.'
+    : 'This Next enrollment request is invalid, expired, or belongs to a different Telegram account. Return to Next and start the trust step again.'
+  try {
+    await sendTelegramMessage(enrollment.chatId, text, env)
+  } catch (error) {
+    console.error('[telegram] owner enrollment reply failed:', error instanceof Error ? error.message : 'unknown error')
+  }
+  return json({ ok: true, owner_enrollment: true, verified })
+}
+
 export default {
   ...worker,
   async fetch(request, env, ctx) {
     const url = new URL(request.url)
-    if (url.pathname === '/api/telegram/webhook') return handleTelegramWebhook(request, env, ctx)
+    if (url.pathname === '/api/telegram/webhook') {
+      const ownerEnrollment = await handleOwnerEnrollmentWebhook(request, env)
+      if (ownerEnrollment) return ownerEnrollment
+      return handleTelegramWebhook(request, env, ctx)
+    }
     if (url.pathname === '/api/telegram/status' && request.method === 'GET') return telegramStatus(env)
     if (url.pathname.startsWith('/api/telegram/')) return json({ error: 'Not found' }, 404)
     if (url.pathname === '/api/admin/telegram/test' || url.pathname === '/api/admin/telegram/webhook') {
