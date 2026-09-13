@@ -19,13 +19,17 @@ test('mobile owner grant is device-bound, renewable and revocable', () => {
   assert.doesNotMatch(source, /AUTH_JWT_SECRET.*owner_grant/i)
 })
 
-test('Next mobile gateway verifies owner grant before forwarding', () => {
+test('Next mobile gateway verifies the owner grant against the exact device before forwarding', () => {
   const source = read('src/app/api/owner/ai/[...path]/route.ts')
   assert.match(source, /verifyOwnerGrant/)
   assert.match(source, /\/auth\/admin\/verify-grant/)
   assert.match(source, /X-OTYA-Owner-Grant/)
+  assert.match(source, /const deviceId = request\.headers\.get\('X-OTYA-Device-ID'\)/)
+  assert.match(source, /'X-OTYA-Device-ID': deviceId/)
+  assert.match(source, /!grant \|\| !deviceId/)
   assert.match(source, /headers\.delete\('authorization'\)/)
   assert.match(source, /headers\.delete\('x-otya-owner-grant'\)/)
+  assert.match(source, /headers\.delete\('x-otya-device-id'\)/)
   assert.match(source, /X-OTYA-Internal-Secret/)
   assert.match(source, /next-android/)
 })
