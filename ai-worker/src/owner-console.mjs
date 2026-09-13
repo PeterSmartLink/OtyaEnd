@@ -58,7 +58,13 @@ function mayContainWriteIntent(message) {
 function workspaceReference(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null
   const kind = clean(value.kind, 40)
-  if (!['web_page', 'local_text_file', 'otya_report'].includes(kind)) return null
+  if (![
+    'web_page',
+    'local_text_file',
+    'local_source_file',
+    'local_pdf_text',
+    'otya_report',
+  ].includes(kind)) return null
   const title = clean(value.title, 240)
   const source = clean(value.source, 800)
   const text = clean(value.text, 18000)
