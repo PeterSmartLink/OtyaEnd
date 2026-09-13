@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "revision": 10,
+  "revision": 11,
   "maintenance": {
     "enabled": false,
     "title": "Otya online services are temporarily unavailable",
@@ -35,7 +35,10 @@
     "driveBackup": true,
     "feedback": true,
     "aiAssistant": true,
-    "cloudPush": true
+    "cloudPush": true,
+    "together": true,
+    "togetherNearby": true,
+    "togetherAnywhere": true
   },
   "home": {
     "featuredCard": {
