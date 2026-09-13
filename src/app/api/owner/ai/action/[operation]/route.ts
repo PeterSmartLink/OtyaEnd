@@ -29,7 +29,8 @@ function json(data: unknown, status: number) {
 async function verifyOwnerGrant(request: NextRequest, env: OwnerEnv): Promise<{ ok: boolean; email?: string }> {
   const authorization = request.headers.get('Authorization')?.trim() ?? ''
   const grant = request.headers.get('X-OTYA-Owner-Grant')?.trim() ?? ''
-  if (!authorization.startsWith('Bearer ') || !grant || !env.AUTH?.fetch) return { ok: false }
+  const deviceId = request.headers.get('X-OTYA-Device-ID')?.trim() ?? ''
+  if (!authorization.startsWith('Bearer ') || !grant || !deviceId || !env.AUTH?.fetch) return { ok: false }
 
   try {
     const upstream = await env.AUTH.fetch(new Request('https://auth/auth/admin/verify-grant', {
@@ -37,6 +38,7 @@ async function verifyOwnerGrant(request: NextRequest, env: OwnerEnv): Promise<{ 
       headers: {
         Authorization: authorization,
         'X-OTYA-Owner-Grant': grant,
+        'X-OTYA-Device-ID': deviceId,
         Accept: 'application/json',
         'Content-Type': 'application/json',
       },
