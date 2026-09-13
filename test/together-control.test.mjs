@@ -337,3 +337,136 @@ test('non-participants cannot inspect room metadata', async () => {
   )
   assert.equal(response.status, 403)
 })
+
+test('Together write limiter blocks room creation without consuming KV writes', async () => {
+  const env = {
+    KV: new MemoryKv(),
+    AUTH: authBinding(),
+    RATE_LIMITER: {
+      async limit() { return { success: false } },
+    },
+  }
+
+  const response = await handleTogetherControl(
+    request('/api/together/rooms', {
+      method: 'POST',
+      token: 'host',
+      body: { invite_username: '@sarah' },
+    }),
+    env,
+    { id: 'host-private' },
+  )
+
+  assert.equal(response.status, 429)
+  assert.equal(response.headers.get('Retry-After'), '60')
+  assert.equal((await response.json()).code, 'RATE_LIMITED')
+  assert.equal(
+    [...env.KV.values.keys()].some(key => key.startsWith('together:room:')),
+    false,
+  )
+})
+
+test('repeated join is idempotent and does not spend another mutation allowance', async () => {
+  const limiterKeys = []
+  const env = {
+    KV: new MemoryKv(),
+    AUTH: authBinding(),
+    RATE_LIMITER: {
+      async limit({ key }) {
+        limiterKeys.push(key)
+        return { success: true }
+      },
+    },
+  }
+  const created = await createRoom(env)
+  await joinGuest(env, created)
+  const callsBeforeRetry = limiterKeys.length
+
+  const retry = await handleTogetherControl(
+    request(`/api/together/rooms/${created.room.room_id}/join`, {
+      method: 'POST',
+      token: 'guest',
+      body: { invite_token: 'a retry must not need this token again' },
+    }),
+    env,
+    { id: 'guest-private' },
+  )
+
+  assert.equal(retry.status, 200)
+  assert.equal((await retry.json()).room.guest.connected, true)
+  assert.equal(limiterKeys.length, callsBeforeRetry)
+})
+
+test('signal writes are rate-limited but signal polling is never charged', async () => {
+  const limiterKeys = []
+  const env = {
+    KV: new MemoryKv(),
+    AUTH: authBinding(),
+    RATE_LIMITER: {
+      async limit({ key }) {
+        limiterKeys.push(key)
+        return { success: !key.startsWith('together:signal:') }
+      },
+    },
+  }
+  const created = await createRoom(env)
+  await joinGuest(env, created)
+  const roomId = created.room.room_id
+
+  const blockedWrite = await handleTogetherControl(
+    request(`/api/together/rooms/${roomId}/signals`, {
+      method: 'POST',
+      token: 'host',
+      body: { type: 'offer', payload: { sdp: 'blocked-fixture' } },
+    }),
+    env,
+    { id: 'host-private' },
+  )
+  assert.equal(blockedWrite.status, 429)
+
+  const callsBeforePoll = limiterKeys.length
+  const poll = await handleTogetherControl(
+    request(`/api/together/rooms/${roomId}/signals`, { token: 'guest' }),
+    env,
+    { id: 'guest-private' },
+  )
+  assert.equal(poll.status, 200)
+  assert.equal(limiterKeys.length, callsBeforePoll)
+})
+
+test('closing an already closed room is idempotent and does not spend another mutation allowance', async () => {
+  const limiterKeys = []
+  const env = {
+    KV: new MemoryKv(),
+    AUTH: authBinding(),
+    RATE_LIMITER: {
+      async limit({ key }) {
+        limiterKeys.push(key)
+        return { success: true }
+      },
+    },
+  }
+  const created = await createRoom(env)
+
+  const first = await handleTogetherControl(
+    request(`/api/together/rooms/${created.room.room_id}`, {
+      method: 'DELETE',
+      token: 'host',
+    }),
+    env,
+    { id: 'host-private' },
+  )
+  assert.equal(first.status, 200)
+  const callsBeforeRetry = limiterKeys.length
+
+  const retry = await handleTogetherControl(
+    request(`/api/together/rooms/${created.room.room_id}`, {
+      method: 'DELETE',
+      token: 'host',
+    }),
+    env,
+    { id: 'host-private' },
+  )
+  assert.equal(retry.status, 200)
+  assert.equal(limiterKeys.length, callsBeforeRetry)
+})
