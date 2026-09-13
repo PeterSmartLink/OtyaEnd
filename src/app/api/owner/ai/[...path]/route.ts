@@ -16,7 +16,8 @@ const VERIFY_TIMEOUT_MS = 5000
 async function verifyOwnerGrant(request: NextRequest, env: OwnerEnv): Promise<{ ok: boolean; email?: string }> {
   const authorization = request.headers.get('Authorization')?.trim() ?? ''
   const grant = request.headers.get('X-OTYA-Owner-Grant')?.trim() ?? ''
-  if (!authorization.startsWith('Bearer ') || !grant || !env.AUTH?.fetch) return { ok: false }
+  const deviceId = request.headers.get('X-OTYA-Device-ID')?.trim() ?? ''
+  if (!authorization.startsWith('Bearer ') || !grant || !deviceId || !env.AUTH?.fetch) return { ok: false }
 
   try {
     const upstream = await env.AUTH.fetch(new Request('https://auth/auth/admin/verify-grant', {
@@ -24,6 +25,7 @@ async function verifyOwnerGrant(request: NextRequest, env: OwnerEnv): Promise<{ 
       headers: {
         Authorization: authorization,
         'X-OTYA-Owner-Grant': grant,
+        'X-OTYA-Device-ID': deviceId,
         Accept: 'application/json',
         'Content-Type': 'application/json',
       },
@@ -65,6 +67,7 @@ async function forward(request: NextRequest, context: Context) {
   headers.delete('authorization')
   headers.delete('cookie')
   headers.delete('x-otya-owner-grant')
+  headers.delete('x-otya-device-id')
   headers.set('X-OTYA-Internal-Secret', recordEnv.INTERNAL_SECRET)
   headers.set('X-OTYA-Admin-ID', 'primary')
   headers.set('X-OTYA-Admin-Email', owner.email ?? String(recordEnv.ADMIN_EMAIL ?? 'admin'))
