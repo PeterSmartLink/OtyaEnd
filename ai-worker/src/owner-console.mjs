@@ -1,6 +1,7 @@
 import { handleConsoleAdmin } from './console-tools.mjs'
 import { handleOwnerActions, latestPendingOwnerAction } from './owner-actions.mjs'
 import { handleSupportEmailAdmin } from './support-email.mjs'
+import { analyzeOwnerWorkspaceImage, isOwnerImageContext } from './owner-vision.mjs'
 
 const clean = (value, max = 5000) => String(value ?? '')
   .replace(/[\u0000-\u001f]/g, ' ')
@@ -325,14 +326,35 @@ export async function handleOwnerConsole(request, env) {
   if (cancellationIntent(message)) return cancelLatest(request, env)
 
   // Write routing intentionally sees only the owner's spoken/typed request.
-  // Embedded pages/files are appended only after this point so untrusted
-  // workspace text can never authorize or manufacture a write action.
+  // Embedded pages/files/images are handled only after this point so untrusted
+  // workspace material can never authorize or manufacture a write action.
   const routed = await routeWriteIntent(env, message)
   if (routed?.action === 'support_reply') {
     return prepareSupportReply(request, env, routed, message)
   }
   if (routed?.action && routed.action !== 'none') {
     return prepareFromChat(request, env, routed)
+  }
+
+  if (isOwnerImageContext(body?.workspace_context)) {
+    try {
+      const vision = await analyzeOwnerWorkspaceImage(
+        env,
+        message,
+        body.workspace_context,
+      )
+      return json({
+        ok: true,
+        answer: vision.answer,
+        tool: 'workspace_image',
+      })
+    } catch {
+      return json({
+        ok: true,
+        answer: 'I could not analyze that image safely right now. The image was not treated as an instruction or an authorization.',
+        tool: 'workspace_image_unavailable',
+      })
+    }
   }
 
   const forwardedBody = withWorkspaceReference(message, body)
