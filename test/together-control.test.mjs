@@ -12,13 +12,21 @@ class MemoryKv {
 
   async delete(key) { this.values.delete(key) }
 
-  async list({ prefix = '', limit = 1000 } = {}) {
-    const keys = [...this.values.keys()]
+  async list({ prefix = '', limit = 1000, cursor = '' } = {}) {
+    const all = [...this.values.keys()]
       .filter(key => key.startsWith(prefix))
       .sort()
-      .slice(0, limit)
+    const offset = cursor ? Number.parseInt(cursor, 10) || 0 : 0
+    const page = all
+      .slice(offset, offset + limit)
       .map(name => ({ name }))
-    return { keys, list_complete: true }
+    const nextOffset = offset + page.length
+    const listComplete = nextOffset >= all.length
+    return {
+      keys: page,
+      list_complete: listComplete,
+      ...(listComplete ? {} : { cursor: String(nextOffset) }),
+    }
   }
 }
 
@@ -77,6 +85,20 @@ async function createRoom(env) {
     { id: 'host-private' },
   )
   assert.equal(response.status, 201)
+  return response.json()
+}
+
+async function joinGuest(env, created) {
+  const response = await handleTogetherControl(
+    request(`/api/together/rooms/${created.room.room_id}/join`, {
+      method: 'POST',
+      token: 'guest',
+      body: { invite_token: created.invite_token },
+    }),
+    env,
+    { id: 'guest-private' },
+  )
+  assert.equal(response.status, 200)
   return response.json()
 }
 
@@ -238,6 +260,40 @@ test('signaling is short-lived recipient-specific setup data only', async () => 
     { id: 'host-private' },
   )
   assert.equal(chatAttempt.status, 400)
+})
+
+test('signal polling paginates past the first 100 KV keys', async () => {
+  const env = { KV: new MemoryKv(), AUTH: authBinding() }
+  const created = await createRoom(env)
+  await joinGuest(env, created)
+  const roomId = created.room.room_id
+
+  for (let index = 0; index < 125; index += 1) {
+    const signalId = `${String(index).padStart(13, '0')}-fixture`
+    const key = `together:signal:${roomId}:guest-private:${signalId}`
+    await env.KV.put(key, JSON.stringify({
+      id: signalId,
+      room_id: roomId,
+      type: 'ice',
+      payload: { candidate: `candidate-${index}` },
+      sender_role: 'host',
+      created_at: new Date(index).toISOString(),
+    }))
+  }
+
+  const response = await handleTogetherControl(
+    request(`/api/together/rooms/${roomId}/signals?after=${String(99).padStart(13, '0')}-fixture`, {
+      token: 'guest',
+    }),
+    env,
+    { id: 'guest-private' },
+  )
+  assert.equal(response.status, 200)
+  const body = await response.json()
+  assert.equal(body.truncated, false)
+  assert.equal(body.signals.length, 25)
+  assert.equal(body.signals[0].payload.candidate, 'candidate-100')
+  assert.equal(body.signals.at(-1).payload.candidate, 'candidate-124')
 })
 
 test('ICE configuration is participant-scoped and defaults to Cloudflare STUN', async () => {
