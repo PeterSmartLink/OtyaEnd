@@ -3,7 +3,6 @@ import Link from 'next/link'
 import type { Metadata } from 'next'
 import { SiteNav } from '@/components/SiteNav'
 import { SiteFooter } from '@/components/SiteFooter'
-import { OtyaBrandMark } from '@/components/OtyaBrandMark'
 import { HomeStart } from '@/components/HomeStart'
 
 export const metadata: Metadata = {
@@ -41,8 +40,8 @@ export default function HomePage() {
           <div className="relative">
             <div className="absolute -inset-8 rounded-full bg-[radial-gradient(circle,rgba(41,121,255,.13),transparent_65%)] blur-2xl" />
             <div className="relative rounded-[34px] border border-black/[.07] dark:border-white/[.09] bg-[color:var(--cosmos-surface)] dark:bg-white/[.035] p-4 sm:p-5 shadow-[0_30px_90px_rgba(8,11,18,.16)] backdrop-blur-xl">
-              <div className="flex items-center justify-between px-2 pb-4"><div><div className="text-xs font-black otya-muted">Featured product</div><div className="mt-1 text-2xl font-black tracking-[-.04em]">Otya Player</div></div><OtyaBrandMark size={48}/></div>
-              <Image src="/brand/otya-app-preview.svg" alt="Illustration of the Otya Player interface" width={1200} height={820} priority className="w-full h-auto rounded-[26px]" />
+              <div className="flex items-center justify-between px-2 pb-4"><div><div className="text-xs font-black otya-muted">Featured product</div><div className="mt-1 text-2xl font-black tracking-[-.04em]">Otya Player</div></div><span className="text-xs font-bold otya-muted">Actual app screen</span></div>
+              <div className="mx-auto max-w-[310px] overflow-hidden rounded-[26px] border border-white/10 bg-[#06152d] shadow-2xl"><Image src="/product/otya/onboarding.svg" alt="Otya Player welcome screen on Android" width={540} height={960} priority className="w-full h-auto" /></div>
               <div className="pt-5 px-2 pb-1 flex flex-wrap gap-3"><Link href="/otya-player" className="text-sm font-black">View product →</Link><Link href="/download/otya-player" className="text-sm font-black otya-muted">Download</Link></div>
             </div>
           </div>
@@ -51,11 +50,18 @@ export default function HomePage() {
 
       <HomeStart />
 
+      <section className="otya-shell py-14 sm:py-20">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"><div><div className="otya-kicker">Otya Player</div><h2 className="mt-3 text-3xl sm:text-5xl font-black tracking-[-.055em]">A real player, not a concept.</h2><p className="mt-4 max-w-[680px] text-sm sm:text-base leading-7 otya-muted">Listen, organize your media and move it between nearby phones. These are screens from Otya Player on Android.</p></div><Link href="/otya-player" className="text-sm font-black">Explore Otya →</Link></div>
+        <div className="mt-8 grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5">
+          {[['now-playing.svg','Now playing'],['music.svg','Music library'],['transfer.svg','Otya Transfer'],['me.svg','Your media']].map(([screen,label]) => <div key={screen} className="overflow-hidden rounded-[24px] border border-black/[.07] dark:border-white/[.09] bg-[color:var(--cosmos-surface)] p-2 sm:p-3"><Image src={`/product/otya/${screen}`} alt={`Otya Player ${label} screen`} width={540} height={960} className="w-full h-auto rounded-[17px]" /><div className="px-2 pt-3 pb-2 text-sm font-black">{label}</div></div>)}
+        </div>
+      </section>
+
       <section className="border-y border-black/[.05] dark:border-white/[.07] bg-black/[.018] dark:bg-white/[.018]">
         <div className="otya-shell py-14 sm:py-20 grid lg:grid-cols-3 gap-4">
-          <Link href="/otya-player" className="rounded-[28px] border border-black/[.06] dark:border-white/[.08] bg-[color:var(--cosmos-surface)] p-7 sm:p-8 min-h-[280px] flex flex-col"><OtyaBrandMark size={44}/><div className="mt-6 text-xs font-black otya-muted">Product</div><h2 className="mt-1 text-2xl font-black">Otya Player</h2><p className="mt-3 text-base leading-7 otya-muted">Local music and video, background playback, nearby Transfer, Private media and useful tools.</p><span className="mt-auto pt-7 text-sm font-black">Explore →</span></Link>
+          <Link href="/otya-player" className="rounded-[28px] border border-black/[.06] dark:border-white/[.08] bg-[color:var(--cosmos-surface)] p-7 sm:p-8 min-h-[280px] flex flex-col"><div className="text-xs font-black otya-muted">Product</div><h2 className="mt-1 text-2xl font-black">Otya Player</h2><p className="mt-3 text-base leading-7 otya-muted">Local music and video, background playback, nearby Transfer, Private media and useful tools.</p><span className="mt-auto pt-7 text-sm font-black">Explore →</span></Link>
           <Link href="https://space.petersmartlink.com" className="rounded-[28px] border border-black/[.06] dark:border-white/[.08] bg-[color:var(--cosmos-surface)] p-7 sm:p-8 min-h-[280px] flex flex-col"><div className="h-11 w-11 rounded-2xl grid place-items-center border border-black/[.07] dark:border-white/[.09] font-black">S</div><div className="mt-6 text-xs font-black otya-muted">Your account</div><h2 className="mt-1 text-2xl font-black">Space</h2><p className="mt-3 text-base leading-7 otya-muted">Your account details, signed-in devices and security settings, together in one place.</p><span className="mt-auto pt-7 text-sm font-black">Open Space →</span></Link>
-          <Link href="/ask" className="rounded-[28px] border border-black/[.06] dark:border-white/[.08] bg-[color:var(--cosmos-surface)] p-7 sm:p-8 min-h-[280px] flex flex-col"><OtyaBrandMark ai size={44}/><div className="mt-6 text-xs font-black otya-muted">Assistant</div><h2 className="mt-1 text-2xl font-black">Next</h2><p className="mt-3 text-base leading-7 otya-muted">Ask a question, get help with Otya, or work through an everyday idea.</p><span className="mt-auto pt-7 text-sm font-black">Open Next →</span></Link>
+          <Link href="/ask" className="rounded-[28px] border border-black/[.06] dark:border-white/[.08] bg-[color:var(--cosmos-surface)] p-7 sm:p-8 min-h-[280px] flex flex-col"><div className="flex gap-1.5" aria-hidden="true"><span className="h-3 w-3 rounded-full bg-cyan-400"/><span className="h-3 w-3 rounded-full bg-blue-500"/><span className="h-3 w-3 rounded-full bg-violet-500"/></div><div className="mt-5 text-xs font-black otya-muted">Assistant</div><h2 className="mt-1 text-2xl font-black">Next</h2><p className="mt-3 text-base leading-7 otya-muted">Ask a question, get help with Otya, or work through an everyday idea.</p><span className="mt-auto pt-7 text-sm font-black">Open Next →</span></Link>
         </div>
       </section>
 
