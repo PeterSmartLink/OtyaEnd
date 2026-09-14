@@ -1,66 +1,32 @@
 import { OTYA } from '@/lib/constants'
 import Link from 'next/link'
-import { OtyaBrandMark } from '@/components/OtyaBrandMark'
 
 const GROUPS = [
-  {
-    title: 'Products',
-    links: [
-      ['Otya Player', '/otya-player'],
-      ['Download', '/download/otya-player'],
-      ['Next', 'https://space.petersmartlink.com/ask'],
-      ['Space', 'https://space.petersmartlink.com'],
-    ],
-  },
-  {
-    title: 'Resources',
-    links: [
-      ['Documentation', 'https://docs.petersmartlink.com'],
-      ['Developers', '/developers'],
-      ['Press & media', '/press'],
-      ['Help & support', '/help'],
-      ['Service status', 'https://status.petersmartlink.com'],
-    ],
-  },
-  {
-    title: 'Official Telegram',
-    links: [
-      ['OTYA Channel · @otyaplayer', OTYA.telegramChannel],
-      ['OTYA Bot · @OtyaPlayerBot', OTYA.telegramSupport],
-    ],
-  },
-  {
-    title: 'PeterSmart Link',
-    links: [
-      ['Company', '/company'],
-      ['Official links', '/official'],
-      ['Contact', '/contact'],
-      ['Privacy', '/privacy'],
-      ['Terms', '/terms'],
-      ['Delete account', '/delete-account'],
-    ],
-  },
+  { title: 'Products', links: [['Otya Player', '/otya-player'], ['Download for Android', '/download/otya-player'], ['Otya Space', 'https://space.petersmartlink.com']] },
+  { title: 'Support', links: [['Help', '/help'], ['Documentation', 'https://docs.petersmartlink.com'], ['Service status', 'https://status.petersmartlink.com']] },
+  { title: 'Company', links: [['About PeterSmart Link', '/company'], ['Privacy', '/privacy'], ['Terms', '/terms']] },
 ] as const
 
 export function SiteFooter() {
-  return <footer className="mt-16 border-t border-black/[.06] dark:border-white/[.08] bg-black/[.015] dark:bg-white/[.015]">
-    <div className="otya-shell py-10 sm:py-12">
-      <div className="grid gap-8 lg:grid-cols-[1.05fr_2.35fr]">
+  return <footer className="mt-16 border-t border-black/[.06] dark:border-white/[.08]">
+    <div className="otya-shell py-8 sm:py-10">
+      <div className="grid gap-8 lg:grid-cols-[1.15fr_1.85fr] lg:items-start">
         <div>
-          <Link href={OTYA.website} className="inline-flex items-center gap-2.5 w-fit">
-            <span className="grid place-items-center w-11 h-11 rounded-xl bg-[color:var(--cosmos-surface)] border border-[color:var(--cosmos-divider)] shadow-[0_0_24px_rgba(18,107,255,.10)]"><OtyaBrandMark size={34}/></span>
-            <span className="leading-normal"><span className="block font-bold text-lg tracking-[-.02em]">PeterSmart Link</span><span className="block text-sm font-semibold otya-muted">Otya Player</span></span>
-          </Link>
-          <p className="mt-3 max-w-[360px] text-sm leading-6 otya-muted">Developer and publisher of practical software products including Otya Player, Otya Space and Next.</p>
-          <p className="mt-4 text-xs font-bold otya-muted">Built in Uganda.</p>
+          <Link href={OTYA.website} className="inline-block text-base font-black tracking-[-.035em]">PeterSmart Link</Link>
+          <p className="mt-2 max-w-sm text-sm leading-6 otya-muted">Building practical software, starting with Otya Player for Android.</p>
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-6 gap-y-8">
-          {GROUPS.map(group => <div key={group.title}><div className="text-sm tracking-wide font-bold otya-muted">{group.title}</div><div className="mt-3 grid gap-1">{group.links.map(([label, href]) => <Link key={`${group.title}-${label}`} href={href.startsWith('/') ? `${OTYA.website}${href}` : href} className="inline-flex min-h-11 items-center text-sm font-semibold hover:text-[color:var(--cosmos-primary)]">{label}</Link>)}</div></div>)}
+        <div className="grid grid-cols-3 gap-5 sm:gap-8">
+          {GROUPS.map(group => <div key={group.title}>
+            <div className="text-xs font-black uppercase tracking-[.12em] otya-muted">{group.title}</div>
+            <div className="mt-3 grid gap-1">
+              {group.links.map(([label, href]) => <Link key={label} href={href.startsWith('/') ? `${OTYA.website}${href}` : href} className="inline-flex min-h-9 items-center text-sm font-semibold hover:text-[color:var(--cosmos-primary)]">{label}</Link>)}
+            </div>
+          </div>)}
         </div>
       </div>
-      <div className="mt-10 pt-5 border-t border-black/[.05] dark:border-white/[.06] flex flex-col sm:flex-row gap-2 sm:items-center sm:justify-between text-sm otya-muted">
+      <div className="mt-8 flex flex-col gap-1 border-t border-black/[.05] pt-4 text-xs otya-muted sm:flex-row sm:items-center sm:justify-between dark:border-white/[.06]">
         <span>© {new Date().getFullYear()} PeterSmart Link</span>
-        <span>PeterSmart Link is the developer. Otya is a product family.</span>
+        <span>Otya Player · Made in Uganda</span>
       </div>
     </div>
   </footer>
