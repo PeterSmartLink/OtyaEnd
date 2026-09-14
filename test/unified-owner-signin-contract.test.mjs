@@ -47,12 +47,12 @@ test('Telegram owner verification returns to the same sign-in journey safely', (
   assert.match(telegramProxy, /clearAdminReturn\(response\)/)
 })
 
-test('Admin is a protected Space route rather than a separate public identity surface', () => {
+test('browser Admin is retired while protected owner APIs remain server-side', () => {
   assert.match(router, /pathname === '\/admin'/)
   assert.match(router, /pathname\.startsWith\('\/admin\/'\)/)
   assert.match(router, /\['admin', '\/admin'\]/)
-  assert.match(adminLayout, /signInFor\(pathname\)/)
-  assert.match(adminLayout, /state\.authenticated !== true/)
+  assert.match(adminLayout, /Owner control is in Next/)
+  assert.doesNotMatch(adminLayout, /getAdminSession/)
 })
 
 test('PeterSmart Link owns the organization hierarchy while Otya remains a product', () => {
