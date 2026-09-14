@@ -20,7 +20,7 @@ export async function GET(
 
   try {
     const post = await db.prepare(
-      'SELECT * FROM blog_posts WHERE slug = ? AND isPublished = 1'
+      'SELECT * FROM blog_posts WHERE slug = ? AND published = 1'
     ).bind(slug).first()
 
     if (!post) return errorJson('Post not found', 404)
