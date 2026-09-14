@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs'
 
 const read = path => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8')
 
-test('admin AI and product surfaces use one approved Otya identity', () => {
+test('admin AI uses the approved Otya identity while generic loading stays quiet', () => {
   const mark = read('src/components/OtyaBrandMark.tsx')
   const consoleUi = read('src/app/admin/ai/ConsoleClient.tsx')
   const loading = read('src/app/loading.tsx')
