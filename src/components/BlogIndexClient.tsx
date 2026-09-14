@@ -32,9 +32,9 @@ export function BlogIndexClient() {
   return <div className="mt-10 grid gap-4">
     {posts.map(post => <article key={post.id} className="rounded-[26px] border border-black/[.07] bg-[color:var(--cosmos-surface)] p-6 sm:p-8 dark:border-white/[.10]">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-bold otya-muted"><span>{post.category || 'Product'}</span><span aria-hidden="true">·</span><span>{dateLabel(post.created_at)}</span></div>
-      <h2 className="mt-3 text-2xl sm:text-3xl font-black tracking-[-.045em]"><Link href={\`/blog/\${post.slug}\`} className="hover:text-[color:var(--cosmos-primary)]">{post.title}</Link></h2>
+      <h2 className="mt-3 text-2xl sm:text-3xl font-black tracking-[-.045em]"><Link href={'/blog/' + post.slug} className="hover:text-[color:var(--cosmos-primary)]">{post.title}</Link></h2>
       {post.excerpt && <p className="mt-3 max-w-3xl text-sm sm:text-base leading-7 otya-muted">{post.excerpt}</p>}
-      <Link href={\`/blog/\${post.slug}\`} className="mt-5 inline-flex text-sm font-black">Read article →</Link>
+      <Link href={'/blog/' + post.slug} className="mt-5 inline-flex text-sm font-black">Read article →</Link>
     </article>)}
   </div>
 }
