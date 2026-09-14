@@ -1,62 +1,21 @@
-'use client'
+import type { ReactNode } from 'react'
 
-import { ReactNode, useEffect, useState } from 'react'
-import { usePathname } from 'next/navigation'
-import { OtyaBrandMark } from '@/components/OtyaBrandMark'
-import { getAdminSession } from '@/lib/admin_session_client'
-
-function signInFor(pathname: string) {
-  const next = pathname === '/admin' || pathname === '/admin/' ? '/admin' : pathname
-  return `/sign-in?next=${encodeURIComponent(next || '/admin')}`
-}
-
-export default function AdminLayout({ children }: { children: ReactNode }) {
-  const pathname = usePathname()
-  const [checking, setChecking] = useState(true)
-
-  useEffect(() => {
-    let cancelled = false
-
-    void getAdminSession().then(state => {
-      if (cancelled) return
-
-      const atAdminHome = pathname === '/admin' || pathname === '/admin/'
-
-      // Admin is a role inside the signed-in Otya account. If fresh owner
-      // verification is required, return to the normal Otya sign-in journey
-      // rather than rendering a second Admin login/unlock experience here.
-      if (state.authenticated !== true) {
-        window.location.replace(signInFor(pathname))
-        return
-      }
-
-      // Once owner verification is complete, the conversational command center
-      // remains the current Admin home. Backend authorization still protects
-      // every privileged API independently of this client-side routing.
-      if (atAdminHome) {
-        window.location.replace('/admin/ai')
-        return
-      }
-
-      setChecking(false)
-    }).catch(() => {
-      if (cancelled) return
-      // Fail closed and let the unified sign-in surface explain/retry the owner
-      // verification state. Never expose privileged children on lookup failure.
-      window.location.replace(signInFor(pathname))
-    })
-
-    return () => { cancelled = true }
-  }, [pathname])
-
-  if (checking) {
-    return <main className="min-h-screen grid place-items-center" style={{ background: 'var(--cosmos-scaffold)', color: 'var(--cosmos-text-primary)' }}>
-      <div className="text-center">
-        <OtyaBrandMark size={52} thinking label="Checking Otya access" />
-        <p className="mt-3 text-sm otya-muted">Checking your Otya account…</p>
+/**
+ * Owner operations are intentionally unavailable in a browser.
+ *
+ * Privileged server APIs remain protected and are used by the private Next
+ * Android application after owner verification and biometric step-up.
+ */
+export default function AdminLayout({ children: _children }: { children: ReactNode }) {
+  return <main className="min-h-screen grid place-items-center px-5" style={{ background: 'var(--cosmos-scaffold)', color: 'var(--cosmos-text-primary)' }}>
+    <section className="max-w-md text-center">
+      <div className="mx-auto flex gap-2 justify-center" aria-hidden="true">
+        <span className="h-3 w-3 rounded-full bg-cyan-400" />
+        <span className="h-3 w-3 rounded-full bg-blue-500" />
+        <span className="h-3 w-3 rounded-full bg-violet-500" />
       </div>
-    </main>
-  }
-
-  return children
+      <h1 className="mt-5 text-2xl font-black tracking-[-.04em]">Owner control is in Next</h1>
+      <p className="mt-3 text-sm leading-6 otya-muted">This browser workspace has been retired. Use the private Next app on your verified owner device for conversations, system health, approvals and protected actions.</p>
+    </section>
+  </main>
 }

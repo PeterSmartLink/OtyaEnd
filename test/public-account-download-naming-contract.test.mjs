@@ -22,7 +22,7 @@ test('public Otya surfaces and Android download naming stay canonical', () => {
   )
   assert.match(legacyDownload, /redirect\('\/download\/otya-player'\)/)
 
-  assert.match(spaceShell, /label: 'Next'/)
+  assert.doesNotMatch(spaceShell, /label: 'Next'/)
   assert.match(spaceShell, />Otya<\/div><div className="text-sm otya-muted">Space<\/div>/)
   assert.match(spaceShell, /aria-label="Otya Space home"/)
   assert.doesNotMatch(spaceShell, /Otya AI/)

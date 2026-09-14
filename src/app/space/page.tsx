@@ -82,7 +82,6 @@ export default function SpaceHomePage() {
   const devicesHref = spaceHref(user?.otya_id, 'devices', '/account/devices/')
   const storageHref = spaceHref(user?.otya_id, 'storage', '/account/storage/')
   const settingsHref = spaceHref(user?.otya_id, 'settings', '/account/settings/')
-  const nextHref = spaceHref(user?.otya_id, 'next', '/ask')
   const telegramHref = spaceHref(user?.otya_id, 'telegram', '/telegram/')
 
   return <main className="px-4 sm:px-7 lg:px-10 py-7 sm:py-9 max-w-[1240px]">
@@ -90,12 +89,11 @@ export default function SpaceHomePage() {
       <div className="max-w-3xl">
         <div className="text-[11px] font-black uppercase tracking-[.18em] otya-muted">Otya Space</div>
         <h1 className="mt-3 text-3xl sm:text-5xl font-black tracking-[-.05em]">Welcome, {displayName}</h1>
-        <p className="mt-4 text-sm sm:text-base leading-7 otya-muted">Your signed-in Otya environment. One Otya ID connects your app account, email, Google, Telegram, security and supported recovery services.</p>
+        <p className="mt-4 text-sm sm:text-base leading-7 otya-muted">Your local Otya account space. Manage your identity, security, connected sign-in methods and supported recovery services.</p>
         {user?.otya_id && <div className="mt-4 inline-flex rounded-xl border px-3 py-2 font-mono text-xs font-bold" style={{ borderColor: 'var(--cosmos-divider)', background: 'var(--cosmos-card)' }}>Otya ID · {user.otya_id}</div>}
         <div className="mt-6 flex flex-wrap gap-2">
           <PrimaryLink href={accountHref}>Manage account</PrimaryLink>
           <QuietLink href={providersHref}>Sign-in methods</QuietLink>
-          <QuietLink href={nextHref}>Open Next</QuietLink>
           <QuietLink href={telegramHref}>Telegram</QuietLink>
         </div>
       </div>
@@ -139,10 +137,6 @@ export default function SpaceHomePage() {
         <p className="mt-3 text-xs leading-5 otya-muted">Space does not pretend local-only data is already cloud-synced.</p>
       </SpaceCard>
 
-      <SpaceCard title="Next" eyebrow="Otya AI" action={<Link href={nextHref} className="text-xs font-black otya-muted">Open</Link>}>
-        <div className="text-lg font-black">Ask Next</div>
-        <p className="mt-2 text-sm leading-6 otya-muted">Use Next from the same Otya environment. Conversation storage remains governed by the current privacy and product rules.</p>
-      </SpaceCard>
 
       <SpaceCard title="Telegram" eyebrow="Connected service" action={<Link href={telegramHref} className="text-xs font-black otya-muted">Open</Link>}>
         <div className="text-lg font-black">{telegram ? 'Connected to your Otya ID' : 'Available to connect'}</div>
