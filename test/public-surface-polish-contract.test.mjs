@@ -10,12 +10,12 @@ test('visitor-facing pages use the canonical Otya Player download path', () => {
   assert.doesNotMatch(music, /href="\/download\/otya"/)
 })
 
-test('generic website loading uses Otya identity without impersonating Next thinking', () => {
+test('generic website loading stays quiet and does not impersonate Next thinking', () => {
   const loading = read('src/app/loading.tsx')
-  assert.match(loading, /Loading Otya/)
-  assert.match(loading, />Otya<\/div>/)
+  assert.match(loading, />Loading<\\/span>/)
+  assert.match(loading, /animate-pulse/)
   assert.doesNotMatch(loading, /Otya Player/)
-  assert.doesNotMatch(loading, /\bthinking\b/)
+  assert.doesNotMatch(loading, /\\bthinking\\b/)
   assert.doesNotMatch(loading, /Next is getting/)
 })
 
