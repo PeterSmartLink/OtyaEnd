@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { AccountNotices } from '@/components/AccountNotices'
 import { signOutBrowser } from '@/lib/browser-sign-out.mjs'
-import { ReactNode, useRef, useState } from 'react'
+import { ReactNode, useEffect, useRef, useState } from 'react'
 import { OtyaBrandMark } from '@/components/OtyaBrandMark'
 
 type SpaceUser = {
