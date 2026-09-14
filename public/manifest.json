@@ -1,7 +1,7 @@
 {
   "name": "Otya",
   "short_name": "Otya",
-  "description": "Otya — offline-first music and video, nearby Send, Private media and practical media tools.",
+  "description": "Otya — offline-first music and video, Otya Transfer, Watch Together, Private media and practical media tools.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#050812",
