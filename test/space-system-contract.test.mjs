@@ -8,11 +8,10 @@ const chrome = readFileSync(new URL('../src/components/OtyaSpaceChrome.tsx', imp
 const accountLayout = readFileSync(new URL('../src/app/account/layout.tsx', import.meta.url), 'utf8')
 const signInMethods = readFileSync(new URL('../src/app/account/sign-in-methods/page.tsx', import.meta.url), 'utf8')
 
-test('Space is a signed-in product home, not an alias for Account', () => {
-  assert.ok(space.includes('Your signed-in Otya environment'))
-  assert.ok(space.includes('One Otya ID'))
+test('Space is the signed-in customer account home, not an owner console', () => {
+  assert.ok(space.includes('Your local Otya account space'))
   assert.ok(space.includes('Manage account'))
-  assert.ok(space.includes('Open Next'))
+  assert.ok(!space.includes('Open Next'))
   assert.ok(space.includes('Playlist recovery'))
   assert.ok(accountLayout.includes('OtyaSpaceGate'))
 })
