@@ -17,7 +17,7 @@ export const metadata: Metadata = {
     template: '%s | PeterSmart Link',
   },
   description:
-    'Otya by PeterSmart Link is an offline-first Android music and video app for local media, nearby Send, Private media and practical media tools.',
+    'Otya by PeterSmart Link is an offline-first Android music and video app for local media, Otya Transfer, Watch Together, Private media and practical media tools.',
   keywords: [
     'Otya',
     'Otya Player',
@@ -28,6 +28,7 @@ export const metadata: Metadata = {
     'local music player Android',
     'local video player Android',
     'file transfer Android',
+    'watch together Android',
     'private media Android',
     'Uganda technology',
   ],
@@ -54,7 +55,7 @@ export const metadata: Metadata = {
     siteName: 'PeterSmart Link',
     title: 'Otya — Offline Music & Video for Android',
     description:
-      'Official Otya by PeterSmart Link for local Android music and video, offline playback, nearby Send and Private media.',
+      'Official Otya by PeterSmart Link for local Android media, offline playback, Otya Transfer, Watch Together and Private media.',
     images: [
       {
         url: OTYA_MARK,
@@ -68,7 +69,7 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary',
     title: 'Otya — Offline Music & Video for Android',
-    description: 'Official Otya by PeterSmart Link for local Android media.',
+    description: 'Official Otya by PeterSmart Link for local Android media, Otya Transfer and Watch Together.',
     images: [OTYA_MARK],
   },
   icons: {
@@ -115,7 +116,7 @@ const schemaOrg = {
       author: { '@id': `${SITE_URL}/#organization` },
       publisher: { '@id': `${SITE_URL}/#organization` },
       description:
-        'Offline-first Android music and video app for local media, nearby Send, Private media, playlists, subtitles and practical media tools.',
+        'Offline-first Android music and video app for local media, Otya Transfer, Watch Together, Private media, playlists, subtitles and practical media tools.',
       image: `${SITE_URL}${OTYA_MARK}`,
       featureList: [
         'Local music playback',
@@ -124,7 +125,8 @@ const schemaOrg = {
         'Playlists',
         'Subtitles',
         'Picture-in-Picture',
-        'Nearby media sending',
+        'Otya Transfer',
+        'Watch Together — Nearby and Anywhere',
         'Private media',
       ],
     },
