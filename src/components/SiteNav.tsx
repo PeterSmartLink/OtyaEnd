@@ -14,6 +14,7 @@ const publicLinks = [
   ['Otya', '/otya-player'],
   ['Developers', '/developers'],
   ['Company', '/company'],
+  ['Journal', '/blog'],
   ['Support', '/help'],
 ] as const
 
