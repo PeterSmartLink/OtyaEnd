@@ -40,6 +40,20 @@ export function DownloadPageClient() {
   const [status,setStatus]=useState<'idle'|'started'>('idle')
   const [error,setError]=useState('')
 
+  useEffect(()=>{
+    let active=true
+    void detectDevice().then(device=>{if(active){setIsAndroid(device.isAndroid);setAbi(device.abi);setDeviceChecked(true)}})
+    const controller=new AbortController()
+    const timeout=setTimeout(()=>controller.abort(),10000)
+    setLoading(true);setLoadError('')
+    fetch('/latest',{cache:'no-store',signal:controller.signal})
+      .then(r=>r.ok?r.json() as Promise<VersionData>:Promise.reject(new Error('Release information is unavailable.')))
+      .then(version=>{if(active)setRelease(version)})
+      .catch(()=>{if(active){setRelease(null);setLoadError('We could not load the download information. Please try again.')}})
+      .finally(()=>{clearTimeout(timeout);if(active)setLoading(false)})
+    return()=>{active=false;clearTimeout(timeout);controller.abort()}
+  },[loadAttempt])
+
   function urlFor(targetAbi:'arm64'|'arm32'){
     return `/apk/${targetAbi}`
   }
@@ -71,7 +85,7 @@ export function DownloadPageClient() {
           {!loading&&!loadError&&(!release?.version||release.published===false)&&<p className="mt-4 text-sm leading-6">No public Android release is available yet. Please check back soon.</p>}
           {release?.changelog&&<details className="mt-5 border-t pt-4" style={{borderColor:'var(--cosmos-divider)'}}><summary className="cursor-pointer text-xs font-extrabold">What changed</summary><p className="text-sm leading-7 otya-muted whitespace-pre-line mt-2">{release.changelog}</p></details>}
           <div className="mt-5 border-t pt-5" style={{borderColor:'var(--cosmos-divider)'}}>
-            {!deviceChecked?<div className="rounded-2xl border p-4 text-center" style={{borderColor:'var(--cosmos-divider)'}}><div className="font-bold text-sm">Checking this device…</div></div>:isAndroid?<>{abi==='unknown'?<div className="space-y-3"><div className="rounded-2xl border p-4" style={{borderColor:'var(--cosmos-divider)'}}><div className="font-bold text-sm">Choose your Android build</div><p className="text-xs mt-1.5 otya-muted">Your browser did not safely report the device architecture, so Otya Player will not guess.</p></div><button type="button" disabled={loading||Boolean(loadError)||!release?.version||release.published===false||status==='started'} onClick={()=>void download('arm64')} className="cosmos-button w-full rounded-full px-5 py-3.5 text-sm font-extrabold disabled:opacity-60">Download ARM64 · most modern phones</button><button type="button" disabled={loading||Boolean(loadError)||!release?.version||release.published===false||status==='started'} onClick={()=>void download('arm32')} className="otya-quiet-button w-full rounded-full px-5 py-3.5 text-sm font-extrabold disabled:opacity-60">Download ARM32 · older 32-bit devices</button></div>:<><button type="button" disabled={loading||Boolean(loadError)||!release?.version||release.published===false||status==='started'} onClick={()=>void download()} className="cosmos-button w-full rounded-full px-5 py-3.5 text-sm font-extrabold disabled:opacity-60">{status==='started'?'Verifying…':status==='started'?'Download requested':`Download Otya Player${release?.version?` · v${release.version}`:''}`}</button><p className="text-[11px] mt-3 text-center otya-muted">Detected {abi==='arm64'?'ARM64':'ARM32'} Android build.</p></>}{error&&<p className="text-xs mt-3 text-center" style={{color:'var(--cosmos-error)'}}>{error}</p>}</>:<div className="rounded-2xl border p-4 text-center" style={{borderColor:'var(--cosmos-divider)'}}><div className="font-bold text-sm">Android download</div><p className="text-xs mt-1.5 otya-muted">Open this page on a supported Android phone to download Otya Player.</p></div>}
+            {!deviceChecked?<div className="rounded-2xl border p-4 text-center" style={{borderColor:'var(--cosmos-divider)'}}><div className="font-bold text-sm">Checking this device…</div></div>:isAndroid?<>{abi==='unknown'?<div className="space-y-3"><div className="rounded-2xl border p-4" style={{borderColor:'var(--cosmos-divider)'}}><div className="font-bold text-sm">Choose your Android build</div><p className="text-xs mt-1.5 otya-muted">Your browser did not safely report the device architecture, so Otya Player will not guess.</p></div><button type="button" disabled={loading||Boolean(loadError)||!release?.version||release.published===false||status==='started'} onClick={()=>void download('arm64')} className="cosmos-button w-full rounded-full px-5 py-3.5 text-sm font-extrabold disabled:opacity-60">Download ARM64 · most modern phones</button><button type="button" disabled={loading||Boolean(loadError)||!release?.version||release.published===false||status==='started'} onClick={()=>void download('arm32')} className="otya-quiet-button w-full rounded-full px-5 py-3.5 text-sm font-extrabold disabled:opacity-60">Download ARM32 · older 32-bit devices</button></div>:<><button type="button" disabled={loading||Boolean(loadError)||!release?.version||release.published===false||status==='started'} onClick={()=>void download()} className="cosmos-button w-full rounded-full px-5 py-3.5 text-sm font-extrabold disabled:opacity-60">{status==='started'?'Download started':`Download Otya Player${release?.version?` · v${release.version}`:''}`}</button><p className="text-[11px] mt-3 text-center otya-muted">Detected {abi==='arm64'?'ARM64':'ARM32'} Android build.</p></>}{error&&<p className="text-xs mt-3 text-center" style={{color:'var(--cosmos-error)'}}>{error}</p>}</>:<div className="rounded-2xl border p-4 text-center" style={{borderColor:'var(--cosmos-divider)'}}><div className="font-bold text-sm">Android download</div><p className="text-xs mt-1.5 otya-muted">Open this page on a supported Android phone to download Otya Player.</p></div>}
           </div>
         </aside>
       </section>
