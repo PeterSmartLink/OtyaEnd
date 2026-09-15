@@ -227,6 +227,7 @@ jobs:
           ADMIN_SESSION_SECRET: ${{ secrets.ADMIN_SESSION_SECRET }}
           FIREBASE_APP_DISTRIBUTION_TESTERS: ${{ secrets.FIREBASE_APP_DISTRIBUTION_TESTERS }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          TURNSTILE_SECRET_KEY: ${{ secrets.TURNSTILE_SECRET_KEY }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         run: |
@@ -240,6 +241,7 @@ jobs:
           if [ -n "${ADMIN_SESSION_SECRET:-}" ]; then printf '%s' "$ADMIN_SESSION_SECRET" | npx wrangler secret put ADMIN_SESSION_SECRET; fi
           if [ -n "${FIREBASE_APP_DISTRIBUTION_TESTERS:-}" ]; then printf '%s' "$FIREBASE_APP_DISTRIBUTION_TESTERS" | npx wrangler secret put FIREBASE_APP_DISTRIBUTION_TESTERS; fi
           if [ -n "${RESEND_API_KEY:-}" ]; then printf '%s' "$RESEND_API_KEY" | npx wrangler secret put RESEND_API_KEY; fi
+          if [ -n "${TURNSTILE_SECRET_KEY:-}" ]; then printf '%s' "$TURNSTILE_SECRET_KEY" | npx wrangler secret put TURNSTILE_SECRET_KEY; fi
           npm run deploy
           node scripts/sync-production-kv.mjs
 
