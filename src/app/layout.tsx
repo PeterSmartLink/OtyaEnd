@@ -1,6 +1,5 @@
 import type { Metadata, Viewport } from 'next'
 import { Manrope } from 'next/font/google'
-import ThemeControl from './ThemeControl'
 import './globals.css'
 import './brand-overrides.css'
 
@@ -171,7 +170,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     </head>
     <body className={manrope.className}>
       {children}
-      <ThemeControl />
     </body>
   </html>
 }
