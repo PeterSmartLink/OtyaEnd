@@ -91,3 +91,19 @@ test('website, install surfaces and build pipeline use one Otya mark and name', 
   assert.match(layout, /Watch Together/)
   assert.doesNotMatch(component, /otya-mark-current\.png/)
 })
+
+
+test('public Otya Player downloads do not load or require Turnstile', () => {
+  const download = read('src/app/download/otya-player/DownloadButtons.tsx')
+
+  assert.match(download, /window\.location\.assign\(urlFor\(targetAbi\)\)/)
+  assert.doesNotMatch(download, /turnstile/i)
+  assert.doesNotMatch(download, /api\/download\/verify/)
+})
+
+test('the public website does not render an appearance switcher', () => {
+  const layout = read('src/app/layout.tsx')
+
+  assert.doesNotMatch(layout, /import ThemeControl/)
+  assert.doesNotMatch(layout, /<ThemeControl/)
+})
