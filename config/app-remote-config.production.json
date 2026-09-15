@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "revision": 11,
+  "revision": 12,
   "maintenance": {
     "enabled": false,
     "title": "Otya online services are temporarily unavailable",
@@ -34,7 +34,7 @@
     "firebasePerformance": true,
     "driveBackup": true,
     "feedback": true,
-    "aiAssistant": true,
+    "aiAssistant": false,
     "cloudPush": true,
     "together": true,
     "togetherNearby": true,
@@ -47,7 +47,12 @@
       "subtitle": "Private, fast and built for everyday playback.",
       "action": "/music"
     },
-    "sectionOrder": ["continue", "recent", "featured", "tools"],
+    "sectionOrder": [
+      "continue",
+      "recent",
+      "featured",
+      "tools"
+    ],
     "banners": []
   },
   "announcement": null,
@@ -59,23 +64,16 @@
     "terms": "https://petersmartlink.com/terms",
     "docs": "https://petersmartlink.com/docs",
     "account": "https://petersmartlink.com/account",
-    "ai": "https://petersmartlink.com/ask"
+    "ai": "https://petersmartlink.com/support"
   },
   "ai": {
-    "enabled": true,
+    "enabled": false,
     "standaloneService": false,
     "optionalForPlayer": true,
-    "scope": "general-assistant",
-    "productContext": "otya-aware",
-    "guestPolicy": "single-low-cost-model",
-    "signedInPolicy": "managed-model-selector",
-    "greeting": "Ask Otya anything. It can answer general questions and has extra Otya product context when you need help with playback, files, Transfer, Private, updates or your account.",
-    "suggestedPrompts": [
-      "Explain something I am learning in simple language.",
-      "Help me think through a decision step by step.",
-      "How do I send a large video with Otya Transfer?",
-      "Why can a video have picture but no sound?"
-    ]
+    "scope": "support-only",
+    "productContext": "otya-player",
+    "greeting": "Otya Player keeps local media simple. For help with playback, Transfer, Private, updates or your account, visit PeterSmart Link support.",
+    "suggestedPrompts": []
   },
   "push": {
     "enabled": true,
@@ -99,8 +97,18 @@
   },
   "search": {
     "suggestions": [],
-    "categories": ["video", "music", "folders", "playlists", "files", "help"],
-    "providerPriority": ["local", "help"],
+    "categories": [
+      "video",
+      "music",
+      "folders",
+      "playlists",
+      "files",
+      "help"
+    ],
+    "providerPriority": [
+      "local",
+      "help"
+    ],
     "timeoutSeconds": 6
   },
   "experiments": {
@@ -109,8 +117,12 @@
     "items": {}
   },
   "regions": {
-    "default": { "enabled": true },
-    "UG": { "enabled": true }
+    "default": {
+      "enabled": true
+    },
+    "UG": {
+      "enabled": true
+    }
   },
   "runtime": {
     "apiTimeoutSeconds": 8,

@@ -8,7 +8,7 @@ import {
 
 const KEY = 'app:remote-config'
 const FIREBASE_CACHE_KEY = 'app:remote-config:firebase-cache-v1'
-const CURRENT_REVISION = 11
+const CURRENT_REVISION = 12
 const FIREBASE_CACHE_FRESH_MS = 10 * 60 * 1000
 const FIREBASE_CACHE_TTL_SECS = 60 * 60
 
@@ -48,7 +48,7 @@ const DEFAULT_CONFIG = {
     firebasePerformance: true,
     driveBackup: true,
     feedback: true,
-    aiAssistant: true,
+    aiAssistant: false,
     cloudPush: true,
     together: true,
     togetherNearby: true,
@@ -73,23 +73,16 @@ const DEFAULT_CONFIG = {
     terms: 'https://petersmartlink.com/terms',
     docs: 'https://petersmartlink.com/docs',
     account: 'https://petersmartlink.com/account',
-    ai: 'https://petersmartlink.com/ask',
+    ai: 'https://petersmartlink.com/support',
   },
   ai: {
-    enabled: true,
+    enabled: false,
     standaloneService: false,
     optionalForPlayer: true,
-    scope: 'general-assistant',
-    productContext: 'otya-aware',
-    guestPolicy: 'single-low-cost-model',
-    signedInPolicy: 'managed-model-selector',
-    greeting: 'Ask Otya anything. It can answer general questions and has extra Otya product context when you need help with playback, files, Transfer, Private, updates or your account.',
-    suggestedPrompts: [
-      'Explain something I am learning in simple language.',
-      'Help me think through a decision step by step.',
-      'How do I send a large video with Otya Transfer?',
-      'Why can a video have picture but no sound?',
-    ],
+    scope: 'support-only',
+    productContext: 'otya-player',
+    greeting: 'Otya Player keeps local media simple. For help with playback, Transfer, Private, updates or your account, visit PeterSmart Link support.',
+    suggestedPrompts: [],
   },
   push: {
     enabled: true,
@@ -161,6 +154,8 @@ function enforceProductScope(value: ConfigRecord): ConfigRecord {
     together: true,
     togetherNearby: true,
     togetherAnywhere: true,
+    // Consumer AI belongs to the private Next owner experience, never the player.
+    aiAssistant: false,
   }
   delete features.onlineMusic
 
@@ -173,10 +168,7 @@ function enforceProductScope(value: ConfigRecord): ConfigRecord {
       categories: DEFAULT_CONFIG.search.categories,
       providerPriority: DEFAULT_CONFIG.search.providerPriority,
     },
-    ai: {
-      ...asRecord(value.ai),
-      greeting: DEFAULT_CONFIG.ai.greeting,
-    },
+    ai: DEFAULT_CONFIG.ai,
   }
 }
 
@@ -207,7 +199,7 @@ function migrateConfig(stored: unknown): ConfigRecord {
     firebasePerformance: oldFeatures.firebasePerformance ?? true,
     driveBackup: oldFeatures.driveBackup ?? true,
     feedback: oldFeatures.feedback ?? true,
-    aiAssistant: oldFeatures.aiAssistant ?? true,
+    aiAssistant: false,
     cloudPush: oldFeatures.cloudPush ?? true,
     together: true,
     togetherNearby: true,
