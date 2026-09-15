@@ -26,6 +26,15 @@ test('Turnstile verification stays server-side, bounded, same-host and fail-clos
   assert.doesNotMatch(publicConfig, /TURNSTILE_SECRET_KEY/)
 })
 
+
+test('core deploy provisions the server-only Turnstile secret without exposing it', () => {
+  const deploy = read('.github/workflows/deploy.yml')
+
+  assert.match(deploy, /TURNSTILE_SECRET_KEY: \$\{\{ secrets\.TURNSTILE_SECRET_KEY \}\}/)
+  assert.match(deploy, /printf '%s' "\$TURNSTILE_SECRET_KEY" \| npx wrangler secret put TURNSTILE_SECRET_KEY/)
+  assert.doesNotMatch(deploy, /TURNSTILE_SECRET_KEY:\s*[^$\n][^\n]*/)
+})
+
 test('public browser authentication is protected without changing authenticated account actions', () => {
   const accountProxy = read('src/app/api/account-session/[...path]/route.ts')
 
