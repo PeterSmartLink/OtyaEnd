@@ -60,3 +60,12 @@ test('Core operational alerts use the single Resend-backed email adapter', () =>
   assert.doesNotMatch(legacyCore, /env\.RESEND_API_KEY/)
   assert.doesNotMatch(legacyCore, /api\.resend\.com\/emails/)
 })
+
+
+test('Core production deployment requires the Resend operational-email secret', () => {
+  const workflow = read('.github/workflows/deploy.yml')
+  const coreDeploy = workflow.slice(workflow.indexOf('  deploy-core:'), workflow.indexOf('  verify-production:'))
+
+  assert.match(coreDeploy, /RESEND_API_KEY: \$\{\{ secrets\.RESEND_API_KEY \}\}/)
+  assert.match(coreDeploy, /test -n "\$CLOUDFLARE_ACCOUNT_ID" && test -n "\$CLOUDFLARE_API_TOKEN" && test -n "\$RESEND_API_KEY"/)
+})
