@@ -3,7 +3,7 @@ import Link from 'next/link'
 
 const GROUPS = [
   { title: 'Otya', links: [['Otya Player', '/otya-player'], ['Download for Android', '/download/otya-player'], ['Your Space', 'https://space.petersmartlink.com']] },
-  { title: 'Support', links: [['Help', '/help'], ['Journal', '/blog'], ['Privacy', '/privacy'], ['Terms', '/terms']] },
+  { title: 'Support', links: [['Help', '/help'], ['Journal', '/blog'], ['Privacy', '/privacy'], ['Terms', '/terms'], ['Delete account', '/delete-account']] },
 ] as const
 
 export function SiteFooter() {
