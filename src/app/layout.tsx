@@ -5,7 +5,6 @@ import './brand-overrides.css'
 
 const manrope = Manrope({ subsets: ['latin'], display: 'swap', variable: '--font-otya' })
 const SITE_URL = 'https://petersmartlink.com'
-const APP_VERSION = '1.0.0'
 const ADSENSE_ID = 'ca-pub-2517163652161686'
 const OTYA_MARK = '/otya-app-icon.webp'
 
@@ -107,7 +106,6 @@ const schemaOrg = {
       identifier: 'com.otyaplayer.app',
       operatingSystem: 'Android',
       applicationCategory: 'MultimediaApplication',
-      softwareVersion: APP_VERSION,
       isAccessibleForFree: true,
       offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
       url: `${SITE_URL}/otya-player`,
