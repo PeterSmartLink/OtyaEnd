@@ -48,3 +48,15 @@ test('generic admin release metadata endpoint cannot bypass canonical release wo
   assert.doesNotMatch(route, /INSERT INTO releases/)
   assert.doesNotMatch(route, /AI_QUEUE/)
 })
+
+
+test('Core operational alerts use the single Resend-backed email adapter', () => {
+  const legacyCore = read('src/index.js')
+  const entry = read('src/entrypoint.mjs')
+
+  assert.match(entry, /withProductionAdapters\(env\)/)
+  assert.match(entry, /EMAIL:createResendEmailAdapter\(env\)/)
+  assert.match(legacyCore, /Resend email adapter unavailable/)
+  assert.doesNotMatch(legacyCore, /env\.RESEND_API_KEY/)
+  assert.doesNotMatch(legacyCore, /api\.resend\.com\/emails/)
+})

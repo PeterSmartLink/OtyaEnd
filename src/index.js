@@ -127,36 +127,20 @@ async function checkRateLimit(env, request) {
 async function sendErrorAlert(env, subject, body) {
   const to = env.ALERT_EMAIL_TO || 'petersmartlink@gmail.com'
 
-  if (env.RESEND_API_KEY) {
-    try {
-      const response = await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${env.RESEND_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          from: env.ALERT_EMAIL_FROM || 'OTYA Backend <notifications@petersmartlink.com>',
-          to: [to],
-          subject,
-          text: body,
-        }),
-      })
-      if (response.ok) return
-      console.error('[RESEND] alert send failed:', response.status, await response.text())
-    } catch (e) {
-      console.error('[RESEND] alert send failed:', e?.message)
-    }
-  }
-
+  // The production entrypoint supplies EMAIL as a Resend adapter. Keeping one
+  // delivery path prevents a failed provider request from becoming a duplicate
+  // alert and keeps this legacy worker free of a second outbound-mail client.
   try {
-    if (!env.EMAIL?.send) throw new Error('EMAIL binding unavailable')
+    if (!env.EMAIL?.send) throw new Error('Resend email adapter unavailable')
     await env.EMAIL.send({
-      from: { email: 'worker@petersmartlink.com', name: 'OTYA Backend Worker' },
-      to:   [{ email: to }],
-      subject, text: body,
+      from: { email: 'noreply@petersmartlink.com', name: 'Otya' },
+      to: [{ email: to }],
+      subject,
+      text: body,
     })
-  } catch (e) { console.error('[EMAIL] fallback send failed:', e?.message) }
+  } catch (error) {
+    console.error('[email] Otya alert delivery failed:', error?.message)
+  }
 }
 
 function jsonResponse(data, status = 200, extraHeaders = {}) {
