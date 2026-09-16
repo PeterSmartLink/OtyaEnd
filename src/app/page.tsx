@@ -7,14 +7,14 @@ import { HomeStart } from '@/components/HomeStart'
 
 export const metadata: Metadata = {
   title: 'PeterSmart Link — Practical software products',
-  description: 'PeterSmart Link is the developer and publisher behind Otya Player, Otya Space and Next.',
+  description: 'PeterSmart Link is the developer and publisher behind Otya Player and Otya Space.',
   keywords: ['PeterSmart Link', 'Otya Player', 'Otya', 'Uganda software developer', 'Android media player'],
   alternates: { canonical: 'https://petersmartlink.com' },
   openGraph: {
     type: 'website',
     url: 'https://petersmartlink.com',
     title: 'PeterSmart Link — Practical software products',
-    description: 'The developer and publisher behind Otya Player, Otya Space and Next.',
+    description: 'The developer and publisher behind Otya Player and Otya Space.',
     images: [{ url: '/og-image.jpg', width: 1200, height: 630, alt: 'PeterSmart Link and Otya' }],
   },
 }
@@ -29,7 +29,7 @@ export default function HomePage() {
           <div>
             <div className="inline-flex items-center gap-2 rounded-full border border-black/[.06] dark:border-white/[.08] px-3 py-2 text-xs font-black bg-white/55 dark:bg-white/[.03]">PeterSmart Link · Uganda</div>
             <h1 className="mt-7 max-w-[800px] text-[clamp(44px,7vw,84px)] font-bold tracking-[-.055em] leading-[1.04]">Practical software.<br/><span className="otya-muted">Made for your day.</span></h1>
-            <p className="mt-7 max-w-[700px] text-base sm:text-xl leading-8 otya-muted">Meet Otya from PeterSmart Link. Enjoy your local music and videos, manage your account in Space, and find a helping hand with Next.</p>
+            <p className="mt-7 max-w-[700px] text-base sm:text-xl leading-8 otya-muted">Meet Otya from PeterSmart Link. Enjoy the music and videos already on your phone, then manage your account privately in Space.</p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Link href="/download/otya-player" className="cosmos-button inline-flex min-h-12 items-center rounded-full px-6 text-sm font-black">Get Otya Player</Link>
               <Link href="/company" className="inline-flex min-h-12 items-center rounded-full border border-black/[.08] dark:border-white/[.10] px-5 text-sm font-black bg-white/55 dark:bg-white/[.03]">About PeterSmart Link</Link>
@@ -57,13 +57,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="border-y border-black/[.05] dark:border-white/[.07] bg-black/[.018] dark:bg-white/[.018]">
-        <div className="otya-shell py-10 sm:py-14 grid lg:grid-cols-3 gap-4">
-          <Link href="/otya-player" className="rounded-[28px] border border-black/[.06] dark:border-white/[.08] bg-[color:var(--cosmos-surface)] p-7 sm:p-8 min-h-[280px] flex flex-col"><div className="text-xs font-black otya-muted">Product</div><h2 className="mt-1 text-2xl font-black">Otya Player</h2><p className="mt-3 text-base leading-7 otya-muted">Local music and video, background playback, nearby Transfer, Private media and useful tools.</p><span className="mt-auto pt-7 text-sm font-black">Explore →</span></Link>
-          <Link href="https://space.petersmartlink.com" className="rounded-[28px] border border-black/[.06] dark:border-white/[.08] bg-[color:var(--cosmos-surface)] p-7 sm:p-8 min-h-[280px] flex flex-col"><div className="h-11 w-11 rounded-2xl grid place-items-center border border-black/[.07] dark:border-white/[.09] font-black">S</div><div className="mt-6 text-xs font-black otya-muted">Your account</div><h2 className="mt-1 text-2xl font-black">Space</h2><p className="mt-3 text-base leading-7 otya-muted">Your account details, signed-in devices and security settings, together in one place.</p><span className="mt-auto pt-7 text-sm font-black">Open Space →</span></Link>
-          <Link href="/ask" className="rounded-[28px] border border-black/[.06] dark:border-white/[.08] bg-[color:var(--cosmos-surface)] p-7 sm:p-8 min-h-[280px] flex flex-col"><div className="flex gap-1.5" aria-hidden="true"><span className="h-3 w-3 rounded-full bg-cyan-400"/><span className="h-3 w-3 rounded-full bg-blue-500"/><span className="h-3 w-3 rounded-full bg-violet-500"/></div><div className="mt-5 text-xs font-black otya-muted">Assistant</div><h2 className="mt-1 text-2xl font-black">Next</h2><p className="mt-3 text-base leading-7 otya-muted">Ask a question, get help with Otya, or work through an everyday idea.</p><span className="mt-auto pt-7 text-sm font-black">Open Next →</span></Link>
-        </div>
-      </section>
+
 
       <section className="otya-shell py-10 sm:py-14">
         <div className="rounded-[32px] border border-black/[.06] dark:border-white/[.08] bg-[color:var(--cosmos-surface)] p-6 sm:p-8 lg:p-10 grid lg:grid-cols-[1fr_auto] gap-8 items-center">
