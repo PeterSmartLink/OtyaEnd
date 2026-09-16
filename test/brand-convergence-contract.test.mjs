@@ -36,7 +36,8 @@ test('website metadata and visual tokens match the approved app brand', () => {
   const sync = read('scripts/sync-brand-assets.mjs')
   const download = read('src/app/download/otya-player/DownloadButtons.tsx')
 
-  assert.match(layout, /const APP_VERSION = '1\.0\.0'/)
+  assert.doesNotMatch(layout, /const APP_VERSION =/)
+  assert.doesNotMatch(layout, /softwareVersion:/)
   assert.match(layout, /const OTYA_MARK = '\/otya-app-icon\.webp'/)
   assert.match(layout, /import '\.\/brand-overrides\.css'/)
   assert.match(layout, /#050812/)
