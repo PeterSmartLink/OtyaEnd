@@ -280,7 +280,95 @@ jobs:
           check https://petersmartlink.com/download/otya '^(200|301|302|307|308)$'
           check https://petersmartlink.com/download/otya-player '^(200|301|302|307|308)$'
           check https://petersmartlink.com/api/version '^(200|401)$'
-          check https://petersmartlink.com/api/security/turnstile/config '^200$'
+          check https://petersmartlink.com/api/security/turnstile/config '^200          grep -Eq '"turnstile"[[:space:]]*:[[:space:]]*true' /tmp/otya-smoke-body || {
+            echo "::error::Turnstile is not enabled after production deploy"
+            head -c 1000 /tmp/otya-smoke-body 2>/dev/null || true
+            exit 1
+          }
+          grep -Eq '"siteKey"[[:space:]]*:[[:space:]]*"[^"]+"' /tmp/otya-smoke-body || {
+            echo "::error::Turnstile site key is unavailable after production deploy"
+            head -c 1000 /tmp/otya-smoke-body 2>/dev/null || true
+            exit 1
+          }
+          check https://docs.petersmartlink.com/ '^(200|301|302|307|308)$'
+          check https://status.petersmartlink.com/ '^(200|301|302|307|308)$'
+          check https://space.petersmartlink.com/ '^(200|301|302|307|308)$'
+      - name: Verify core trust surfaces
+        if: ${{ needs.plan-deploy.outputs.core == 'true' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --location --connect-timeout 10 --max-time 20 \
+            https://petersmartlink.com/.well-known/security.txt \
+            --output /tmp/otya-security.txt
+          grep -Fxq 'Contact: mailto:support@petersmartlink.com' /tmp/otya-security.txt
+          grep -Fxq 'Canonical: https://petersmartlink.com/.well-known/security.txt' /tmp/otya-security.txt
+
+          curl --fail --silent --show-error --location --connect-timeout 10 --max-time 20 \
+            https://status.petersmartlink.com/api/status \
+            --output /tmp/otya-status.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          data = json.loads(Path('/tmp/otya-status.json').read_text())
+          if data.get('status') not in {'operational', 'degraded'}:
+              raise SystemExit('public status has invalid overall state')
+          components = data.get('components') or {}
+          if set(components) != {'website', 'accounts', 'next'}:
+              raise SystemExit('public status component set changed unexpectedly')
+          if any(value not in {'operational', 'degraded'} for value in components.values()):
+              raise SystemExit('public status has invalid component state')
+          if not str(data.get('checkedAt') or '').strip():
+              raise SystemExit('public status has no checkedAt timestamp')
+          print('Core public trust surfaces are healthy and privacy-bounded')
+          PY
+
+          # Resend callbacks must reach the signed handler; GET is deliberately rejected.
+          check https://petersmartlink.com/webhooks/ '^405          grep -Eq '"turnstile"[[:space:]]*:[[:space:]]*true' /tmp/otya-smoke-body || {
+            echo "::error::Turnstile is not enabled after production deploy"
+            head -c 1000 /tmp/otya-smoke-body 2>/dev/null || true
+            exit 1
+          }
+          grep -Eq '"siteKey"[[:space:]]*:[[:space:]]*"[^"]+"' /tmp/otya-smoke-body || {
+            echo "::error::Turnstile site key is unavailable after production deploy"
+            head -c 1000 /tmp/otya-smoke-body 2>/dev/null || true
+            exit 1
+          }
+          check https://docs.petersmartlink.com/ '^(200|301|302|307|308)$'
+          check https://status.petersmartlink.com/ '^(200|301|302|307|308)$'
+          check https://space.petersmartlink.com/ '^(200|301|302|307|308)$'
+      - name: Verify core trust surfaces
+        if: ${{ needs.plan-deploy.outputs.core == 'true' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --location --connect-timeout 10 --max-time 20 \
+            https://petersmartlink.com/.well-known/security.txt \
+            --output /tmp/otya-security.txt
+          grep -Fxq 'Contact: mailto:support@petersmartlink.com' /tmp/otya-security.txt
+          grep -Fxq 'Canonical: https://petersmartlink.com/.well-known/security.txt' /tmp/otya-security.txt
+
+          curl --fail --silent --show-error --location --connect-timeout 10 --max-time 20 \
+            https://status.petersmartlink.com/api/status \
+            --output /tmp/otya-status.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          data = json.loads(Path('/tmp/otya-status.json').read_text())
+          if data.get('status') not in {'operational', 'degraded'}:
+              raise SystemExit('public status has invalid overall state')
+          components = data.get('components') or {}
+          if set(components) != {'website', 'accounts', 'next'}:
+              raise SystemExit('public status component set changed unexpectedly')
+          if any(value not in {'operational', 'degraded'} for value in components.values()):
+              raise SystemExit('public status has invalid component state')
+          if not str(data.get('checkedAt') or '').strip():
+              raise SystemExit('public status has no checkedAt timestamp')
+          print('Core public trust surfaces are healthy and privacy-bounded')
+          PY
+
           grep -Eq '"turnstile"[[:space:]]*:[[:space:]]*true' /tmp/otya-smoke-body || {
             echo "::error::Turnstile is not enabled after production deploy"
             head -c 1000 /tmp/otya-smoke-body 2>/dev/null || true
