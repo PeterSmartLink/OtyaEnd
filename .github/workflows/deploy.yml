@@ -281,6 +281,8 @@ jobs:
           check https://petersmartlink.com/download/otya-player '^(200|301|302|307|308)$'
           check https://petersmartlink.com/api/version '^(200|401)$'
           check https://petersmartlink.com/api/security/turnstile/config '^200$'
+          # Resend callbacks must reach the signed handler; GET is deliberately rejected.
+          check https://petersmartlink.com/webhooks/ '^405$'
           grep -Eq '"turnstile"[[:space:]]*:[[:space:]]*true' /tmp/otya-smoke-body || {
             echo "::error::Turnstile is not enabled after production deploy"
             head -c 1000 /tmp/otya-smoke-body 2>/dev/null || true
