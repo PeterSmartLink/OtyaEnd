@@ -6,6 +6,7 @@ import { getDB } from '@/lib/d1'
 const MAX_BODY_BYTES = 256 * 1024
 const SIGNATURE_TOLERANCE_SECONDS = 5 * 60
 const RESEND_API_TIMEOUT_MS = 5000
+const WEBHOOK_SECRET_CACHE_MS = 5 * 60 * 1000
 const OPERATIONAL_EVENTS = new Set([
   'email.sent',
   'email.delivered',
@@ -33,6 +34,7 @@ type ResendWebhookEvent = {
 }
 
 let secretPromise: Promise<string> | null = null
+let secretExpiresAt = 0
 let schemaPromise: Promise<void> | null = null
 
 function decodeBase64(value: string): Uint8Array {
@@ -63,7 +65,8 @@ async function resolveWebhookSecret(env: WebhookEnv): Promise<string> {
     : ''
   if (configured) return configured
 
-  if (secretPromise) return secretPromise
+  if (secretPromise && Date.now() < secretExpiresAt) return secretPromise
+  secretExpiresAt = Date.now() + WEBHOOK_SECRET_CACHE_MS
   secretPromise = (async () => {
     const apiKey = typeof env.RESEND_API_KEY === 'string' ? env.RESEND_API_KEY.trim() : ''
     const webhookId = typeof env.RESEND_WEBHOOK_ID === 'string' ? env.RESEND_WEBHOOK_ID.trim() : ''
@@ -84,6 +87,7 @@ async function resolveWebhookSecret(env: WebhookEnv): Promise<string> {
     return secret
   })().catch((error) => {
     secretPromise = null
+    secretExpiresAt = 0
     throw error
   })
   return secretPromise
