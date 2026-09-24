@@ -28,6 +28,10 @@ test('Resend signing secret stays out of source and is resolved server-side', ()
   assert.match(route, /https:\/\/api\.resend\.com\/webhooks\//)
   assert.match(route, /Authorization: `Bearer \$\{apiKey\}`/)
   assert.match(route, /AbortSignal\.timeout\(RESEND_API_TIMEOUT_MS\)/)
+  assert.match(route, /WEBHOOK_SECRET_CACHE_MS = 5 \* 60 \* 1000/)
+  assert.match(route, /Date\.now\(\) < secretExpiresAt/)
+  assert.match(route, /secretExpiresAt = Date\.now\(\) \+ WEBHOOK_SECRET_CACHE_MS/)
+  assert.match(route, /secretExpiresAt = 0/)
 })
 
 test('Resend webhook delivery handling is idempotent and privacy-minimal', () => {
