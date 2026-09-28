@@ -11,9 +11,9 @@
     "test": "node --test test/*.test.mjs"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^5.20260722.1",
+    "@cloudflare/workers-types": "^5.20260925.1",
     "typescript": "~5.9.3",
-    "wrangler": "4.130.0"
+    "wrangler": "4.139.0"
   },
   "overrides": {
     "sharp": "0.35.4"
