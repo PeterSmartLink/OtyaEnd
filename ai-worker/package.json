@@ -8,7 +8,7 @@
     "deploy": "wrangler deploy"
   },
   "devDependencies": {
-    "wrangler": "4.130.0"
+    "wrangler": "4.139.0"
   },
   "overrides": {
     "sharp": "0.35.4"
