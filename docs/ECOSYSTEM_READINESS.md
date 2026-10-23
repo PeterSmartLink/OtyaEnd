@@ -48,6 +48,7 @@ Legal/product naming: Otya Hold Ltd is the operator; OmniPoint is the trading na
 ### 3. API and data integrity
 - Define versioned service contracts for Otya Core and product APIs.
 - Test authentication, authorization, schema validation, bounded request size, CORS, CSRF where applicable, error redaction, rate limiting and audit events.
+- For rate-limit dependencies, explicitly choose fail-open versus fail-closed per operation class, document the abuse impact, and alert/test the dependency outage path.
 - Ensure each write that requires an audit record is atomic with that audit record.
 - Add automated tests for every route and malformed/unauthorized input before promoting API scaffolds.
 - Separate retail stock/sales accounting from agency cash/float/commission ledgers while allowing approved reporting across them.
@@ -90,7 +91,8 @@ Legal/product naming: Otya Hold Ltd is the operator; OmniPoint is the trading na
 6. OmniPoint's Prisma/PostgreSQL expectations and D1 SQLite behavior need a tested compatibility decision; avoid silent provider switching.
 7. Vercel preview readiness verifies a preview deployment, not Worker API behavior, production configuration, auth provisioning or data connectivity.
 8. The `otya-core` Worker settings still list `JAMENDO_CLIENT_ID` and `JAMENDO_CLIENT_SECRET` secret bindings, while the Otya Media README says the Jamendo online catalog integration has been retired. Audit all server routes and consumers for live use before deciding whether to remove those bindings; do not delete secrets blindly.
-9. Automated PR review availability has been limited on some changes; require substantive human review for auth, financial, migration, secret and release changes.
+9. The Together control plane's `mutationAllowed()` helper intentionally fails open if its rate-limiter binding errors or is absent. Authentication, room membership, payload limits and TTLs still apply, but this means rate limiting is not a hard safety boundary during a limiter outage. Decide whether each mutation class should fail closed or use a separate durable fallback; test the chosen behavior and alert on limiter failures.
+10. Automated PR review availability has been limited on some changes; require substantive human review for auth, financial, migration, secret and release changes.
 
 ## Work sequence
 
