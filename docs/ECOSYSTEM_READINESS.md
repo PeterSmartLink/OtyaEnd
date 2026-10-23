@@ -83,7 +83,7 @@ Legal/product naming: Otya Hold Ltd is the operator; OmniPoint is the trading na
 ## Current known risks / open verification items
 
 1. Cloudflare resources exist, but existence is not evidence of correct access policies, route coverage, queue consumption or production readiness.
-2. Cloudflare currently reports no consumer attached to `otya-release-events` or its DLQ. The queue is present, but release-event processing is not wired through a consumer in the inspected account configuration. Confirm whether this is intentionally dormant or incomplete before relying on it; do not attach a consumer until the intended handler, idempotency and retry behavior are reviewed.
+2. Cloudflare reports no consumer attached to `otya-release-events` or its DLQ. The current `wrangler.toml` explicitly documents that this is intentional until a dedicated idempotent release-intake handler lands and passes tests. Keep the queue dormant until that handler and its retry/idempotency tests are implemented; do not attach a consumer just to make the inventory look complete.
 3. Shared `otya-store-db` bindings require schema ownership and migration coordination across `otya-core` and `otya-next`.
 4. Cloudflare D1 API metadata and direct schema inspection previously disagreed about table visibility; reconcile the discrepancy before migration decisions.
 5. OmniPoint's D1 API bridge is test-only and intentionally returns not-implemented for sales, agency transactions and reconciliation. Do not enable live money workflows through it.
