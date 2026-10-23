@@ -320,7 +320,7 @@ jobs:
 
           cp /tmp/otya-smoke-body /tmp/otya-turnstile-config.json
           # Resend callbacks must reach the signed handler; GET is deliberately rejected.
-          check https://petersmartlink.com/webhooks/ '^405
+          check https://petersmartlink.com/webhooks/ '^405$'
           check https://docs.petersmartlink.com/ '^(200|301|302|307|308)$'
           check https://status.petersmartlink.com/ '^(200|301|302|307|308)$'
           check https://space.petersmartlink.com/ '^(200|301|302|307|308)$'
