@@ -83,13 +83,14 @@ Legal/product naming: Otya Hold Ltd is the operator; OmniPoint is the trading na
 ## Current known risks / open verification items
 
 1. Cloudflare resources exist, but existence is not evidence of correct access policies, route coverage, queue consumption or production readiness.
-2. The queue `otya-release-events` was previously identified as having an R2 event producer; confirm its intended consumer and delivery/retry behavior before relying on it.
+2. Cloudflare currently reports no consumer attached to `otya-release-events` or its DLQ. The queue is present, but release-event processing is not wired through a consumer in the inspected account configuration. Confirm whether this is intentionally dormant or incomplete before relying on it; do not attach a consumer until the intended handler, idempotency and retry behavior are reviewed.
 3. Shared `otya-store-db` bindings require schema ownership and migration coordination across `otya-core` and `otya-next`.
 4. Cloudflare D1 API metadata and direct schema inspection previously disagreed about table visibility; reconcile the discrepancy before migration decisions.
 5. OmniPoint's D1 API bridge is test-only and intentionally returns not-implemented for sales, agency transactions and reconciliation. Do not enable live money workflows through it.
 6. OmniPoint's Prisma/PostgreSQL expectations and D1 SQLite behavior need a tested compatibility decision; avoid silent provider switching.
 7. Vercel preview readiness verifies a preview deployment, not Worker API behavior, production configuration, auth provisioning or data connectivity.
-8. Automated PR review availability has been limited on some changes; require substantive human review for auth, financial, migration, secret and release changes.
+8. The `otya-core` Worker settings still list `JAMENDO_CLIENT_ID` and `JAMENDO_CLIENT_SECRET` secret bindings, while the Otya Media README says the Jamendo online catalog integration has been retired. Audit all server routes and consumers for live use before deciding whether to remove those bindings; do not delete secrets blindly.
+9. Automated PR review availability has been limited on some changes; require substantive human review for auth, financial, migration, secret and release changes.
 
 ## Work sequence
 
