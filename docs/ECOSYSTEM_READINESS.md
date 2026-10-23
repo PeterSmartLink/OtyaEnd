@@ -94,7 +94,7 @@ Legal/product naming: Otya Hold Ltd is the operator; OmniPoint is the trading na
 9. The Together control plane's `mutationAllowed()` helper intentionally fails open if its rate-limiter binding errors or is absent. Authentication, room membership, payload limits and TTLs still apply, but this means rate limiting is not a hard safety boundary during a limiter outage. Decide whether each mutation class should fail closed or use a separate durable fallback; test the chosen behavior and alert on limiter failures.
 10. Automated PR review availability has been limited on some changes; require substantive human review for auth, financial, migration, secret and release changes.
 
-## Work sequence
+11. **Security CI dependency blocker (verified 2026-10-23):** the `Security` workflow for ecosystem-readiness PR #204 failed in `Validate and audit web/backend runtime`. The runtime audit reported 3 vulnerabilities (2 high, 1 critical), including Next.js `15.5.25` and `sharp` `0.35.4`; the workflow output identifies `next@15.5.28` and `sharp@0.35.5` as available fixes. Do not bypass the audit or apply `npm audit fix --force` blindly. Update compatible direct/override versions and regenerate `package-lock.json` together, then rerun runtime audit, `npm run check`, and the Worker/mobile-specific checks before considering merge. The security workflow skipped later auth/AI-worker checks after this failure, so those results remain unverified for this commit.\n\n## Work sequence
 
 1. **Read-only inventory and ownership map** — finish the service/route/binding/secret-name/queue-consumer map and mark verified versus unknown.
 2. **Shared Auth contract** — document and test the actual token/session lifecycle and service-to-service authorization.
