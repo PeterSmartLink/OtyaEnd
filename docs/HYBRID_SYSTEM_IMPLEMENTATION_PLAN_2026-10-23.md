@@ -26,7 +26,7 @@ Deliver a tested hybrid Otya platform that can survive provider outages while pr
 ## Implementation tracks (parallel where independent)
 
 ### A. Release and security gates
-- Repair the malformed Resend webhook smoke-check pattern in .github/workflows/deploy.yml; the current line was missing the end of the expected HTTP status pattern. This was corrected on the working branch in commit 4289e7c369a096fd3ee1cfee0486e467ea25a297.
+- Repair the malformed Resend webhook smoke-check pattern in .github/workflows/deploy.yml; the line was missing the end of the expected HTTP status pattern. The final verified text edit is commit cb53ebbf94a2010085dd2a62ad529770279bcbe0; wait for CI to verify it.
 - Fix the stale webhook contract assertion only if a fresh test still fails after the workflow repair; preserve the intended HTTP 405 GET behavior.
 - Resolve the failing contract test test/resend-webhook-contract.test.mjs and rerun full backend tests.
 - Investigate and remediate the runtime dependency audit. The 2026-10-23 audit output reported 23 findings (2 moderate, 19 high, 2 critical) and identified Next.js-related critical advisories and a sharp/librsvg issue. Confirm exact lockfile paths and compatible patched versions; avoid blind npm audit fix --force or broad major upgrades.
@@ -71,7 +71,7 @@ For every service, document the source, target, transformations, consistency gua
   - backend validation: failure in test/resend-webhook-contract.test.mjs, because the expected workflow pattern did not match a malformed webhook smoke-check line;
   - security baseline: failure because the runtime dependency audit found high/critical vulnerabilities;
   - production deployment/live smoke steps: skipped.
-- The malformed workflow smoke-check line was repaired in commit 4289e7c369a096fd3ee1cfee0486e467ea25a297. This fix is not considered verified until CI reruns.
+- The malformed workflow smoke-check line was repaired in commit cb53ebbf94a2010085dd2a62ad529770279bcbe0. The latest recovery workflow passed; backend and security workflows were still running at the last check.
 - Existing Supabase recovery lab work reconstructed the OmniPoint schema only; it does not prove Otya data recovery.
 - No production data exports, production deployments, DNS changes, traffic switches, secret moves, Appwrite resumes/upgrades, or live queue mutations have been performed.
 
