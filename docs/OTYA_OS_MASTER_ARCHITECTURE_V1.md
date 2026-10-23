@@ -39,7 +39,21 @@ This register is the starting source of truth for service ownership, API boundar
 - **Appwrite** — contingency/failover candidate only after compatibility, backup/restore and failover drills.
 - **Vercel** — current application build/preview/deployment platform for projects where explicitly retained; deployment ownership and environment bindings must be recorded per project. A platform may build/serve a frontend without becoming the system of record for its data.
 
-## 4. Service register
+## 4. Verified GitHub repository inventory (initial)
+
+The following facts were checked against the connected GitHub repository listing and repository READMEs on 2026-10-23. This is not yet a complete code/deployment audit.
+
+| Repository | Visibility observed | Verified purpose from README | Important boundary / follow-up |
+|---|---|---|---|
+| PeterSmartLink/OtyaHub | Public | Public Otya product/developer hub with public docs links, Postman collection, news, security reporting and public-safe automation | Keep public-safe content only; review API examples and workflows before publishing additional material |
+| PeterSmartLink/Otya-Server | Private | Production backend for shared Otya account, Player APIs, AI, recovery, release delivery and notifications | Keep source, infrastructure inventory and secrets private; CI security audit currently needs investigation |
+| PeterSmartLink/OtyaPlayer | Private | Otya offline-first media/player application | Local playback must remain independent of backend availability; confirm release signing and artifact verification |
+| PeterSmartLink/Next | Private | Android-first owner intelligence/operations app connected to the existing Otya Cloudflare backend | Owner permissions and high-impact actions stay server-side with step-up/approval; do not expose privileged tools to public users |
+| PeterSmartLink/OmniPoint | Private | Independent Uganda retail/POS and fintech-agency platform prototype | README currently references Supabase Auth/Postgres/Prisma while the ecosystem target prefers Cloudflare-first; resolve the conflict before integration |
+
+Repository visibility is not a user or partner access policy by itself. Public OtyaHub participation must not grant write access to private repositories or production services. Conversely, an Otya account must not be required to read public OtyaHub resources.
+
+## 5. Service register
 
 | Service | Primary job | Data / authority boundary | Integrations allowed | Not allowed by default | Readiness evidence required |
 |---|---|---|---|---|---|
@@ -54,7 +68,7 @@ This register is the starting source of truth for service ownership, API boundar
 | Appwrite | Contingency candidate | No production authority until approved | Test-only failover validation | Automatic active-active writes without conflict strategy | Compatibility, restore/failover drills, conflict handling and rollback |
 | Vercel | Build/preview/deploy selected apps | Not automatically the data authority | CI builds and approved environment-specific deployments | Implicit permission to deploy production or change database/provider settings | Project map, environment inventory, deployment protection and rollback test |
 
-## 5. API standards
+## 6. API standards
 
 ### 5.1 API ownership and discovery
 
@@ -91,7 +105,7 @@ Do not publish secret-bearing environment values, internal-only routes or privat
 - Do not attach consumers to dormant queues until handler ownership, schema, duplicate delivery, retry and replay tests are complete.
 - Never use an asynchronous event alone as proof of payment settlement; reconcile with the authoritative provider.
 
-## 6. Data ownership and database policy
+## 7. Data ownership and database policy
 
 Create a separate data ownership map with table/collection, owning service, classification, retention, backup, migration path and allowed access.
 
@@ -104,7 +118,7 @@ Create a separate data ownership map with table/collection, owning service, clas
 - Existing Cloudflare D1 inventory has reported metadata/schema discrepancies and shared otya-store-db bindings; verify table ownership and actual schema before migrations.
 - Supabase backup/recovery must be independently restorable and verified; Appwrite contingency must not be enabled without a tested conflict/rollback plan.
 
-## 7. Security, privacy and operations baseline
+## 8. Security, privacy and operations baseline
 
 - Store secrets only in approved encrypted secret stores. Never expose service credentials to client bundles.
 - Separate development, preview/staging and production credentials/resources.
@@ -117,7 +131,7 @@ Create a separate data ownership map with table/collection, owning service, clas
 - Verify backups by restoration, not merely by confirming that a backup job ran.
 - For sensitive financial and destructive actions, fail closed when required policy, rate limiting, ledger integrity or provider state is unavailable.
 
-## 8. Developer and partner experience
+## 9. Developer and partner experience
 
 Otya OS should help people participate at the right level:
 - Public visitors: discover products, public docs, release notes and examples without mandatory login.
@@ -129,7 +143,7 @@ Otya OS should help people participate at the right level:
 
 Public repositories must contain only intentionally public material. Keep production source, secrets, customer data, internal routes and private incident details private. Public GitHub permissions are granted through GitHub's own review process, not inherited from Otya Auth.
 
-## 9. Repository and change governance
+## 10. Repository and change governance
 
 For each repository, record: purpose, visibility, owning team, languages/frameworks, CI checks, branch protection, release process, production relationship, security reporting route, license and dependency consumers.
 
@@ -146,7 +160,7 @@ Required workflow:
 
 Do not merge or deploy automatically. Documentation PRs do not imply that their proposed design is implemented.
 
-## 10. Readiness states
+## 11. Readiness states
 
 Use only these states, with evidence:
 - Discovered — repository/resource located.
@@ -160,7 +174,7 @@ Use only these states, with evidence:
 
 A resource existing in Cloudflare/GitHub/Vercel is not evidence of production readiness.
 
-## 11. Initial blockers to resolve
+## 12. Initial blockers to resolve
 
 1. Review the shared identity contract PR and define the actual token/issuer/audience/key/revocation profile.
 2. Fix and verify the failing Otya Server security workflow; do not bypass dependency audits.
@@ -173,7 +187,7 @@ A resource existing in Cloudflare/GitHub/Vercel is not evidence of production re
 9. Establish actual repository visibility and public OtyaHub repository strategy; do not expose the private production source repository.
 10. Create a verified service/API/data/dependency inventory with owner and readiness evidence.
 
-## 12. Proposed implementation phases
+## 13. Proposed implementation phases
 
 ### Phase A — Inventory and design
 - Complete repository/resource/service inventory.
@@ -196,7 +210,7 @@ A resource existing in Cloudflare/GitHub/Vercel is not evidence of production re
 - Review privacy, licensing, public documentation and partner onboarding.
 - Obtain explicit approval for production deployment or live financial enablement.
 
-## 13. Decisions and approvals log
+## 14. Decisions and approvals log
 
 Record each decision with date, owner, alternatives, rationale, affected services, migration/rollback, tests and approval. Unknown or conflicting configuration is an open decision, not an invitation to guess.
 
