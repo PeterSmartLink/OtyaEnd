@@ -61,9 +61,16 @@ A missing rate limiter or identity dependency must not silently bypass authentic
 
 ## 6. Product authorization model
 
-Identity is shared; permissions are product-scoped.
+Identity is shared where a product needs an account; public access is not forced behind identity. Permissions are product-scoped.
 
-- OtyaHub: public content and account/profile features only, according to its own grants.
+### OtyaHub public-channel rule
+
+- Public GitHub repositories, public documentation, public issues/discussions and ordinary contribution workflows remain open according to each repository's GitHub visibility and contribution policy.
+- Otya Auth is not a gatekeeper for public GitHub access and does not replace GitHub's own account, repository, team or organization permissions.
+- Never grant GitHub write/admin access merely because someone has an Otya account, is a partner, or can sign in through SSO. GitHub permissions must be provisioned and reviewed separately.
+- SSO may be offered only for optional OtyaHub services that actually need an Otya account. Keep those services separate from the public developer channel.
+
+- OtyaHub: the public GitHub-facing developer and partner channel for everyone, including developers, partners, contributors and community members. Public documentation, project discovery, contribution guidance and public discussions must remain accessible without an Otya account. Do not make GitHub participation depend on Otya SSO. If OtyaHub later offers private partner workspaces, account-linked profiles or privileged APIs, those specific features may use Otya Auth and must have separate, explicit permissions; public access stays public.
 - Otya Media / Otya Player: optional account-linked features; local/offline playback must not depend on successful login.
 - Otya Next: only explicitly granted assistant tools and data. Read-only by default; sensitive actions require human approval and an audit record.
 - OmniPoint: organization-scoped retail and agency roles, with separate retail inventory/sales permissions and financial ledger/float permissions. Do not enable live money operations through an identity migration.
