@@ -1,0 +1,42 @@
+name: Recovery integrity checks
+
+on:
+  pull_request:
+    paths:
+      - "scripts/recovery/**"
+      - "test/recovery/**"
+      - ".github/workflows/recovery-integrity.yml"
+  push:
+    branches:
+      - "build/ecosystem-resilience-offline-messaging"
+    paths:
+      - "scripts/recovery/**"
+      - "test/recovery/**"
+      - ".github/workflows/recovery-integrity.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: recovery-integrity-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Verify recovery tooling (no production credentials)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Test manifest verifier
+        run: node --test test/recovery/*.test.mjs
+      - name: Confirm production actions are not configured
+        run: |
+          echo "This workflow only tests local fixture files."
+          echo "It does not connect to Cloudflare or Supabase, export data, deploy, or switch traffic."
