@@ -41,11 +41,11 @@ export async function GET(request: NextRequest) {
     }
     if (resource === 'sales') {
       const { results } = await db.prepare('SELECT id, receipt_number, status, currency, subtotal, discount_total, tax_total, total, payment_method, efris_status, actor_id, created_at FROM omni_retail_sales ORDER BY created_at DESC LIMIT 100').all()
-      return secureJson({ sales: results, count: results.length, source: 'production-d1' }, { headers: { 'Cache-Control': 'private, no-store' } })
+      return secureJson({ sales: results, count: results.length, source: 'production-d1' }, { cache: 'private, no-store' })
     }
     if (resource === 'agency') {
       const { results } = await db.prepare('SELECT id, reference, transaction_type, provider, provider_status, amount, commission, currency, actor_id, created_at FROM omni_agency_transactions ORDER BY created_at DESC LIMIT 100').all()
-      return secureJson({ transactions: results, count: results.length, source: 'production-d1' }, { headers: { 'Cache-Control': 'private, no-store' } })
+      return secureJson({ transactions: results, count: results.length, source: 'production-d1' }, { cache: 'private, no-store' })
     }
     const [products, sales, agency, ledger] = await Promise.all([
       db.prepare('SELECT COUNT(*) AS count FROM omni_products WHERE is_active = 1').first<{count:number}>(),
@@ -107,7 +107,7 @@ export async function POST(request: NextRequest) {
         db.prepare('INSERT INTO omni_audit_events (id, actor_id, action, entity_type, entity_id, reason, before_state, after_state) SELECT ?, ?, ?, ?, ?, ?, ?, ? WHERE EXISTS (SELECT 1 FROM omni_products WHERE id = ? AND quantity_on_hand = ?)').bind(auditId, actorId, 'UPDATE', 'stock', productId, reason, JSON.stringify({quantityOnHand: product.quantity_on_hand}), JSON.stringify({quantityOnHand: after}), productId, after),
       ])
       if ((batchResults[0]?.meta?.changes ?? 0) !== 1) return errorJson('Stock changed concurrently. Refresh and try again.', 409)
-      return secureJson({ ok: true, productId, quantityOnHand: after, message: 'Stock adjustment recorded.' }, { headers: { 'Cache-Control': 'private, no-store' } })
+      return secureJson({ ok: true, productId, quantityOnHand: after, message: 'Stock adjustment recorded.' }, { cache: 'private, no-store' })
     }
     return errorJson('Unsupported action.', 400)
   } catch (error) {
