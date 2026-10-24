@@ -137,3 +137,36 @@ CREATE TABLE IF NOT EXISTS omni_audit_events (
 );
 CREATE INDEX IF NOT EXISTS idx_omni_audit_created ON omni_audit_events(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_omni_audit_entity ON omni_audit_events(entity_type, entity_id, created_at DESC);
+
+-- Stock is decremented only as part of a sale-line insert in the same D1
+-- transaction. A rejected line aborts the batch, rolling back the entire sale.
+CREATE TRIGGER IF NOT EXISTS omni_sale_line_stock_guard
+BEFORE INSERT ON omni_retail_sale_lines
+BEGIN
+  SELECT CASE
+    WHEN NOT EXISTS (
+      SELECT 1 FROM omni_products
+      WHERE id = NEW.product_id AND is_active = 1
+    ) THEN RAISE(ABORT, 'PRODUCT_NOT_AVAILABLE')
+    WHEN (SELECT quantity_on_hand FROM omni_products WHERE id = NEW.product_id) < NEW.quantity
+      THEN RAISE(ABORT, 'INSUFFICIENT_STOCK')
+  END;
+END;
+
+CREATE TRIGGER IF NOT EXISTS omni_sale_line_stock_post
+AFTER INSERT ON omni_retail_sale_lines
+BEGIN
+  UPDATE omni_products
+    SET quantity_on_hand = quantity_on_hand - NEW.quantity,
+        updated_at = CURRENT_TIMESTAMP
+    WHERE id = NEW.product_id;
+
+  INSERT INTO omni_stock_movements
+    (id, product_id, actor_id, movement_type, quantity_delta, quantity_after, unit_cost, reference_type, reference_id, reason)
+  SELECT lower(hex(randomblob(16))), NEW.product_id, s.actor_id, 'SALE',
+         -NEW.quantity, p.quantity_on_hand, NEW.unit_cost, 'RETAIL_SALE', NEW.sale_id,
+         'Stock deducted for receipt ' || s.receipt_number
+    FROM omni_retail_sales s
+    JOIN omni_products p ON p.id = NEW.product_id
+    WHERE s.id = NEW.sale_id;
+END;
