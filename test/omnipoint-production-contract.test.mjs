@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 
 const read = path => readFileSync(new URL('../' + path, import.meta.url), 'utf8')
-const migration = read('migrations/0009_omnipoint_core.sql')
+const migration = read('schema/omnipoint/0001_core.sql')
 const api = read('src/app/api/omnipoint/route.ts')
 const workspace = read('src/app/omnipoint/page.tsx')
 const adminAuth = read('src/lib/admin_auth.ts')
