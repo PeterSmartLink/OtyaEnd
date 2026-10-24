@@ -90,6 +90,57 @@ export async function POST(request: NextRequest) {
       await db.batch(statements)
       return secureJson({ ok: true, productId, message: 'Product saved to production database.' }, { status: 201, cache: 'private, no-store' })
     }
+    if (action === 'sale.create') {
+      const paymentMethod = text(body.paymentMethod, 30).toUpperCase()
+      if (paymentMethod !== 'CASH') return errorJson('Only cash sales are enabled. Mobile-money collection is disabled until a verified payment partner is configured.', 400)
+      if (!Array.isArray(body.items) || body.items.length < 1 || body.items.length > 50) return errorJson('Add between 1 and 50 sale lines.', 400)
+      const quantities = new Map<string, number>()
+      for (const raw of body.items) {
+        if (!raw || typeof raw !== 'object') return errorJson('Invalid sale line.', 400)
+        const item = raw as Record<string, unknown>
+        const productId = text(item.productId, 80)
+        const quantity = Number(item.quantity)
+        if (!productId || !Number.isSafeInteger(quantity) || quantity < 1 || quantity > 100) return errorJson('Each sale line needs a product and quantity from 1 to 100.', 400)
+        quantities.set(productId, (quantities.get(productId) || 0) + quantity)
+      }
+      const saleProducts = await Promise.all([...quantities.entries()].map(async ([productId, quantity]) => {
+        const product = await db.prepare('SELECT id, sku, name, cost_price, selling_price, quantity_on_hand FROM omni_products WHERE id = ? AND is_active = 1').bind(productId).first<{id:string;sku:string;name:string;cost_price:number;selling_price:number;quantity_on_hand:number}>()
+        return product ? { product, quantity } : null
+      }))
+      if (saleProducts.some(item => item === null)) return errorJson('One or more products are unavailable.', 409)
+      const lines = saleProducts.filter((item): item is NonNullable<typeof item> => item !== null)
+      for (const line of lines) {
+        if (line.product.quantity_on_hand < line.quantity) return errorJson('Insufficient stock for ' + line.product.name + '.', 409)
+      }
+      const subtotal = lines.reduce((sum, line) => sum + line.product.selling_price * line.quantity, 0)
+      const costOfGoods = lines.reduce((sum, line) => sum + line.product.cost_price * line.quantity, 0)
+      if (!Number.isSafeInteger(subtotal) || !Number.isSafeInteger(costOfGoods)) return errorJson('Sale total exceeds the supported amount range.', 400)
+      const saleId = id()
+      const receiptNumber = 'OP-' + new Date().toISOString().slice(0, 10).replace(/-/g, '') + '-' + saleId.slice(0, 8).toUpperCase()
+      const statements: D1Statement[] = [
+        db.prepare("INSERT INTO omni_retail_sales (id, receipt_number, status, subtotal, discount_total, tax_total, total, cost_of_goods, payment_method, actor_id) VALUES (?, ?, 'COMPLETED', ?, 0, 0, ?, ?, 'CASH', ?)").bind(saleId, receiptNumber, subtotal, subtotal, costOfGoods, actorId),
+      ]
+      for (const line of lines) {
+        statements.push(db.prepare('INSERT INTO omni_retail_sale_lines (id, sale_id, product_id, sku_snapshot, name_snapshot, quantity, unit_price, unit_cost, line_total) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
+          .bind(id(), saleId, line.product.id, line.product.sku, line.product.name, line.quantity, line.product.selling_price, line.product.cost_price, line.product.selling_price * line.quantity))
+      }
+      statements.push(
+        db.prepare('INSERT INTO omni_ledger_entries (id, ledger_type, account_code, debit, credit, source_type, source_id, idempotency_key, description) VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?)')
+          .bind(id(), 'RETAIL', 'CASH_ON_HAND', subtotal, 'RETAIL_SALE', saleId, saleId + ':cash-debit', 'Cash received for ' + receiptNumber),
+        db.prepare('INSERT INTO omni_ledger_entries (id, ledger_type, account_code, debit, credit, source_type, source_id, idempotency_key, description) VALUES (?, ?, ?, 0, ?, ?, ?, ?, ?)')
+          .bind(id(), 'RETAIL', 'RETAIL_SALES_REVENUE', subtotal, 'RETAIL_SALE', saleId, saleId + ':sales-credit', 'Retail revenue for ' + receiptNumber),
+      )
+      if (costOfGoods > 0) statements.push(
+        db.prepare('INSERT INTO omni_ledger_entries (id, ledger_type, account_code, debit, credit, source_type, source_id, idempotency_key, description) VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?)')
+          .bind(id(), 'RETAIL', 'COST_OF_GOODS_SOLD', costOfGoods, 'RETAIL_SALE', saleId, saleId + ':cogs-debit', 'Cost of goods sold for ' + receiptNumber),
+        db.prepare('INSERT INTO omni_ledger_entries (id, ledger_type, account_code, debit, credit, source_type, source_id, idempotency_key, description) VALUES (?, ?, ?, 0, ?, ?, ?, ?, ?)')
+          .bind(id(), 'RETAIL', 'INVENTORY', costOfGoods, 'RETAIL_SALE', saleId, saleId + ':inventory-credit', 'Inventory relieved for ' + receiptNumber),
+      )
+      statements.push(db.prepare('INSERT INTO omni_audit_events (id, actor_id, action, entity_type, entity_id, after_state) VALUES (?, ?, ?, ?, ?, ?)')
+        .bind(id(), actorId, 'CREATE', 'retail_sale', saleId, JSON.stringify({ receiptNumber, total: subtotal, currency: 'UGX', paymentMethod: 'CASH', lineCount: lines.length })))
+      await db.batch(statements)
+      return secureJson({ ok: true, saleId, receiptNumber, total: subtotal, currency: 'UGX', status: 'COMPLETED', efrisStatus: 'NOT_CONFIGURED', message: 'Cash sale recorded in production with stock movements and ledger entries.' }, { status: 201, cache: 'private, no-store' })
+    }
     if (action === 'stock.adjust') {
       const productId = text(body.productId, 80)
       const delta = Number(body.quantityDelta)
@@ -113,6 +164,8 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('[omnipoint] write failed', error)
     const message = String(error)
+    if (message.includes('INSUFFICIENT_STOCK')) return errorJson('Stock changed during checkout. Refresh the inventory and try again.', 409)
+    if (message.includes('PRODUCT_NOT_AVAILABLE')) return errorJson('A product became unavailable during checkout. Refresh and try again.', 409)
     if (message.includes('UNIQUE')) return errorJson('SKU already exists or the request conflicts with an existing record.', 409)
     return errorJson('Could not save the operation. No demo fallback is used.', 500)
   }
