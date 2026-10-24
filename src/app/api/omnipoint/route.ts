@@ -26,7 +26,7 @@ const integer = (value: unknown) => Number.isSafeInteger(value) && Number(value)
 export async function GET(request: NextRequest) {
   const auth = await authorized(request)
   if (!auth) return errorJson('Unauthorized', 401)
-  const db = getDB(auth.env)
+  const db = (auth.env.OMNIPOINT_DB ?? getDB(auth.env)) as ReturnType<typeof getDB>
   const resource = request.nextUrl.searchParams.get('resource') || 'summary'
   try {
     if (resource === 'health') {
@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
   try { body = await request.json() as Record<string, unknown> } catch { return errorJson('Invalid JSON body', 400) }
   const actorId = auth.actorId
   const action = text(body.action, 60)
-  const db = getDB(auth.env) as D1WithBatch
+  const db = ((auth.env.OMNIPOINT_DB ?? getDB(auth.env)) as ReturnType<typeof getDB>) as D1WithBatch
   try {
     if (action === 'product.create') {
       const sku = text(body.sku, 80).toUpperCase()
