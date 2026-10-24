@@ -67,6 +67,23 @@ binding       = "OMNIPOINT_DB"
 database_name = "omnipoint-prod"
 database_id   = "65868e64-ff39-4ed3-91de-59c237cd9cb0"
 
+
+[[r2_buckets]]
+binding     = "OMNIPOINT_FILES"
+bucket_name = "omnipoint-private"
+
+[[r2_buckets]]
+binding     = "OMNIPOINT_BACKUPS"
+bucket_name = "omnipoint-backups"
+
+[[kv_namespaces]]
+binding = "OMNIPOINT_CACHE"
+id      = "cc30449e4a93428c989a564cebf80417"
+
+[[queues.producers]]
+binding = "OMNIPOINT_JOBS"
+queue   = "omnipoint-jobs"
+
 [[analytics_engine_datasets]]
 binding = "ANALYTICS"
 dataset = "otya-core-analytics"
