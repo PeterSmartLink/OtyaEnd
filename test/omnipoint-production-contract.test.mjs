@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 
-const read = path => readFileSync(new URL(\`../\${path}\`, import.meta.url), 'utf8')
+const read = path => readFileSync(new URL('../' + path, import.meta.url), 'utf8')
 const migration = read('migrations/0009_omnipoint_core.sql')
 const api = read('src/app/api/omnipoint/route.ts')
 const workspace = read('src/app/omnipoint/page.tsx')
@@ -13,7 +13,7 @@ test('OmniPoint migration is additive, namespaced and does not seed fake busines
     'omni_products', 'omni_retail_sales', 'omni_retail_sale_lines',
     'omni_stock_movements', 'omni_agency_transactions', 'omni_ledger_entries',
     'omni_reconciliation_sessions', 'omni_audit_events',
-  ]) assert.match(migration, new RegExp(\`CREATE TABLE IF NOT EXISTS \${table}\\\\b\`))
+  ]) assert.match(migration, new RegExp('CREATE TABLE IF NOT EXISTS ' + table + '\\\\b'))
   assert.doesNotMatch(migration, /\bINSERT\s+INTO\b/i)
   assert.doesNotMatch(migration, /\bDROP\s+TABLE\b/i)
 })
