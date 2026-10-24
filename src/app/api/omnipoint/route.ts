@@ -5,7 +5,6 @@ import { errorJson, secureJson } from '@/lib/response'
 import { getAdminSessionEmail } from '@/lib/admin_auth'
 
 export const dynamic = 'force-dynamic'
-export const runtime = 'nodejs'
 
 type Env = Record<string, unknown>
 type D1BatchResult = { results?: Record<string, unknown>[]; success?: boolean; meta?: { changes?: number; last_row_id?: number } }
@@ -38,7 +37,7 @@ export async function GET(request: NextRequest) {
     }
     if (resource === 'products') {
       const { results } = await db.prepare('SELECT id, sku, name, description, category, cost_price, selling_price, quantity_on_hand, reorder_level, is_active, created_at, updated_at FROM omni_products WHERE is_active = 1 ORDER BY name LIMIT 500').all()
-      return secureJson({ products: results, count: results.length, source: 'production-d1' }, { headers: { 'Cache-Control': 'private, no-store' } })
+      return secureJson({ products: results, count: results.length, source: 'production-d1' }, { cache: 'private, no-store' })
     }
     if (resource === 'sales') {
       const { results } = await db.prepare('SELECT id, receipt_number, status, currency, subtotal, discount_total, tax_total, total, payment_method, efris_status, actor_id, created_at FROM omni_retail_sales ORDER BY created_at DESC LIMIT 100').all()
@@ -89,7 +88,7 @@ export async function POST(request: NextRequest) {
         db.prepare('INSERT INTO omni_audit_events (id, actor_id, action, entity_type, entity_id, after_state) VALUES (?, ?, ?, ?, ?, ?)').bind(auditId, actorId, 'CREATE', 'product', productId, JSON.stringify({ sku, name, category, costPrice: cost, sellingPrice: price, quantityOnHand: quantity })),
       ]
       await db.batch(statements)
-      return secureJson({ ok: true, productId, message: 'Product saved to production database.' }, { status: 201, headers: { 'Cache-Control': 'private, no-store' } })
+      return secureJson({ ok: true, productId, message: 'Product saved to production database.' }, { status: 201, cache: 'private, no-store' })
     }
     if (action === 'stock.adjust') {
       const productId = text(body.productId, 80)
