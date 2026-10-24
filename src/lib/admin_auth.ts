@@ -137,3 +137,19 @@ export function adminSessionCookie(session: string): string {
 export function clearAdminSessionCookie(): string {
   return `${COOKIE_NAME}=; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=0`
 }
+
+
+/** Return the email embedded in a valid, signed MFA admin session. */
+export async function getAdminSessionEmail(request: Request, env: AdminEnv): Promise<string | null> {
+  if (!await verifySignedAdminCookie(request, env)) return null
+  const raw = cookieValue(request, COOKIE_NAME)
+  const encoded = raw.split('.')[0]
+  if (!encoded) return null
+  try {
+    const payload = JSON.parse(new TextDecoder().decode(fromB64url(encoded))) as { email?: unknown }
+    const email = typeof payload.email === 'string' ? payload.email.trim().toLowerCase() : ''
+    return email && adminEmails(env).has(email) ? email : null
+  } catch {
+    return null
+  }
+}
