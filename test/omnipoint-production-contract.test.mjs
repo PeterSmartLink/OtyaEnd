@@ -13,7 +13,7 @@ test('OmniPoint migration is additive, namespaced and does not seed fake busines
     'omni_products', 'omni_retail_sales', 'omni_retail_sale_lines',
     'omni_stock_movements', 'omni_agency_transactions', 'omni_ledger_entries',
     'omni_reconciliation_sessions', 'omni_audit_events',
-  ]) assert.match(migration, new RegExp('CREATE TABLE IF NOT EXISTS ' + table + '\\\\b'))
+  ]) assert.ok(migration.includes('CREATE TABLE IF NOT EXISTS ' + table), 'missing table ' + table)
   assert.doesNotMatch(migration, /\bINSERT\s+INTO\b/i)
   assert.doesNotMatch(migration, /\bDROP\s+TABLE\b/i)
 })
