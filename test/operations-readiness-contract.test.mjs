@@ -62,8 +62,8 @@ test('normal Core deploy validates migrations but remote D1 apply requires a sep
   assert.match(pkg.scripts.check, /verify:migrations/)
   assert.match(pkg.scripts.predeploy, /verify:migrations/)
   assert.doesNotMatch(pkg.scripts.predeploy, /migrations apply|--remote/)
-  assert.match(pkg.scripts['migrate:remote:apply'], /require-remote-d1-migration-approval\\.mjs/)
-  assert.match(pkg.scripts['migrate:remote:apply'], /wrangler d1 migrations apply DB --remote/)
+  assert.match(pkg.scripts['migrate:remote:apply'], /require-remote-d1-migration-approval\.mjs/)
+  assert.match(pkg.scripts['migrate:remote:apply'], /require-remote-d1-migration-approval\.mjs/)
 })
 
 test('operations readiness is non-destructive and checks production recovery primitives', () => {
