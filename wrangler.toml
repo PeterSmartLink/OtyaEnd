@@ -62,6 +62,11 @@ binding       = "DB"
 database_name = "otya-store-db"
 database_id   = "ab157fc6-2cbb-4d46-9789-2e4392e16aea"
 
+[[d1_databases]]
+binding       = "OMNIPOINT_DB"
+database_name = "omnipoint-prod"
+database_id   = "65868e64-ff39-4ed3-91de-59c237cd9cb0"
+
 [[analytics_engine_datasets]]
 binding = "ANALYTICS"
 dataset = "otya-core-analytics"
