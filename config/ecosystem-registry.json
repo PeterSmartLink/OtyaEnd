@@ -1,0 +1,136 @@
+{
+  "schemaVersion": 1,
+  "registryVersion": "2026-10-24",
+  "owner": "Otya ecosystem",
+  "operatingPrinciples": {
+    "primaryInfrastructure": "Cloudflare",
+    "recoveryPlatform": "Supabase is a recovery/backup target only; it is not the primary operational database",
+    "sharedControlPlane": "Otya Server",
+    "managementGoal": "One private owner control experience with product modules and one service registry",
+    "crossProductDatabaseAccess": false,
+    "productionChangesRequireExplicitApproval": true
+  },
+  "management": {
+    "controlPlaneProductId": "otya-server",
+    "preferredSurface": "private-otya-next-owner-console",
+    "publicBrowserAdmin": "retired-by-design",
+    "singleServiceRegistry": "config/ecosystem-registry.json",
+    "releaseModel": "validate -> review -> backup/restore proof -> explicit approval -> deploy one component -> smoke test -> observe -> rollback if needed"
+  },
+  "products": [
+    {
+      "id": "otya-server",
+      "name": "Otya Server",
+      "role": "shared-control-plane",
+      "repository": "PeterSmartLink/Otya-Server",
+      "runtimeComponents": ["otya-core", "otya-auth", "otya-next"],
+      "primaryData": ["otya-auth-db", "otya-store-db"],
+      "owns": ["shared-identity", "service-authorization-contracts", "shared-api-contracts", "ecosystem-service-registry", "operational-audit", "release-coordination"],
+      "integratesWith": ["omnipoint", "otyahub", "otya-player", "otya-next"],
+      "status": "existing-needs-hardening",
+      "productionReleaseAllowed": false,
+      "notes": "Do not put OmniPoint operational tables into Otya Server's store database. Browser owner admin remains retired; privileged owner actions must use the protected private owner surface."
+    },
+    {
+      "id": "omnipoint",
+      "name": "OmniPoint",
+      "role": "business-operations-product",
+      "repository": "PeterSmartLink/OmniPoint",
+      "runtimeComponents": ["omnipoint-web", "omnipoint-api"],
+      "primaryData": ["omnipoint-prod"],
+      "owns": ["retail-catalogue", "inventory", "sales", "returns", "cash-control", "agency-transactions", "retail-ledger", "agency-ledger", "staff-memberships", "branch-scope", "business-audit"],
+      "integratesWith": ["otya-auth", "otya-core", "otya-next"],
+      "status": "implementation-under-validation",
+      "productionReleaseAllowed": false,
+      "notes": "Dedicated OmniPoint API and D1 boundary required. Live schema lineage, tenant scope, balanced journals, provider reconciliation and backup/restore must be verified before release."
+    },
+    {
+      "id": "otyahub",
+      "name": "OtyaHub",
+      "role": "public-product-and-developer-surfaces",
+      "repository": "PeterSmartLink/Otya-Server",
+      "runtimeComponents": ["otya-public-web", "developer-docs"],
+      "primaryData": ["otya-store-db"],
+      "owns": ["approved-public-content", "public-docs", "support-entry-points"],
+      "integratesWith": ["otya-server", "otya-player", "omnipoint"],
+      "status": "existing-surfaces-needs-inventory",
+      "productionReleaseAllowed": false,
+      "notes": "OtyaHub is a product/surface boundary, not permission to expose private service metadata or business data."
+    },
+    {
+      "id": "otya-player",
+      "name": "Otya Player",
+      "role": "offline-first-media-product",
+      "repository": "repository-location-to-verify",
+      "runtimeComponents": ["android-app", "release-metadata"],
+      "primaryData": ["device-local-media-library"],
+      "owns": ["local-playback", "playlists", "vault", "local-transfer", "app-release-artifacts"],
+      "integratesWith": ["otya-auth", "otya-core"],
+      "status": "existing-product-runtime-needs-current-repository-verification",
+      "productionReleaseAllowed": false,
+      "notes": "Playback, local media scanning and vault access must continue without Cloudflare, authentication or AI availability. Do not upload private local media by default."
+    },
+    {
+      "id": "otya-next",
+      "name": "Otya Next",
+      "role": "private-assistant-and-approved-automation",
+      "repository": "PeterSmartLink/Otya-Server",
+      "runtimeComponents": ["otya-next-worker", "private-owner-console"],
+      "primaryData": ["otya-store-db"],
+      "owns": ["assistant-conversations-under-existing-policy", "approved-action-records", "automation-requests"],
+      "integratesWith": ["otya-auth", "otya-core", "omnipoint"],
+      "status": "existing-needs-authorization-and-operations-verification",
+      "productionReleaseAllowed": false,
+      "notes": "Assistant actions must use the same API authorization, actor scope, approval and audit rules as the product UI. Never give the assistant direct cross-product database write access."
+    }
+  ],
+  "sharedCapabilities": [
+    {
+      "id": "identity",
+      "owner": "otya-server",
+      "provider": "otya-auth",
+      "status": "existing-needs-contract-verification"
+    },
+    {
+      "id": "api-contracts",
+      "owner": "otya-server",
+      "provider": "versioned-http-apis-and-events",
+      "status": "standardize"
+    },
+    {
+      "id": "monitoring",
+      "owner": "otya-server",
+      "provider": "cloudflare-observability-and-health-checks",
+      "status": "partial-needs-unified-view"
+    },
+    {
+      "id": "backups-and-recovery",
+      "owner": "otya-server",
+      "provider": "cloudflare-primary-plus-verified-independent-recovery-copy",
+      "status": "not-certified-until-restore-test-passes"
+    },
+    {
+      "id": "secrets",
+      "owner": "each-runtime-environment",
+      "provider": "cloudflare-secrets-store-or-encrypted-ci-secrets",
+      "status": "never-store-values-in-repository"
+    },
+    {
+      "id": "release-management",
+      "owner": "otya-server",
+      "provider": "github-actions-and-explicit-component-approval",
+      "status": "partially-implemented"
+    }
+  ],
+  "nonNegotiableGates": [
+    "No production deploy or schema migration from pull-request validation.",
+    "No remote D1 migration without reviewed target, reviewed SQL, backup and restore evidence, and explicit approval.",
+    "No product accesses another product database directly.",
+    "No browser-supplied role, tenant, branch, actor or provider outcome is trusted.",
+    "Financial writes are idempotent and atomic; retail and agency ledgers reconcile independently.",
+    "Provider transactions remain pending or unknown until authenticated provider confirmation.",
+    "Recovery is not considered ready until a restore test and safe failback test are recorded.",
+    "A green build is not proof of production readiness.",
+    "Each release must identify component, commit, environment, migration impact, rollback method and post-deploy smoke checks."
+  ]
+}
