@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getCloudflareContext } from '@opennextjs/cloudflare'
 import { getDB } from '@/lib/d1'
 import { errorJson, secureJson } from '@/lib/response'
-import { verifyAdminSession } from '@/lib/admin_auth'
+import { getAdminSessionEmail } from '@/lib/admin_auth'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -12,11 +12,12 @@ type D1BatchResult = { results?: Record<string, unknown>[]; success?: boolean; m
 type D1Statement = { bind(...values: unknown[]): D1Statement; all<T = Record<string, unknown>>(): Promise<{ results: T[] }>; first<T = Record<string, unknown>>(): Promise<T | null>; run(): Promise<{ meta?: { changes?: number; last_row_id?: number } }> }
 type D1WithBatch = ReturnType<typeof getDB> & { batch<T = unknown>(statements: D1Statement[]): Promise<D1BatchResult[]> }
 
-async function authorized(request: NextRequest): Promise<Env | null> {
+async function authorized(request: NextRequest): Promise<{ env: Env; actorId: string } | null> {
   const { env } = await getCloudflareContext({ async: true })
   const record = env as Env
-  if (!await verifyAdminSession(request, record)) return null
-  return record
+  const actorId = await getAdminSessionEmail(request, record)
+  if (!actorId) return null
+  return { env: record, actorId }
 }
 
 const id = () => crypto.randomUUID()
@@ -24,9 +25,9 @@ const text = (value: unknown, max = 180) => typeof value === 'string' ? value.tr
 const integer = (value: unknown) => Number.isSafeInteger(value) && Number(value) >= 0 ? Number(value) : null
 
 export async function GET(request: NextRequest) {
-  const env = await authorized(request)
-  if (!env) return errorJson('Unauthorized', 401)
-  const db = getDB(env)
+  const auth = await authorized(request)
+  if (!auth) return errorJson('Unauthorized', 401)
+  const db = getDB(auth.env)
   const resource = request.nextUrl.searchParams.get('resource') || 'summary'
   try {
     if (resource === 'health') {
@@ -61,14 +62,13 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const env = await authorized(request)
-  if (!env) return errorJson('Unauthorized', 401)
+  const auth = await authorized(request)
+  if (!auth) return errorJson('Unauthorized', 401)
   let body: Record<string, unknown>
   try { body = await request.json() as Record<string, unknown> } catch { return errorJson('Invalid JSON body', 400) }
-  const actorId = text(body.actorId, 120)
-  if (!actorId) return errorJson('A verified staff actor ID is required.', 400)
+  const actorId = auth.actorId
   const action = text(body.action, 60)
-  const db = getDB(env) as D1WithBatch
+  const db = getDB(auth.env) as D1WithBatch
   try {
     if (action === 'product.create') {
       const sku = text(body.sku, 80).toUpperCase()
@@ -96,17 +96,18 @@ export async function POST(request: NextRequest) {
       const delta = Number(body.quantityDelta)
       const reason = text(body.reason, 300)
       const cost = body.unitCost === undefined ? null : integer(body.unitCost)
-      if (!productId || !Number.isSafeInteger(delta) || delta === 0 || !reason || (cost !== null && cost === null)) return errorJson('Product, non-zero integer adjustment and reason are required.', 400)
+      if (!productId || !Number.isSafeInteger(delta) || delta === 0 || !reason || (body.unitCost !== undefined && cost === null)) return errorJson('Product, non-zero integer adjustment and reason are required.', 400)
       const product = await db.prepare('SELECT quantity_on_hand, cost_price FROM omni_products WHERE id = ? AND is_active = 1').bind(productId).first<{quantity_on_hand:number;cost_price:number}>()
       if (!product) return errorJson('Product not found.', 404)
       const after = product.quantity_on_hand + delta
       if (after < 0) return errorJson('Adjustment would make stock negative.', 409)
       const auditId = id()
-      await db.batch([
+      const batchResults = await db.batch([
         db.prepare('UPDATE omni_products SET quantity_on_hand = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND quantity_on_hand = ?').bind(after, productId, product.quantity_on_hand),
-        db.prepare('INSERT INTO omni_stock_movements (id, product_id, actor_id, movement_type, quantity_delta, quantity_after, unit_cost, reason) VALUES (?, ?, ?, ?, ?, ?, ?, ?)').bind(id(), productId, actorId, 'ADJUSTMENT', delta, after, cost ?? product.cost_price, reason),
-        db.prepare('INSERT INTO omni_audit_events (id, actor_id, action, entity_type, entity_id, reason, before_state, after_state) VALUES (?, ?, ?, ?, ?, ?, ?, ?)').bind(auditId, actorId, 'UPDATE', 'stock', productId, reason, JSON.stringify({quantityOnHand: product.quantity_on_hand}), JSON.stringify({quantityOnHand: after})),
+        db.prepare('INSERT INTO omni_stock_movements (id, product_id, actor_id, movement_type, quantity_delta, quantity_after, unit_cost, reason) SELECT ?, id, ?, ?, ?, quantity_on_hand, ?, ? FROM omni_products WHERE id = ? AND quantity_on_hand = ?').bind(id(), actorId, 'ADJUSTMENT', delta, cost ?? product.cost_price, reason, productId, after),
+        db.prepare('INSERT INTO omni_audit_events (id, actor_id, action, entity_type, entity_id, reason, before_state, after_state) SELECT ?, ?, ?, ?, ?, ?, ?, ? WHERE EXISTS (SELECT 1 FROM omni_products WHERE id = ? AND quantity_on_hand = ?)').bind(auditId, actorId, 'UPDATE', 'stock', productId, reason, JSON.stringify({quantityOnHand: product.quantity_on_hand}), JSON.stringify({quantityOnHand: after}), productId, after),
       ])
+      if ((batchResults[0]?.meta?.changes ?? 0) !== 1) return errorJson('Stock changed concurrently. Refresh and try again.', 409)
       return secureJson({ ok: true, productId, quantityOnHand: after, message: 'Stock adjustment recorded.' }, { headers: { 'Cache-Control': 'private, no-store' } })
     }
     return errorJson('Unsupported action.', 400)
