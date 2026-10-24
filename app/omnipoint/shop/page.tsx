@@ -6,7 +6,7 @@ type Product = { sku: string; name: string; category: string; price: number; des
 type QuoteLine = { sku: string; name: string; quantity: number; unitPrice: number; lineTotal: number };
 type Quote = { currency: "UGX"; subtotal: number; total: number; lines: QuoteLine[]; paymentsEnabled: false; demo: true };
 
-const API = "https://omnipoint-api-preview.petersmartlink.workers.dev";
+const API = "https://omnipoint-customer-preview.petersmartlink.workers.dev";
 const money = (value: number) => "UGX " + value.toLocaleString("en-UG");
 
 export default function OmniPointShopPage() {
