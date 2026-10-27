@@ -9,7 +9,8 @@ Operate the ecosystem from one private owner experience, one service registry, o
 ## Source of truth
 
 - Machine-readable product/service inventory: `config/ecosystem-registry.json`.
-- Shared identity and API governance: Otya Server.
+- Shared identity, API governance, service registry and notification orchestration: Otya Server.
+- Shared transactional email: Resend, owned centrally by Otya Server; products emit narrow, versioned events rather than keeping separate provider keys.
 - Business records: the product that creates them is their only authoritative writer.
 - Infrastructure: Cloudflare-first. A recovery copy is not a second active writer and must not be called failover-ready until restore, routing and failback are tested.
 - Code and release source of truth: each product's Git repository; changes land through reviewed pull requests and CI.
@@ -33,8 +34,8 @@ The existing Otya browser `/admin` surface is intentionally retired. Do not reop
 
 | Product | Owns | Must not do |
 | --- | --- | --- |
-| Otya Server | Identity verification contracts, shared APIs, service registry, release/operational coordination | Become the database for all products or grant blanket access |
-| OmniPoint | Retail stock/sales, agency transactions, cash/float, staff/branch scope and separate ledgers | Treat a provider request as confirmed payment or expose records to other products |
+| Otya Server | Identity verification contracts, shared APIs, service registry, approved cross-product coordination and shared Resend email | Become the database for all products, hold OmniPoint ledgers, or grant blanket access |
+| OmniPoint | Otya Hold Ltd T/A OmniPoint shop operations: retail stock/sales, agency transactions, cash/float, staff scope and separate ledgers | Become a public multi-tenant SaaS, treat provider requests as confirmed payments, or expose records to other products |
 | OtyaHub | Public content, docs, developer/support surfaces | Expose private operational metadata or customer records |
 | Otya Player | Local media, playback, vault, local transfer and release metadata | Require cloud access for local playback or upload private libraries by default |
 | Otya Next | Private assistant and approved automation records | Bypass normal product authorization or directly write OmniPoint tables |
@@ -70,7 +71,7 @@ Pull requests and previews must not write to production D1 or change production 
 - Never use Otya Server's existing store DB as OmniPoint's operational database.
 - Create encrypted, independently retained backups, verify their integrity, and periodically restore into an isolated environment.
 - Define and measure RPO/RTO. For recovery, fence the old writer, verify the restored data and schema, route traffic only after health checks, and test safe failback. Avoid simultaneous active writers.
-- Supabase may be used as a recovery destination only if the backup format, restore procedure, access policy, costs and operational ownership are explicitly validated. It is not automatically a transparent D1 replacement.
+- The approved operational direction is GitHub + Cloudflare; do not add Supabase, Appwrite or Vercel as runtime/data dependencies. Recovery must use a documented, independently retained backup format and a tested restore path compatible with the chosen Cloudflare resources.
 - Offline-first applications retain local capability during service outages.
 
 ## Current blockers to close before calling the ecosystem production-ready
@@ -84,6 +85,7 @@ Pull requests and previews must not write to production D1 or change production 
 - A verified backup and restore drill; recovery routing and failback must remain marked unproven until tested.
 - Actual deployed binding, route, domain and authorization checks for the dedicated OmniPoint API.
 - Repository ownership/location and release workflow verification for Otya Player.
+- Central Resend notification path: verify existing secret presence without exposing its value, deploy the Otya Server handler first, then the OmniPoint caller, then test only to an explicitly approved operator address.
 - Consolidation of overlapping draft PRs into a small number of reviewed, testable change sets.
 
 ## Definition of done
