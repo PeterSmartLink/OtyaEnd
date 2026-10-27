@@ -27,7 +27,7 @@ The Otya ecosystem is **partly live, but not yet one fully integrated and produc
 | Classic Worker routes | No routes returned for the zone | The five observed hostnames are attached as Workers Custom Domains, not classic route entries. |
 | Worker previews | Disabled on the inspected Workers/domains | No preview hostname should be assumed available. |
 
-The public website and docs/status pages are reachable to the browser checker. The public site still identifies the organization as PeterSmart Link and features Otya Player. This is a live branding mismatch against the requested company name and platform family, not just a README issue.
+The public website and docs/status pages are reachable to the browser checker. The signed-in Space hostname was not confirmed healthy: the browser checker reported a redirect loop while opening `space.petersmartlink.com`. This may be checker-specific, but it is a concrete symptom that needs a real browser/session check before claiming sign-in works. The public site still identifies the organization as PeterSmart Link and features Otya Player. This is a live branding mismatch against the requested company name and platform family, not just a README issue.
 
 ### D1 databases
 
