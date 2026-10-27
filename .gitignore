@@ -30,3 +30,6 @@ key.properties
 android/key.properties
 android/*.keystore
 android/*.jks
+
+# Local D1 SQL exports and backup verification artifacts — never commit
+.private-backups/
