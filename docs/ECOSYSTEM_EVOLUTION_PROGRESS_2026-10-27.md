@@ -26,6 +26,23 @@ Review branch: `security/production-worker-exposure-and-d1-audit-2026-10-24` (ex
 - Source-level assertions passed by inspection. GitHub Actions runs `40487500608` (Verify OmniPoint) and `40487500617` (Security Baseline) were queued for this branch revision; results are not yet confirmed in this note.
 - This work stays in the existing review branch. No PR merge or deployment occurred.
 
+## Python foundation evolution
+
+Repository: `PeterSmartLink/Otya-Server`  
+Branch: `chore/python-first-ecosystem-plan`
+
+- Updated `python-foundation/src/main.py` in commit `a49180b6e8a92cd12093706ef326dd23326a7bf6`: adds validated request correlation IDs, echoes `X-Request-ID`, includes the correlation ID in sanitized internal-error responses, and marks health responses as preview/scaffold scope.
+- Expanded `python-foundation/tests/test_contract.py` in commit `86bb1cea422d26e508122b1475925810b2f077a8` to cover request-ID validation, preview-only health semantics and error redaction.
+- Added isolated Python CI in `.github/workflows/python-foundation.yml`, commit `d8445eb464b76e4e139d977959ed79e70477cabf`, to run pytest and Ruff on Python foundation changes.
+- Python CI run `40488152619` was in progress at the last check. Do not treat the scaffold as a production service; it has no production bindings or business/payment routes.
+- The Python foundation is intended for suitable new Otya Server services and tooling. Existing TypeScript Cloudflare Workers remain in place unless a measured compatibility and migration plan justifies a change; no wholesale rewrite is planned.
+
+## OmniPoint CI result
+
+- Verify OmniPoint run `40487567335` completed successfully on branch `security/production-worker-exposure-and-d1-audit-2026-10-24`, commit `3040ce67347b12c5c8c4eeeaef09faf11b122aa9`.
+- The run passed migration filename checks, isolated SQLite schema tests, D1 core invariant tests, bridge-auth contract tests, the new inventory source-truth guard, Prisma validation, Worker type-check, lint and build.
+- This is branch CI evidence only; it does not mean the code is deployed or the production D1 cutover is complete.
+
 ## Newly reconfirmed blockers
 
 1. **Two OmniPoint data paths still coexist.**
