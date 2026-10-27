@@ -142,7 +142,7 @@
       "id": "otya-next",
       "name": "Otya Next",
       "role": "private-assistant-and-approved-automation",
-      "repository": "PeterSmartLink/Otya-Server",
+      "repository": "PeterSmartLink/Next",
       "runtimeComponents": [
         "otya-next-worker",
         "private-owner-console"
