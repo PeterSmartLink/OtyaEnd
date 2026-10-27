@@ -23,10 +23,29 @@
       "name": "Otya Server",
       "role": "shared-control-plane",
       "repository": "PeterSmartLink/Otya-Server",
-      "runtimeComponents": ["otya-core", "otya-auth", "otya-next"],
-      "primaryData": ["otya-auth-db", "otya-store-db"],
-      "owns": ["shared-identity", "service-authorization-contracts", "shared-api-contracts", "ecosystem-service-registry", "operational-audit", "release-coordination"],
-      "integratesWith": ["omnipoint", "otyahub", "otya-player", "otya-next"],
+      "runtimeComponents": [
+        "otya-core",
+        "otya-auth",
+        "otya-next"
+      ],
+      "primaryData": [
+        "otya-auth-db",
+        "otya-store-db"
+      ],
+      "owns": [
+        "shared-identity",
+        "service-authorization-contracts",
+        "shared-api-contracts",
+        "ecosystem-service-registry",
+        "operational-audit",
+        "release-coordination"
+      ],
+      "integratesWith": [
+        "omnipoint",
+        "otyahub",
+        "otya-player",
+        "otya-next"
+      ],
       "status": "existing-needs-hardening",
       "productionReleaseAllowed": false,
       "notes": "Do not put OmniPoint operational tables into Otya Server's store database. Browser owner admin remains retired; privileged owner actions must use the protected private owner surface."
@@ -36,10 +55,31 @@
       "name": "OmniPoint",
       "role": "business-operations-product",
       "repository": "PeterSmartLink/OmniPoint",
-      "runtimeComponents": ["omnipoint-web", "omnipoint-api"],
-      "primaryData": ["omnipoint-prod"],
-      "owns": ["retail-catalogue", "inventory", "sales", "returns", "cash-control", "agency-transactions", "retail-ledger", "agency-ledger", "staff-memberships", "branch-scope", "business-audit"],
-      "integratesWith": ["otya-auth", "otya-core", "otya-next"],
+      "runtimeComponents": [
+        "omnipoint-web",
+        "omnipoint-api"
+      ],
+      "primaryData": [
+        "omnipoint-prod"
+      ],
+      "owns": [
+        "retail-catalogue",
+        "inventory",
+        "sales",
+        "returns",
+        "cash-control",
+        "agency-transactions",
+        "retail-ledger",
+        "agency-ledger",
+        "staff-memberships",
+        "branch-scope",
+        "business-audit"
+      ],
+      "integratesWith": [
+        "otya-auth",
+        "otya-core",
+        "otya-next"
+      ],
       "status": "implementation-under-validation",
       "productionReleaseAllowed": false,
       "notes": "Dedicated OmniPoint API and D1 boundary required. Live schema lineage, tenant scope, balanced journals, provider reconciliation and backup/restore must be verified before release."
@@ -49,10 +89,24 @@
       "name": "OtyaHub",
       "role": "public-product-and-developer-surfaces",
       "repository": "PeterSmartLink/OtyaHub",
-      "runtimeComponents": ["public-github-content", "developer-docs", "safe-public-automation"],
-      "primaryData": ["public-repository-content"],
-      "owns": ["approved-public-content", "public-docs", "support-entry-points"],
-      "integratesWith": ["otya-server", "otya-player", "omnipoint"],
+      "runtimeComponents": [
+        "public-github-content",
+        "developer-docs",
+        "safe-public-automation"
+      ],
+      "primaryData": [
+        "public-repository-content"
+      ],
+      "owns": [
+        "approved-public-content",
+        "public-docs",
+        "support-entry-points"
+      ],
+      "integratesWith": [
+        "otya-server",
+        "otya-player",
+        "omnipoint"
+      ],
       "status": "existing-surfaces-needs-inventory",
       "productionReleaseAllowed": false,
       "notes": "OtyaHub is a product/surface boundary, not permission to expose private service metadata or business data."
@@ -61,11 +115,25 @@
       "id": "otya-player",
       "name": "Otya Player",
       "role": "offline-first-media-product",
-      "repository": "repository-location-to-verify",
-      "runtimeComponents": ["android-app", "release-metadata"],
-      "primaryData": ["device-local-media-library"],
-      "owns": ["local-playback", "playlists", "vault", "local-transfer", "app-release-artifacts"],
-      "integratesWith": ["otya-auth", "otya-core"],
+      "repository": "PeterSmartLink/OtyaPlayer",
+      "runtimeComponents": [
+        "android-app",
+        "release-metadata"
+      ],
+      "primaryData": [
+        "device-local-media-library"
+      ],
+      "owns": [
+        "local-playback",
+        "playlists",
+        "vault",
+        "local-transfer",
+        "app-release-artifacts"
+      ],
+      "integratesWith": [
+        "otya-auth",
+        "otya-core"
+      ],
       "status": "existing-product-runtime-needs-current-repository-verification",
       "productionReleaseAllowed": false,
       "notes": "Playback, local media scanning and vault access must continue without Cloudflare, authentication or AI availability. Do not upload private local media by default."
@@ -75,10 +143,23 @@
       "name": "Otya Next",
       "role": "private-assistant-and-approved-automation",
       "repository": "PeterSmartLink/Otya-Server",
-      "runtimeComponents": ["otya-next-worker", "private-owner-console"],
-      "primaryData": ["otya-store-db"],
-      "owns": ["assistant-conversations-under-existing-policy", "approved-action-records", "automation-requests"],
-      "integratesWith": ["otya-auth", "otya-core", "omnipoint"],
+      "runtimeComponents": [
+        "otya-next-worker",
+        "private-owner-console"
+      ],
+      "primaryData": [
+        "otya-store-db"
+      ],
+      "owns": [
+        "assistant-conversations-under-existing-policy",
+        "approved-action-records",
+        "automation-requests"
+      ],
+      "integratesWith": [
+        "otya-auth",
+        "otya-core",
+        "omnipoint"
+      ],
       "status": "existing-needs-authorization-and-operations-verification",
       "productionReleaseAllowed": false,
       "notes": "Assistant actions must use the same API authorization, actor scope, approval and audit rules as the product UI. Never give the assistant direct cross-product database write access."
