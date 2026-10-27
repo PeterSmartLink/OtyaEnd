@@ -73,7 +73,7 @@ Before any AWS provisioning:
 - R2: otya-assets, otya-player-releases, omnipoint-private, omnipoint-backups.
 - KV: otya-auth-kv, otya-core-kv, omnipoint-cache.
 - Queues: eight existing queues. Otya Next jobs and push have attached consumers; OmniPoint jobs/DLQ currently have no attached producer/consumer; release events has a producer but no confirmed consumer.
-- Cloudflare's D1 list endpoint reported zero tables for the four databases in this inventory response; this must be reconciled with direct schema inspection and migration state before any database is described as ready.
+- Cloudflare's D1 list endpoint reported zero tables in its metadata, but a read-only sqlite_master query confirmed the OmniPoint production schema objects exist. Counts checked for nine core OmniPoint production tables were all zero. The migration-test database contains one row each in legacy Product, User, RetailSale and AgencyTransaction tables, while the checked new omni_* tables were empty. Treat the legacy rows as test/migration fixtures, not production business data; do not promote or merge them automatically.
 - Existing Otya resources are serving separate workloads. Do not rename, delete or change their bindings as part of OmniPoint setup.
 
 ### GitHub / application readiness
