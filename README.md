@@ -1,6 +1,6 @@
-# OTYA Backend
+# Otya Server
 
-The private production backend for **OTYA** by PeterSmart Link.
+**Otya Server** is the shared private control plane for the Otya ecosystem, operated by **Otya Hold Ltd**. It provides shared identity, core APIs, approved service integrations, releases, notifications and centralized transactional email.
 
 **Official service:** https://petersmartlink.com
 
@@ -8,13 +8,13 @@ This repository contains production infrastructure for the shared OTYA account, 
 
 ## Production principles
 
-- One shared OTYA identity across products
+- One shared Otya identity across products
 - Product-specific data remains separately scoped
 - Real server-side authentication and session management
 - Server-side Google identity verification
 - Optional verified phone and linked identity support
 - Explicit opt-in recovery backup support
-- Transactional email through Resend
+- Centralized transactional email through Resend; product apps call Otya Server rather than keeping separate Resend API keys
 - Signed application release delivery
 - Cloudflare Workers-based production infrastructure
 - Security scanning and dependency review through GitHub Actions
@@ -25,9 +25,9 @@ This repository contains production infrastructure for the shared OTYA account, 
 
 Customer-facing product information, Docs, downloads, support and release notices are published through the official OTYA website rather than this private source repository.
 
-- OTYA: https://petersmartlink.com
+- Otya public website: https://petersmartlink.com
 - Docs: https://petersmartlink.com/docs
-- OTYA AI: https://petersmartlink.com/ai
+- Otya Workspace / assistant entry: https://petersmartlink.com/ai
 - OTYA Account: https://petersmartlink.com/my-account
 - OTYA Player: https://petersmartlink.com/otya-player
 - OTYA Player download: https://petersmartlink.com/download/otya-player
@@ -48,4 +48,4 @@ See [LICENSE](LICENSE).
 
 ---
 
-**OTYA · PeterSmart Link**
+**Otya Server · Otya Hold Ltd**
