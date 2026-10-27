@@ -1,0 +1,56 @@
+# Otya OS Ecosystem Evolution Progress — 2026-10-27
+
+**Scope:** Read-only live-state inspection plus isolated GitHub branch changes. No production deployment, DNS changes, secret changes, production data migration, PR merge, or live financial operation was performed.
+
+## Confirmed work in this batch
+
+### OmniPoint inventory truthfulness fix
+Repository: `PeterSmartLink/OmniPoint`  
+Branch: `chore/cross-platform-api-contract`
+
+- Updated `app/dashboard.tsx` in commit `86e8dc5726a7634d818116c7e52bd10ea39b982d`.
+- When the inventory API fails, the UI now clears inventory rows and marks the source unavailable rather than substituting demo products.
+- Added an explicit empty/unavailable state. The UI no longer calls the API response a “live read” before the target database environment is verified.
+- Added `scripts/check-inventory-fallback.mjs` in commit `9b04bf7559d6ad2700f9386da33bcf222f2521fd`.
+- Added `npm run check:inventory-fallback` in `package.json`, commit `fc3b060e5c08e17e9778c111d47011f7fb89c5a9`.
+- Source-level verification checks passed for: clearing inventory on failure, setting the unavailable state, no demo fallback in the error handler, explicit empty state, honest database-environment label, and command wiring. **This was source inspection/static assertion, not a claim that the Node script or full project CI was executed.**
+
+## Newly reconfirmed blockers
+
+1. **Two OmniPoint data paths still coexist.**
+   - `app/inventory/page.tsx` reads and writes through Prisma and the legacy PostgreSQL configuration.
+   - The dashboard bridge at `app/api/bridge/products/route.ts` calls the Cloudflare Worker API.
+   - These are not yet one verified canonical data path. Do not dual-write or claim a completed Cloudflare cutover.
+
+2. **The bridge is still coupled to legacy staff authentication.**
+   - It calls `requireStaff()` before forwarding a short-lived signed token to the isolated Cloudflare API.
+   - This is a transition boundary, not yet the final Otya Auth contract. Token issuer/audience/signature validation, server-side membership/scope enforcement, and service-binding topology need dedicated tests before this is promoted.
+
+3. **The Worker configuration explicitly targets the migration-test database.**
+   - `wrangler.toml` names `omnipoint-migration-api` and binds D1 database `omnipoint-migration-test`.
+   - Treat responses as isolated test/migration data until environment mapping is independently verified. Do not rebind it to `omnipoint-prod` as part of this batch.
+
+4. **The pull-request backlog is overlapping.**
+   - Open proposals include security/schema audits (#30/#31), two similar inventory bridges (#27/#28), company-scope migration (#29), D1 foundation (#15), and several dependent savings/provider/CI branches.
+   - No pull request was merged or closed. Consolidation must follow dependency and diff review, not a bulk merge.
+
+## Ecosystem implementation direction
+
+- Otya Server remains the central control plane and owns shared service contracts, central Resend integration, operational health, jobs, approvals and recovery.
+- Otya Auth owns shared identity/session authority; products enforce their own resource permissions.
+- OmniPoint owns the shop's inventory, sales, stock movements, cashbook, agency records and audit trail in its own data boundary.
+- Otya Media remains a separate Flutter/Dart application; Next remains private; OtyaHub remains the public developer/partner channel.
+- Cloudflare is the target runtime/data platform. Supabase, Appwrite and Vercel are not target dependencies for OmniPoint, but legacy paths must remain clearly identified until safely replaced and verified.
+
+## Next safe execution batch
+
+1. Map every OmniPoint page/action to its current source of truth and classify reads/writes as legacy PostgreSQL/Prisma, Cloudflare migration API, sample/demo, or unknown.
+2. Inspect Cloudflare Worker auth middleware and tests; define the final Otya Auth token/service-binding contract before removing the legacy auth dependency.
+3. Compare legacy Prisma schema, D1 migrations, and both D1 schema families; write a field-by-field migration map with counts and constraints, without changing production.
+4. Pick a single inventory API implementation for a review branch; do not merge overlapping PRs automatically.
+5. Run the new inventory fallback guard and the existing lint/build/security workflows on the branch once the repository CI can be safely triggered. Report actual workflow IDs/results.
+6. Continue the Cloudflare Worker source/deployment provenance and queue consumer audit. Keep the unused release queue from being treated as operational until its consumer is proven.
+
+## Official platform reference
+
+Cloudflare recommends versioned D1 migrations and using the database name rather than a changeable binding name when applying migrations. Migration files and applied migration records should be compared before any cutover. See the official [D1 migrations guide](https://developers.cloudflare.com/d1/reference/migrations/).
