@@ -14,7 +14,7 @@ test('public server version remains Otya 1.0.0 during first-release evolution', 
 
 test('critical deployment stack is pinned instead of floating across deploys', () => {
   assert.equal(pkg.engines.node, '>=22 <23')
-  assert.equal(pkg.dependencies.next, '15.5.25')
+  assert.equal(pkg.dependencies.next, '15.5.28')
   assert.equal(pkg.dependencies.react, '19.2.8')
   assert.equal(pkg.dependencies['react-dom'], '19.2.8')
   assert.equal(pkg.devDependencies['@opennextjs/cloudflare'], '1.20.6')
@@ -22,7 +22,9 @@ test('critical deployment stack is pinned instead of floating across deploys', (
   assert.equal(pkg.devDependencies.typescript, '5.9.3')
   assert.equal(pkg.devDependencies.postcss, '8.5.25')
   assert.equal(pkg.overrides.postcss, '8.5.25')
-  assert.equal(pkg.overrides.sharp, '0.35.4')
+  assert.equal(pkg.overrides.sharp, '0.35.5')
+  assert.equal(pkg.overrides['source-map-js'], '1.2.2')
+  assert.equal(pkg.devDependencies['eslint-config-next'], '15.5.28')
   assert.doesNotMatch(pkg.dependencies.next, /^16\./)
 })
 
