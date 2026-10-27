@@ -154,3 +154,20 @@ No pull requests were merged or closed, no branches/files/repositories were dele
 
 ## Operational alignment reminder
 Vercel status checks may still appear as repository integration metadata even though the desired OmniPoint operational architecture is Cloudflare + GitHub only. Do not use Vercel as an operational hosting/runtime dependency for OmniPoint. A check status by itself does not establish that a Vercel deployment is used by the product.
+
+## Follow-up execution log (2026-10-27)
+The following review notes were posted directly to the four open PR conversations so maintainers have repository-local guidance:
+- OmniPoint #27: retain its unique `docs/BUILD_STATUS.md`, but do not merge the competing dashboard bridge until its authentication approach, tests, and migration lineage are reconciled with the selected bridge.
+- OmniPoint #28: retain the unique `app/api/bridge/summary/route.ts` functionality for porting/review; its local HMAC boundary must be reconciled with the shared Otya identity/auth contract. The recorded Verify OmniPoint failure must be diagnosed before any merge decision.
+- Otya Server #206: treat the master Otya OS architecture document as the canonical ecosystem map and reconcile overlapping documentation edits.
+- Otya Server #207: preserve the API catalog/template as a distinct artifact and reconcile its shared architecture-document edits against #206 rather than discarding either branch wholesale.
+
+### Next safe cleanup order
+1. Review exact current heads and required checks for OmniPoint #31, #30, #22, #21, #15, #11, and Otya Server #213; prioritize the Cloudflare-only single-shop baseline, D1 integrity/security, and registry validation.
+2. Resolve the dashboard bridge choice by comparing #27 and #28 against the selected auth contract; port unique files/tests before closing either PR.
+3. Review savings-group PRs #18/#17 as deferred scope, not current launch blockers for the own-shop workflow.
+4. Review OtyaPlayer Android/Gradle/AGP update PRs independently; major toolchain updates require a reproducible Flutter/Android build.
+5. Only after each PR is merged or its unique changes are demonstrably preserved should its head branch become a deletion candidate. Branch deletion is currently not available through the connected GitHub actions, so do not claim deletion has occurred.
+6. Do not run live backup exports, D1 migrations, Worker deployments, DNS/secrets edits, payment activation, or cloud-resource creation as part of repository cleanup.
+
+This follow-up adds review traceability only. It does not alter default-branch code, merge/close PRs, delete branches/files, or change production infrastructure.
