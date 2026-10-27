@@ -45,7 +45,7 @@ Branch: `chore/python-first-ecosystem-plan`
 - Added unit tests in `python-foundation/tests/test_ai_policy.py` (commit `185900a0f5d520536d3cfefe184b3eaa3d36c1f2`) and configured the Python source path in `pyproject.toml` (commit `d9d1a9d330b3d0ac2f44d67a5752a81fa8032bbf`).
 - CI run `40488543982` completed successfully, including pytest and Ruff. This verifies the policy reference module's tests and lint, not production integration.
 - The initial module creation briefly landed on the default branch by mistake. I removed it in corrective commit `f0b76bb4759979c7267ffbc600f5083aa8e19822`; the resulting `Deploy OTYA to Cloudflare` workflow is a push-triggered validation run. Its workflow only deploys for `workflow_dispatch` with an explicit component and exact `DEPLOY` confirmation; no deployment job is authorized by this push event. Continue to verify its final run status.
-- No production secrets or configuration were changed.
+- No production secrets or configuration were changed. The push-triggered validation run `40488530700` completed with failure in the existing core/web test suite: test 195 (`future explicit core deploys provision the existing Resend API key without weakening deploy authority`) failed; 308/309 core tests passed. All authorization, plan and deployment jobs were skipped because the event was a push, not an explicitly confirmed workflow dispatch. This failure needs a separate baseline investigation; no production deployment was run.
 
 ### Next AI contract
 - Added `docs/AI_EXECUTION_AND_EVALUATION_CONTRACT.md` in the Next review branch (commit `1ef9a06161ecffb4708a613b99b5269453a6e628`) and linked it from the README (commit `0af6356074d5682bf3ed959168b26b81d7989259`).
