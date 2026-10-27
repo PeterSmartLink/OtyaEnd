@@ -21,3 +21,4 @@ target-version = "py313"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["src"]
