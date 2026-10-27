@@ -21,6 +21,12 @@ This repository contains production infrastructure for the shared OTYA account, 
 - Secrets stored in protected platform/GitHub secret stores, never in client code
 - AI remains optional for OTYA Player and cannot block local playback
 
+## Ecosystem execution
+
+- [Otya OS ecosystem execution board](docs/OTYA_OS_ECOSYSTEM_EXECUTION_BOARD_2026-10-27.md) — shared workstreams, ownership boundaries, risks and acceptance gates.
+- [Otya OS implementation execution plan](docs/OTYA_OS_IMPLEMENTATION_EXECUTION_PLAN.md) — staged implementation plan based on the environment audit.
+- [Ecosystem evolution progress](docs/ECOSYSTEM_EVOLUTION_PROGRESS_2026-10-27.md) — recorded branch changes, CI results and outstanding blockers.
+
 ## Public product information
 
 Customer-facing product information, Docs, downloads, support and release notices are published through the official OTYA website rather than this private source repository.
