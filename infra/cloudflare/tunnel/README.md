@@ -1,60 +1,58 @@
 # Cloudflare Tunnel — Otya Server
 
-This directory intentionally contains no tunnel token or production route. It is a safe implementation plan, not an active tunnel configuration.
+Status: assessment only. No tunnel token, tunnel, DNS record, production route, or private origin has been created or changed.
 
-## Discovery (2026-10-27)
+## Finding (2026-10-27): no Tunnel is needed yet
 
-- Cloudflare API inventory returned zero remotely managed Cloudflare Tunnels.
-- Cloudflare account currently exposes OTYA through Workers `otya-auth`, `otya-core`, and `otya-next`; custom domains are already attached to the existing `otya-core` deployment.
-- A Pages project named `omnipoint-relay-lab` exists on the `never-production` branch.
-- No Cloudflare Access applications were returned by the account API query.
-- The Otya Server `wrangler.toml` routes `petersmartlink.com`, `www`, `docs`, `status`, and `space` to the existing Worker. Those routes must not be repointed to a Tunnel as part of this work.
-- The current configuration uses native Cloudflare service bindings (including D1 and Worker-to-Worker services). These should remain direct bindings; do not tunnel traffic between Workers and D1.
+The owner has not purchased or installed a physical shop server. The read-only inventory found no remotely managed Cloudflare Tunnels and no Cloudflare Access applications in this account query. The current live system is already based on Cloudflare Workers and native service bindings. There is no identified private origin for a Tunnel to connect to today.
 
-## Decision
+**Decision: defer Tunnel creation.** Do not create an idle tunnel, reserve a hostname, change DNS, or add a server bill just to say Tunnel is enabled. Reassess when a real private origin exists or an approved use case is identified.
 
-Do not create an idle tunnel until the exact private origin is known. Tunnel needs a running `cloudflared` connector with network access to a real origin service. Creating only a tunnel record would not connect an application and could create misleading expectations.
+## Current live topology observed
 
-Candidate use cases, only if they actually exist:
-- A private shop/back-office service running on a shop computer or dedicated server.
-- A private health/diagnostics endpoint on an auxiliary relay.
-- A restricted internal operations dashboard.
+- Workers: `otya-auth`, `otya-core`, `otya-next`.
+- `otya-core` has native Worker service bindings to `otya-auth` and `otya-next`, plus D1, R2, KV, Queues, Analytics Engine, a rate limiter, and a Workflow.
+- `otya-auth` uses D1 and KV. Its live settings include a secret binding named `OTYA_STORE_INTERNAL_URL` and an `INTERNAL_SECRET` binding. The secret values were not read or exposed.
+- `otya-next` has a D1 binding and Cloudflare AI-related bindings.
+- Existing production hostnames `petersmartlink.com`, `www`, `docs`, `status`, and `space` are attached to the existing `otya-core` Worker.
+- The `omnipoint-relay-lab` Pages project has production branch `never-production`.
+- Repository documentation has some older logical service names (`otya-store` / `otya-ai`) while current account inventory uses `otya-core` / `otya-next`. Reconcile names in documentation before future deployment work; do not rename live Workers merely to match stale docs.
 
-Do not use Tunnel to replace Workers, D1, R2, KV, Queues, or Workflows.
+## Recommended architecture now
 
-## Required origin details before activation
+Normal customer and staff traffic:
+web / Android -> Cloudflare edge -> `otya-core` Worker -> native `otya-auth` / `otya-next` service bindings -> Cloudflare D1 / R2 / KV / Queues / Workflows as needed.
 
-Fill this section after read-only discovery of the actual host:
-- Service owner and purpose: TBD
-- Host/device and operating system: TBD
-- Service address and port reachable from the connector: TBD
-- Environment: non-production first
-- Proposed hostname: TBD (must not overlap existing production hostnames)
-- Access policy / permitted identities: TBD
-- Health endpoint: TBD
-- Data sensitivity and logging rules: TBD
-- Rollback: disable the tunnel route and connector; preserve existing Worker routes and DNS
+Do not tunnel Worker-to-Worker or Worker-to-D1 calls. Use native Worker service bindings and native Cloudflare storage bindings.
 
-## Safe implementation sequence
+### Internal auth-to-product cleanup channel
 
-1. Identify the actual host and service; verify that it should be reachable remotely.
-2. Start with a non-production hostname and a harmless health endpoint.
-3. Create a remotely managed tunnel only after the origin and hostname are approved.
-4. Configure Cloudflare Access identity policy before publishing any administrative UI. Tunnel connectivity is not authorization.
-5. Install `cloudflared` on the origin host using a token obtained directly from Cloudflare. Never commit the token, certificate, or generated credentials.
-6. Keep the origin bound to loopback/private interfaces where possible; no inbound port forwarding should be needed.
-7. Verify access from an allowed identity and confirm denied identities cannot reach it.
-8. Add health monitoring, connector restart behavior, token rotation instructions, and rollback steps.
-9. Only consider production hostnames after a separate reviewed change and explicit approval.
+The `otya-auth` settings include a secret URL binding for an internal product-data cleanup endpoint. This is an internal Worker-to-Worker concern, not a reason to create a Tunnel. Before changing it, inspect the matching deployed endpoint and test its authorization/error behavior. A future reviewed code change may replace URL-based Worker-to-Worker fetch with an explicit service binding, provided it preserves the authenticated `X-Internal-Secret` check, timeout, and account-deletion fail-safe behavior. Do not alter the live binding or run account deletion tests against production as part of this assessment.
 
-## Airtel static-egress note
+## When to add Tunnel later
 
-Cloudflare Tunnel does not provide a fixed outbound source IPv4 for Airtel API calls. If Airtel requires a source-IP allowlist, evaluate a separate narrowly scoped outbound relay only after confirming Airtel's sandbox hostname, region acceptance, and exact requirement. Never expose the relay as a general-purpose proxy. No AWS resources are provisioned.
+A named Cloudflare Tunnel becomes useful only when a specific private service exists, for example:
+- a shop computer or local server running an approved inventory/back-office service;
+- a dedicated private admin or monitoring service that should not be publicly reachable;
+- a separate relay's private management/health endpoint.
 
-## Do not do
+When that day comes:
+1. Identify the host, service, port, data sensitivity, owner, and recovery plan.
+2. Start on a non-production hostname.
+3. Create a named tunnel only after the destination is verified.
+4. Put Cloudflare Access identity policy in front of administrative applications.
+5. Install `cloudflared` on the host; keep the token outside GitHub and logs.
+6. Do not expose inbound ports, SSH, RDP, database admin, or an unrestricted dashboard.
+7. Verify allowed and denied access, monitoring, connector restart, token rotation, and rollback.
+8. Leave existing production Worker hostnames untouched unless a separate migration is reviewed and explicitly approved.
 
-- Do not edit production DNS or existing Worker routes.
-- Do not create a public route for SSH, RDP, database admin, or an unrestricted dashboard.
-- Do not store secrets or tokens in this repository.
-- Do not route payment traffic through a tunnel as a substitute for provider-approved authentication.
-- Do not activate live payments or change production without explicit approval.
+## Airtel fixed-egress distinction
+
+Cloudflare Tunnel does not give Worker-originated outbound requests a static public source IP. If Airtel confirms that a static IP allowlist is required, evaluate a separate restricted relay only after the sandbox hostname, allowlist requirements, accepted AWS region, and costs are known. Do not use the tunnel as a generic proxy. No AWS infrastructure is provisioned.
+
+## Safety gates
+
+- No production DNS, Worker, binding, secret, or database changes in this assessment.
+- No account data deletion or live payment.
+- No tunnel or AWS resources created.
+- Keep Cloudflare MFA and AWS root MFA as owner-controlled prerequisites before provisioning.
