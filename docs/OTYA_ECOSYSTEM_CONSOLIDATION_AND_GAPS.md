@@ -150,3 +150,29 @@ This section supersedes the earlier simplified OmniPoint PR order above where th
 
 Before merging any PR, compare the exact current head SHA, base branch, changed paths, CI conclusions, migration prerequisites and any overlapping PR. Never treat a successful CI run on an older SHA as evidence for a newer commit. No PR in this queue authorizes production deployment, D1 migration, DNS/secrets changes, live email or live payments.
 
+## Verified follow-up — 2026-10-27 (read-only live D1 + latest CI)
+
+### Production database facts
+
+A direct Cloudflare D1 read-only check now confirms `omnipoint-prod` is provisioned with the OmniPoint-prefixed schema, but it is **empty for the key operational tables**: `omni_products`, `omni_staff_memberships`, `omni_retail_sales`, `omni_ledger_entries`, and `omni_stock_movements` each returned a row count of zero. This is a real production D1 resource, not the migration-test DB, but it is not yet populated with live shop records. No sample rows were inserted.
+
+The live production schema is not yet compatible with the current Worker write contract:
+- `company_id` is missing from products, sales, stock movements, agency transactions, ledger entries, reconciliation sessions, and audit events.
+- Staff memberships lack `display_name`, `email`, and `agent_id`.
+- `omni_ledger_journals` and `omni_ledger_entries.journal_id` are missing.
+- No `d1_migrations` table was observed in production, so the live migration history must be reconciled before running Wrangler migrations.
+
+All checks used SELECT/PRAGMA metadata or aggregate counts only; Cloudflare reported `changed_db=false` and `rows_written=0`. Do not connect customer-facing writes or enable sales/payment operations until a fresh isolated migration rehearsal and schema compatibility review pass.
+
+### Current review/CI state
+
+- **OmniPoint #28** at inspected head `04c4d30a68b0de8b226d290971a1e265dbd49f9f`: Verify workflow and security baseline passed. The bridge now signs the verified identity-provider subject; production remains blocked on migration lineage, live schema compatibility, and the Cloudflare-hosted UI/private API path.
+- **OmniPoint #31** at inspected head `fc0a660f9e807f0b3eb1d04c1698514247d15389`: production exposure guard and the read-only audit are documented; it is not a migration or deployment.
+- **OmniPoint #29** is not safe to merge as-is. Its alternate version of `0002_company_scope.sql` adds the three staff profile columns that are already handled by `0003_staff_profile.sql`, creating duplicate ALTER statements if combined with the current migration chain. A review comment was added; reconcile rather than merging blindly.
+- **Otya Server #218** at inspected head `f1c6114c6ca9f3078dc429b4c76d193ffb20aac9`: security baseline and backend validation passed; production authorization/deploy jobs were skipped. Low-stock email remains unactivated.
+- **Otya Server #213** remains the ecosystem policy/registry proposal, not evidence that product cutover or recovery is complete.
+
+### Non-negotiable production gate
+
+No production D1 migration, seed/import of real records, Worker deploy, DNS/secrets change, live email or live payment activation is authorized by these findings. First rehearse the exact canonical migration chain on a fresh isolated D1 database, test all required columns/triggers/journal constraints, and document rollback/restore evidence. Then obtain explicit approval for the production change.
+
