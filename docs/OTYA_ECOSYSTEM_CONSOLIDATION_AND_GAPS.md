@@ -120,3 +120,33 @@ The ecosystem is ready for a controlled production release only when:
 - Logs/alerts are redacted, incident and rollback procedures are documented, and owner approval is recorded for every production-impacting change.
 
 **Current state:** implementation and validation in progress; not yet production-ready. This plan is not evidence that any production migration, backup, email rollout or payment flow has occurred.
+
+## Current PR queue reconciliation — 2026-10-27
+
+This section supersedes the earlier simplified OmniPoint PR order above where the newer PRs overlap. It is a review queue, **not merge authorization**.
+
+### Newly verified blockers and relationships
+
+- **OmniPoint PR #31** is the current production-boundary audit. Its source-only change disables automatic `workers.dev` exposure for the dedicated production config. Its report identifies production/test D1 schema divergence and missing company/branch scope in parts of the production schema. It passed its security and verification workflows at the inspected head, but does not migrate production or prove the live schema is ready.
+- **OmniPoint PR #29** changes company scoping and staff-profile schema. Review it against the migration lineage and PR #31 findings before any schema release. A company-scope migration must be proven safe for existing production records before execution.
+- **OmniPoint PR #22** is the Cloudflare-only/single-shop migration foundation. It still documents unfinished identity migration and legacy dashboard coupling; do not claim the runtime is fully Cloudflare-only until that path is replaced and built.
+- **OmniPoint PR #27 and PR #28 overlap on inventory-to-D1 work. Do not merge both blindly.** PR #28 adds the broader cash POS path and server-session bridge; reconcile the shared files and port only the needed, tested changes into the chosen foundation.
+- **OmniPoint PR #28 conflicts with the user's Cloudflare-only runtime direction as currently described:** its PR text requires a Vercel server-side environment variable for the temporary HMAC bridge. Treat that as a temporary migration artifact, not the target architecture. Before production, host the UI/server action layer on the approved Cloudflare path or formally review any exception; do not add Vercel as a new dependency.
+- **OmniPoint PR #28's earlier Verify workflow failed at TypeScript checking of Web Crypto signature bytes.** A narrow normalization fix was committed to its branch as `933723886d79e6da06612a67a4273537992b37f7`; the security baseline passed for that commit, while its full Verify workflow was still running at the time of this update. Recheck the current head and CI before treating the fix as verified.
+- **Otya Server PR #218's inspected head** had a failed security workflow at commit `f245c8186e414f1a3cc718b195248ca8874bad7b`, specifically the web/backend runtime audit step. Its separate validation workflow passed, while all deploy jobs were skipped. Diagnose the security failure on the current head before merge; no email rollout is authorized.
+- **Otya Server PR #213's current inspected head** passed its security and backend validation workflows; production deployment jobs were skipped. Keep it as the architecture baseline, not proof that product migrations or recovery drills have completed.
+
+### Updated safe review order
+
+1. **Review OmniPoint #31** for the production exposure guard and ensure the audit is accurate; merge only after normal review and CI requirements. This is a source safety guard, not production readiness.
+2. **Reconcile OmniPoint #29 with #31** and validate the company-scope migration against isolated fixtures and a read-only production schema comparison. Do not execute production migrations here.
+3. **Review Otya Server #213** as the ecosystem policy/registry baseline; preserve separate product databases and explicit production gates.
+4. **Choose one OmniPoint inventory/POS implementation path:** use #22 as the Cloudflare-only foundation, then port/reconcile the unique POS work from #28. Treat #27 as an overlapping predecessor unless a file-level review proves it contains unique work. Keep the Vercel bridge temporary and non-production.
+5. **Recheck current CI for #28** after the HMAC type fix. Confirm worker typecheck, lint, build, authorization tests, company isolation, idempotent sale retries, and atomic stock/journal invariants.
+6. **Resolve Otya Server #218's security audit failure** and confirm its private service binding/recipient restrictions before considering low-stock email. No live email until explicit approval.
+7. Keep **Next #8, OtyaHub #3 and Otya Media #164** as independent product-specific changes. Their recent inspected CI passed, but each remains unmerged and its own product boundary must remain intact.
+
+### Merge safety rule
+
+Before merging any PR, compare the exact current head SHA, base branch, changed paths, CI conclusions, migration prerequisites and any overlapping PR. Never treat a successful CI run on an older SHA as evidence for a newer commit. No PR in this queue authorizes production deployment, D1 migration, DNS/secrets changes, live email or live payments.
+
