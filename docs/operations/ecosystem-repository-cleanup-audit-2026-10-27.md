@@ -171,3 +171,15 @@ The following review notes were posted directly to the four open PR conversation
 6. Do not run live backup exports, D1 migrations, Worker deployments, DNS/secrets edits, payment activation, or cloud-resource creation as part of repository cleanup.
 
 This follow-up adds review traceability only. It does not alter default-branch code, merge/close PRs, delete branches/files, or change production infrastructure.
+
+
+## Current-head refresh (2026-10-27)
+A fresh read of the selected pull requests confirmed the following exact heads and repository status snapshots:
+- OmniPoint #31 `security/production-worker-exposure-and-d1-audit-2026-10-24`, head `e3b770c9439b5cd20cc5e457085c5cea4def616d`: CodeRabbit and Vercel statuses are green, but the roadmap still allows Supabase as a future recovery target. This conflicts with the owner's current Cloudflare + GitHub only decision; a review note now asks to remove that target and avoid implying Vercel is operational runtime. The `workers_dev = false` change remains source-only until separately approved deployment.
+- OmniPoint #30 `audit/otya-hold-ownership-and-schema-status`, head `0fc1ceb5b6c1c72f510a6f97200aa6676bd3ed74`: Vercel status is failing due to a build-rate-limit/plan restriction; CodeRabbit is green. Do not treat this external check as application-test evidence.
+- OmniPoint #22 `chore/cloudflare-only-own-business`, head `c283066ccf256bbb490ea923627750af1b4627e6`: CodeRabbit and Vercel statuses are green. It is stacked on #21, so preserve dependency ordering and validate the complete combined change before merge.
+- OmniPoint #21 `feat/own-shop-agent-operations`, head `1ac03ec2ebe1ee304ac2f543af06852f722598b9`: base is `docs/quickteller-provider-readiness`, not `main`. It is part of a stacked branch chain; do not merge or rebase independently without reconciling its base and dependent PRs.
+- OmniPoint #15 `feat/cloudflare-d1-primary-database`, head `651a4a9cded806f7ea4767e1d3baacd22fbd6f7e`, and #11 `fix/d1-api-atomic-product-write`, head `7c571d9699e920c67d95ba905449d6679117cd0a`: current visible CodeRabbit/Vercel statuses are green, but status labels alone do not prove D1 migration lineage, accounting invariants or required Actions checks have passed.
+- Otya Server #213 `build/unified-ecosystem-control-plane-2026-10-24`, head `d79249891cfd77a1892993f78c9b58a9a3a27421`: backend validation and Security workflows passed in the inspected run. Production plan/authorization/deploy/live-verification jobs were skipped. A review note flags an apparently duplicated `Verify core trust surfaces` step in the workflow diff for deduplication before merge.
+
+These are head-specific snapshots, not permanent CI conclusions. No merge, close, branch deletion, or production change was performed in this refresh.
