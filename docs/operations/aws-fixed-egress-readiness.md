@@ -2,7 +2,7 @@
 
 **Owner:** Otya Hold Ltd
 **Purpose:** Keep Cloudflare as the primary platform and use AWS only for the specific provider integration that requires a fixed public source IP (currently the Airtel developer console Server IP Allow List).
-**Status:** Read-only discovery completed in part; no AWS infrastructure has been created or changed.
+**Status:** Read-only discovery completed for core infrastructure in all enabled regions; no AWS infrastructure has been created or changed.
 
 ## Architecture decision
 - Cloudflare Workers remain the primary application/API runtime.
@@ -15,9 +15,14 @@
 - The account has no S3 buckets, no IAM users, no CloudFormation stacks, and no configured AWS Budgets returned by the account-level checks.
 - Only two AWS service-linked roles were returned by IAM role listing.
 - Cost Explorer access is not enabled, so actual current spend could not be queried.
-- In the regional scan, the first 14 of 17 listed/enabled regions were inspected before the tooling's API-call cap was reached. Across the checked regions, no EC2 instances, Elastic IP addresses, Lambda functions, API Gateway REST APIs, NAT gateways, ECS clusters, or EKS clusters were returned. The remaining regions were not verified in that run; do not interpret this as a complete global inventory.
-- A separate initial check in eu-west-1 also found no EC2 instances, Elastic IPs, Lambda functions, or API Gateway REST APIs.
+- IAM account summary reports account-level MFA disabled (`AccountMFAEnabled: 0`), no IAM users, no account access keys, and no customer-managed IAM policies. Enable MFA for the root/console identity before provisioning.
+- Across all 17 listed/enabled regions, read-only checks returned no EC2 instances, Elastic IP addresses, Lambda functions, or API Gateway REST APIs.
+- Checks for NAT gateways, ECS clusters, and EKS clusters ran in the first 14 regions only; the final three regions were not checked for those resource types. Treat that part of the inventory as incomplete.
 - This was a read-only scan. No resources, policies, keys, networking, or billing settings were modified.
+
+## Cost notes
+- AWS documents a charge of USD $0.005 per public IPv4 address-hour (about $3.65 for 730 hours), including Elastic IPs. This is only the IP cost; EC2 compute, storage, transfer, logging, and applicable taxes are additional. Confirm current region pricing before deployment.
+- AWS Budgets offers basic budget monitoring at no additional charge; create a small monthly budget with email alerts before launching the relay. The budget has not been created.
 
 ## Proposed fixed-egress options
 
@@ -52,4 +57,5 @@ The relay must not depend on the current petersmartlink.com domain for its own i
 - No EC2 instance, Elastic IP, VPC, security group, NAT gateway, Lambda, API Gateway, IAM user/role, S3 bucket, budget, alarm, or secret was created.
 - Cost Explorer was not enabled.
 - No Airtel endpoint was called and no real payment was attempted.
-- The complete account-wide regional inventory remains unfinished because the discovery run reached a tool API-call cap.
+- NAT gateway, ECS, and EKS inventory remains incomplete for the final three regions.
+- No infrastructure-as-code template has been deployed; region and monthly cost still require a review/approval gate.
