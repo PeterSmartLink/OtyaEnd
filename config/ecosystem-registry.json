@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "registryVersion": "2026-10-24",
-  "owner": "Otya ecosystem",
+  "owner": "Otya Hold Ltd",
   "operatingPrinciples": {
     "primaryInfrastructure": "Cloudflare",
     "recoveryPlatform": "Supabase is a recovery/backup target only; it is not the primary operational database",
