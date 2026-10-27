@@ -1,0 +1,26 @@
+name = "otya-backup-operator"
+compatibility_date = "2026-07-19"
+workers_dev = false
+
+# Backup-only CLI configuration. This is not a Worker deployment config.
+# Do not add routes, secrets, services, or deployment triggers here.
+
+[[d1_databases]]
+binding = "OMNIPOINT_PROD"
+database_name = "omnipoint-prod"
+database_id = "65868e64-ff39-4ed3-91de-59c237cd9cb0"
+
+[[d1_databases]]
+binding = "OMNIPOINT_MIGRATION_TEST"
+database_name = "omnipoint-migration-test"
+database_id = "43d274ce-d46e-462f-bcef-59b93caefc21"
+
+[[d1_databases]]
+binding = "OTYA_AUTH_DB"
+database_name = "otya-auth-db"
+database_id = "b05595f6-260a-4720-acca-4f8b13f5c43e"
+
+[[d1_databases]]
+binding = "OTYA_STORE_DB"
+database_name = "otya-store-db"
+database_id = "ab157fc6-2cbb-4d46-9789-2e4392e16aea"
