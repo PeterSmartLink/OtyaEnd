@@ -4,7 +4,7 @@
   "owner": "Otya Hold Ltd",
   "operatingPrinciples": {
     "primaryInfrastructure": "Cloudflare",
-    "recoveryPlatform": "Supabase is a recovery/backup target only; it is not the primary operational database",
+    "recoveryPlatform": "Cloudflare R2 backup/restore plan; recovery is unverified until restore and failback tests pass",
     "sharedControlPlane": "Otya Server",
     "managementGoal": "One private owner control experience with product modules and one service registry",
     "crossProductDatabaseAccess": false,
