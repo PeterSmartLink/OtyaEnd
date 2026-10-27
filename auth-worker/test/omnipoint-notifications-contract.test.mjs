@@ -25,6 +25,7 @@ test('low-stock notification validates stock and suppresses repeat emails', () =
   assert.match(handler, /COOLDOWN_SECONDS/)
   assert.match(handler, /notify:omnipoint:low-stock/)
   assert.match(handler, /notification_delivery_failed/)
+  assert.match(handler, /rawBody\.length > 4096/)
 })
 
 test('shared Resend contract documents the existing provider and safe rollout', () => {
