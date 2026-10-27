@@ -12,7 +12,7 @@
 import { spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { createReadStream, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
-import { basename, join, resolve } from 'node:path'
+import { join, resolve } from 'node:path'
 import { createInterface } from 'node:readline'
 import { fileURLToPath } from 'node:url'
 
@@ -106,14 +106,15 @@ for (const db of databases) {
   const filename = `${db.name}.sql`
   const localPath = join(outputDir, filename)
   console.log(`Exporting ${db.name} (${db.id})...`)
-  run(['d1', 'export', db.name, '--remote', '--config', config, `--output=${localPath}`])
+  // Skip Wrangler's own prompt only after our two explicit confirmation gates.
+  run(['d1', 'export', db.name, '--remote', '--skip-confirmation', '--config', config, `--output=${localPath}`])
   const bytes = assertExportLooksComplete(localPath)
   const checksum = await sha256(localPath)
   const key = `${prefix}/${db.name}/${timestamp}/${filename}`
   console.log(`Uploading ${db.name} to private R2 key ${key}...`)
-  run(['r2', 'object', 'put', `${bucket}/${key}`, `--file=${localPath}`])
+  run(['r2', 'object', 'put', `${bucket}/${key}`, `--file=${localPath}`, '--remote'])
   const downloaded = join(outputDir, `${db.name}.r2-verify.sql`)
-  run(['r2', 'object', 'get', `${bucket}/${key}`, `--file=${downloaded}`])
+  run(['r2', 'object', 'get', `${bucket}/${key}`, `--file=${downloaded}`, '--remote'])
   const downloadedChecksum = await sha256(downloaded)
   if (downloadedChecksum !== checksum) throw new Error(`Checksum mismatch for ${db.name}; do not treat this backup as successful.`)
   manifest.databases.push({
@@ -125,7 +126,7 @@ for (const db of databases) {
 const manifestPath = join(outputDir, 'manifest.json')
 writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + '\n', { mode: 0o600 })
 const manifestKey = `${prefix}/manifest/${timestamp}.json`
-run(['r2', 'object', 'put', `${bucket}/${manifestKey}`, `--file=${manifestPath}`])
+run(['r2', 'object', 'put', `${bucket}/${manifestKey}`, `--file=${manifestPath}`, '--remote'])
 console.log('All four exports uploaded and checksum-verified in R2.')
 console.log('IMPORTANT: This is not yet an off-account backup or a successful restore drill.')
 console.log(`Local export directory: ${outputDir}`)
