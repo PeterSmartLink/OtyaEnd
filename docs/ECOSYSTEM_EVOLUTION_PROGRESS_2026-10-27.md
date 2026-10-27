@@ -97,3 +97,13 @@ Branch: `chore/python-first-ecosystem-plan`
 ## Official platform reference
 
 Cloudflare recommends versioned D1 migrations and using the database name rather than a changeable binding name when applying migrations. Migration files and applied migration records should be compared before any cutover. See the official [D1 migrations guide](https://developers.cloudflare.com/d1/reference/migrations/).
+
+## Cross-ecosystem execution board added
+
+Repository: `PeterSmartLink/Otya-Server`  
+Branch: `feat/otya-os-ecosystem-execution-board-2026-10-27`
+
+- Added `docs/OTYA_OS_ECOSYSTEM_EXECUTION_BOARD_2026-10-27.md` in commit `9823e5a723b95229c45292fc5aa6e18518261e60`.
+- Linked the board and the existing implementation plan/progress report from `README.md` in commit `e87102d4caecb94407110dcd4634fec3275b6a3f`.
+- The board records product ownership, data boundaries, confirmed Cloudflare/D1 and queue risks, the failed Resend-related validation, AI runtime integration gaps, and sequenced acceptance gates for Otya Server, Auth, Next, OmniPoint, Otya Media, OtyaHub, Python, GitHub, Cloudflare and Resend.
+- This is a review-branch planning change. It does not alter a production Worker, database, secret, DNS record, payment integration or deployment workflow.
