@@ -144,3 +144,13 @@ A fresh query returned 52 open pull requests and these branch counts. Counts are
 
 ## Explicit cleanup execution status
 No pull requests were merged or closed, no branches/files/repositories were deleted, and no production settings, secrets, cloud resources, databases, migrations, or payment flows were changed. This pass establishes an actionable queue, not blanket authorization to destroy uncertain work.
+## CI/status spot-check (2026-10-27)
+- OmniPoint PR #31 head: GitHub Actions workflow runs reported Verify OmniPoint = success and Security Baseline = success; commit status contexts included CodeRabbit success and Vercel success. This is evidence for this exact head SHA only, not production readiness.
+- OmniPoint PR #30 head: Verify OmniPoint and Security Baseline = success; CodeRabbit success; Vercel status = failure with the linked status indicating a build-rate-limit/plan restriction. Treat the Vercel failure as an external check limitation until verified, not proof that the code itself failed.
+- OmniPoint PR #28 head: Security Baseline = success; Verify OmniPoint = failure; Vercel status indicated build-rate-limit/plan restriction. It is not merge-ready based on this snapshot; inspect failed workflow job details before deciding what to port.
+- Otya Server PR #213 head: Security workflow = success. The workflow named 'Deploy OTYA to Cloudflare' completed with overall success, but its explicit production authorization and deployment jobs (plan/authorize/deploy otya-next/otya-auth/otya-core/live verification) were all skipped. This check did not deploy those Workers according to its job results.
+- Otya Server PR #206 head: CodeRabbit status = success; this alone is not a substitute for required CI or architecture review.
+- Statuses are commit-specific and can change as PR heads change. Before merge, refresh checks and review every failed, skipped, or pending required check.
+
+## Operational alignment reminder
+Vercel status checks may still appear as repository integration metadata even though the desired OmniPoint operational architecture is Cloudflare + GitHub only. Do not use Vercel as an operational hosting/runtime dependency for OmniPoint. A check status by itself does not establish that a Vercel deployment is used by the product.
