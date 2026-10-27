@@ -183,3 +183,20 @@ A fresh read of the selected pull requests confirmed the following exact heads a
 - Otya Server #213 `build/unified-ecosystem-control-plane-2026-10-24`, head `d79249891cfd77a1892993f78c9b58a9a3a27421`: backend validation and Security workflows passed in the inspected run. Production plan/authorization/deploy/live-verification jobs were skipped. A review note flags an apparently duplicated `Verify core trust surfaces` step in the workflow diff for deduplication before merge.
 
 These are head-specific snapshots, not permanent CI conclusions. No merge, close, branch deletion, or production change was performed in this refresh.
+
+
+## Owner-confirmed platform boundary (2026-10-27)
+The owner explicitly confirms that **Supabase and Vercel are not part of the system**. For OmniPoint, the approved operational platform is **Cloudflare + GitHub only**. Appwrite is also excluded from the OmniPoint operational architecture.
+
+- Cloudflare owns OmniPoint's operational runtime/data services: Workers, D1, R2, and other Cloudflare capabilities only where justified.
+- GitHub is the source-control and CI/CD system.
+- Supabase must not be proposed as OmniPoint primary storage, auth, backup/recovery, synchronization, failover, or operational dependency.
+- Vercel must not be proposed as OmniPoint hosting, API runtime, production deployment or required build/release dependency. Vercel status checks may remain as historical repository integration metadata; they are not deployment evidence.
+- Existing Supabase/Prisma/Vercel/Appwrite references are legacy inventory until safely replaced. Remove or retire them in reviewed changes after checking dependencies, routes, migrations, build config and tests; do not blindly delete code that may still be carrying required behavior.
+- Shared identity should use Otya Auth only after the token verification and local staff-membership contract is tested. OmniPoint's D1 remains its authoritative business database, isolated from other Otya product data.
+- Cloudflare-native recovery means private R2 backups/exports, integrity manifests and a demonstrated restore—not a second SaaS database.
+
+### Changes made to reflect the decision
+- Updated OmniPoint PR #31 branch file `docs/IMPLEMENTATION_ROADMAP.md` in commit `dc62012e3f86319180b1e30c48cfc98ad76b9d59` to replace the prior Supabase policy with an explicit Cloudflare + GitHub only policy.
+- Posted alignment notes to OmniPoint #31, #22, #15 and Otya Server #206, #204.
+- Required next: inventory and remove stale operational dependencies through reviewed changes; verify Cloudflare-only builds and tests; then reassess merge readiness. No PR was merged or closed and no production infrastructure was changed.
