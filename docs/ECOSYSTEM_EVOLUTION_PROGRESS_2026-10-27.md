@@ -37,6 +37,21 @@ Branch: `chore/python-first-ecosystem-plan`
 - Python CI run `40488152619` completed successfully: dependency setup, Python contract tests and Ruff all passed. This validates the isolated scaffold checks, not a deployed Worker. Do not treat the scaffold as a production service; it has no production bindings or business/payment routes.
 - The Python foundation is intended for suitable new Otya Server services and tooling. Existing TypeScript Cloudflare Workers remain in place unless a measured compatibility and migration plan justifies a change; no wholesale rewrite is planned.
 
+## AI execution and evaluation improvements
+
+### Python policy reference module
+- Added `python-foundation/src/otya_ai_policy.py` on this review branch (commit `a5da63ad7c9c7df0d67fa6837818e41d865b1d37`).
+- The module provides deterministic fail-closed policy checks for authenticated identity, required scopes, owner-only actions, fresh step-up and explicit approval. High-impact actions require all high-impact gates even when the model requests them.
+- Added unit tests in `python-foundation/tests/test_ai_policy.py` (commit `185900a0f5d520536d3cfefe184b3eaa3d36c1f2`) and configured the Python source path in `pyproject.toml` (commit `d9d1a9d330b3d0ac2f44d67a5752a81fa8032bbf`).
+- CI run `40488543982` completed successfully, including pytest and Ruff. This verifies the policy reference module's tests and lint, not production integration.
+- The initial module creation briefly landed on the default branch by mistake. I removed it in corrective commit `f0b76bb4759979c7267ffbc600f5083aa8e19822`; the resulting `Deploy OTYA to Cloudflare` workflow is a push-triggered validation run. Its workflow only deploys for `workflow_dispatch` with an explicit component and exact `DEPLOY` confirmation; no deployment job is authorized by this push event. Continue to verify its final run status.
+- No production secrets or configuration were changed.
+
+### Next AI contract
+- Added `docs/AI_EXECUTION_AND_EVALUATION_CONTRACT.md` in the Next review branch (commit `1ef9a06161ecffb4708a613b99b5269453a6e628`) and linked it from the README (commit `0af6356074d5682bf3ed959168b26b81d7989259`).
+- The contract covers evidence-grounded completion reporting, untrusted retrieved content, scoped retrieval, typed memory with provenance, safe retries, model routing/cost control, prompt-injection tests and phased read-only-first rollout.
+- These are reviewed implementation contracts; they are not yet wired into the live AI worker or deployed.
+
 ## OmniPoint CI result
 
 - Verify OmniPoint run `40487567335` completed successfully on branch `security/production-worker-exposure-and-d1-audit-2026-10-24`, commit `3040ce67347b12c5c8c4eeeaef09faf11b122aa9`.
