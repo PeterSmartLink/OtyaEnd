@@ -34,7 +34,7 @@ Branch: `chore/python-first-ecosystem-plan`
 - Updated `python-foundation/src/main.py` in commit `a49180b6e8a92cd12093706ef326dd23326a7bf6`: adds validated request correlation IDs, echoes `X-Request-ID`, includes the correlation ID in sanitized internal-error responses, and marks health responses as preview/scaffold scope.
 - Expanded `python-foundation/tests/test_contract.py` in commit `86bb1cea422d26e508122b1475925810b2f077a8` to cover request-ID validation, preview-only health semantics and error redaction.
 - Added isolated Python CI in `.github/workflows/python-foundation.yml`, commit `d8445eb464b76e4e139d977959ed79e70477cabf`, to run pytest and Ruff on Python foundation changes.
-- Python CI run `40488152619` was in progress at the last check. Do not treat the scaffold as a production service; it has no production bindings or business/payment routes.
+- Python CI run `40488152619` completed successfully: dependency setup, Python contract tests and Ruff all passed. This validates the isolated scaffold checks, not a deployed Worker. Do not treat the scaffold as a production service; it has no production bindings or business/payment routes.
 - The Python foundation is intended for suitable new Otya Server services and tooling. Existing TypeScript Cloudflare Workers remain in place unless a measured compatibility and migration plan justifies a change; no wholesale rewrite is planned.
 
 ## OmniPoint CI result
