@@ -85,3 +85,62 @@ This file records GitHub branch and open-PR search results plus selected PR meta
 - **Preferred review direction:** #31's token-forwarding bridge over local HMAC token minting in #27/#28, subject to tests and API contract review; #30 remains useful as a release-gate/schema audit.
 - **Documentation consolidation:** cross-link #204 and #211; reconcile #206 and #207's shared architecture file without discarding API contract requirements; keep #205 as a distinct identity contract.
 - **Next required checks:** refresh all open PR metadata; inspect CI results and base/head ancestry; identify references to candidate branches in workflow/release files; then make a branch-by-branch KEEP / CONSOLIDATE / CLOSE / DELETE manifest.
+
+## Refreshed inventory and full open-PR disposition (2026-10-27)
+
+A fresh query returned 52 open pull requests and these branch counts. Counts are returned search results, not proof of exhaustive refs:
+- Otya Server: 24 open PRs; 42 branches.
+- OmniPoint: 21 open PRs; 37 branches.
+- OtyaPlayer: 6 open PRs; 7 branches.
+- OtyaHub: 1 open PR; 2 branches.
+- Next: 0 open PRs; 1 branch.
+
+### OmniPoint open PR queue: disposition
+| PR | Topic | Disposition |
+|---|---|---|
+| #31 | Worker exposure/schema audit, Otya token-forwarding bridge, ledger journals | KEEP / security review first. Do not merge until CI, migration lineage and auth behavior are reviewed. |
+| #30 | D1 schema/production cutover blockers | KEEP / consolidate docs with #31 while preserving unique CI migration validation, inventory and cutover runbook. |
+| #29 | Company-scope/staff-profile migration | KEEP / migration review; validate migration order and actual production schema before execution. |
+| #28 | Inventory + cash POS bridge | CONSOLIDATE candidate; preserve summary endpoint and UI functionality not covered elsewhere; do not use local HMAC-token model without a security decision. |
+| #27 | Inventory bridge alternative | DO NOT DELETE yet; overlaps #28 but is non-mergeable and has distinct status docs/tests. Extract unique changes before any closure. |
+| #23 | Interswitch/Quickteller/Airtel/MTN orchestration plan and optional AWS relay | KEEP as planning branch, not release-ready. AWS relay remains gated on provider confirmation, MFA and budget; no resource creation. |
+| #22 | Cloudflare-only, single-shop scope | KEEP as policy baseline; remove stale Supabase/Vercel references only after implementation dependencies are safely migrated. |
+| #21 | Owner's own shop focus | KEEP / consolidate into #22 if unique scope and acceptance criteria are retained. |
+| #20 | Quickteller provider readiness | KEEP as provider-readiness document; no live payment activation. |
+| #19 | D1 migration CI | KEEP / consolidate into canonical CI after verifying it validates the authoritative migration directory. |
+| #18 and #17 | Savings groups D1 foundation, competing branches | SCOPE REVIEW / HOLD. Unique code and tests exist but may be outside current own-shop priority. Do not delete until scope is decided. |
+| #16 | Interswitch sandbox boundary | KEEP as non-live provider boundary; review overlap with #23 before consolidating. |
+| #15 | D1 primary database foundation | KEEP / architecture review; compare migrations/schema with #29-#31 before selecting one migration lineage. |
+| #14 | Customer workflows/product value | KEEP / align to own-shop scope; preserve shop-specific workflows. |
+| #13 | Cloudflare API security boundary tests | KEEP; based on #11, so preserve dependency chain and test coverage until tests are incorporated into canonical CI. |
+| #12 | Live database and launch gates | KEEP / consolidate docs with #30/#31 while preserving facts and approval gates. |
+| #11 | Atomic D1 product writes | KEEP until invariant/test changes are present in the chosen D1 API baseline. |
+| #10 | Cloudflare platform map | CONSOLIDATE documentation into #22 and Otya Server architecture after preserving useful resource mapping. |
+| #9 | Foundation and naming standards | KEEP / consolidate into root README/product language after useful standards are carried over. |
+| #1 | Legacy foundation workflow; 45 commits including Supabase/Prisma migrations | DO NOT MERGE into Cloudflare-only direction. Port unique UI, staff-management and ledger-integrity improvements first; then close as superseded. Branch is not safe to delete yet. |
+
+### Otya Server open PR queue: disposition
+- #213 ecosystem registry and safe release controls — KEEP / candidate central baseline; review schema, validator/tests and release workflow before merge.
+- #211 source readiness audit — KEEP / link to #204. Distinct evidence, currently draft.
+- #208 secure MCP platform standard — KEEP / review security requirements.
+- #207 API catalog/template — KEEP / reconcile shared architecture file with #206.
+- #206 Otya OS master architecture — KEEP / consolidate with #207 without losing API standards.
+- #205 shared identity contract — KEEP as distinct contract.
+- #204 ecosystem readiness register — KEEP / link to #211.
+- #203 resilience/offline messaging — KEEP / check against platform resilience plan.
+- #202, #201, #200, #199, #198, #197, #196, #195, #194, #178, #177, #175, #174, #173, #172, #170 — DEPENDENCY REVIEW. Do not bulk-close; verify CI/security advisories and compatibility, especially major-version changes.
+
+### OtyaPlayer and OtyaHub open PR queue: disposition
+- OtyaPlayer #163 (grouped Android updates), #153 (AGP 9.4), #152 (Gradle 9.7.1), #150 (release action), #149 (artifact action), #147 (setup-java): DEPENDENCY REVIEW. Major Gradle/AGP changes need Flutter/Android CI and build validation; do not merge or close by title alone.
+- OtyaHub #3 service blueprint/pricing: KEEP / align to Otya OS platform map; preserve public developer/partner scope and keep owner-only permissions private.
+- Next: no open PR and only main branch returned. Preserve main; no branch deletion candidate identified.
+
+### Branch overlap findings
+- OmniPoint feat/omnipoint-cloudflare-dashboard-bridge and feat/omnipoint-cloudflare-dashboard-bridge-v2 overlap in dashboard/inventory/API files but differ in implementation and tests. Resolve only after porting unique functionality and choosing the auth contract.
+- OmniPoint feat/savings-groups-core-foundation and feat/cloudflare-d1-savings-integration are on different migration bases and contain substantial overlapping code; neither is a simple duplicate.
+- OmniPoint test/cloudflare-api-auth-boundaries is based on fix/d1-api-atomic-product-write, so deleting either parent/child branch without preserving tests would lose coverage.
+- Otya Server docs/otya-api-catalog-template-v1 and docs/otya-os-master-architecture share architecture documentation; docs/shared-identity-contract-v1 is a separate contract.
+- No file/branch/repository is marked DELETE NOW. Branch deletion requires closing/merging associated PRs and checking remaining references; GitHub guidance: https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/working-with-forks/deleting-and-restoring-branches-in-a-pull-request
+
+## Explicit cleanup execution status
+No pull requests were merged or closed, no branches/files/repositories were deleted, and no production settings, secrets, cloud resources, databases, migrations, or payment flows were changed. This pass establishes an actionable queue, not blanket authorization to destroy uncertain work.
