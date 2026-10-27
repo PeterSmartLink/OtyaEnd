@@ -15,6 +15,16 @@ Branch: `chore/cross-platform-api-contract`
 - Added `npm run check:inventory-fallback` in `package.json`, commit `fc3b060e5c08e17e9778c111d47011f7fb89c5a9`.
 - Source-level verification checks passed for: clearing inventory on failure, setting the unavailable state, no demo fallback in the error handler, explicit empty state, honest database-environment label, and command wiring. **This was source inspection/static assertion, not a claim that the Node script or full project CI was executed.**
 
+### Follow-up on the canonical security review branch
+Repository: `PeterSmartLink/OmniPoint`  
+Review branch: `security/production-worker-exposure-and-d1-audit-2026-10-24` (existing PR #31)
+
+- Updated `app/dashboard.tsx` in commit `574f81bdd4d0963d5f651f8e12655f351babbebc` so a successful response from the isolated Cloudflare API is not labelled “LIVE DATA”; the badge and source label now explicitly say the target D1 environment is unverified.
+- Added `scripts/check-inventory-fallback.mjs` in commit `cbff3c9d3a5f2e84e31fd50112b0f896190e6a09`.
+- Added `npm run check:inventory-fallback` in commit `deb068f398c3c60442cdb189df44c5d78c02be09`.
+- Source-level assertions passed by inspection. GitHub Actions runs `40487500608` (Verify OmniPoint) and `40487500617` (Security Baseline) were queued for this branch revision; results are not yet confirmed in this note.
+- This work stays in the existing review branch. No PR merge or deployment occurred.
+
 ## Newly reconfirmed blockers
 
 1. **Two OmniPoint data paths still coexist.**
