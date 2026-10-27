@@ -8,7 +8,7 @@ Resend is the designated shared transactional email provider for Otya Hold Ltd. 
 - Existing API keys include Auth Send Email and otya-store-worker.
 - Six published Otya templates cover welcome, verification, password reset, security alerts, service notices, and updates.
 - The enabled delivery webhook remains on the existing Otya website. Preserve it until the receiver is audited.
-- A separate legacy Appwrite webhook is disabled and should not be re-enabled as part of the Cloudflare-only architecture.
+- A separate legacy Appwrite webhook is disabled and should not be re-enabled as part of the Cloudflare-only architecture. A read-only check on 27 October 2026 found the ten most recent transactional emails marked delivered, confirming existing Otya Resend sending is active; the new OmniPoint low-stock route is not yet deployed.
 
 ## OmniPoint low-stock notification contract
 
