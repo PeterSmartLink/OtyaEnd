@@ -113,7 +113,7 @@
     },
     {
       "id": "otya-player",
-      "name": "Otya Player",
+      "name": "Otya Media",
       "role": "offline-first-media-product",
       "repository": "PeterSmartLink/OtyaPlayer",
       "runtimeComponents": [
