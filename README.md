@@ -1,6 +1,6 @@
-# OTYA Backend
+# Otya Server
 
-The private production backend for **OTYA** by PeterSmart Link.
+The shared backend and control plane for the Otya ecosystem, operated by **Otya Hold Ltd**.
 
 **Official service:** https://petersmartlink.com
 
