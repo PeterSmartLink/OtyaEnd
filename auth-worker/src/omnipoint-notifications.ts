@@ -55,10 +55,11 @@ export async function handleOmniPointNotification(
   if (request.method !== 'POST') return json({ error: 'method_not_allowed' }, 405)
   if (request.headers.get('x-otya-service') !== 'omnipoint') return json({ error: 'service_not_allowed' }, 403)
 
-  const length = Number(request.headers.get('content-length') ?? 0)
-  if (Number.isFinite(length) && length > 4096) return json({ error: 'payload_too_large' }, 413)
+  let rawBody: string
+  try { rawBody = await request.text() } catch { return json({ error: 'invalid_json' }, 400) }
+  if (rawBody.length > 4096) return json({ error: 'payload_too_large' }, 413)
   let body: unknown
-  try { body = await request.json() } catch { return json({ error: 'invalid_json' }, 400) }
+  try { body = JSON.parse(rawBody) } catch { return json({ error: 'invalid_json' }, 400) }
   const notice = validateNotice(body)
   if (!notice) return json({ error: 'invalid_low_stock_notice' }, 400)
 
