@@ -40,6 +40,18 @@ For each database:
 6. Download each uploaded object back to a separate directory and verify its checksum against the local manifest.
 7. Encrypt the off-account copy before storing it outside Cloudflare. Do not commit backups to Git.
 
+### Guarded operator script (new, not yet executed)
+
+The repository now includes `scripts/backup-wrangler.toml` and `scripts/backup-d1-to-r2.mjs`. The Wrangler file is backup-only and pins the four audited database IDs. The script defaults to a dry run and does not access remote databases or R2 unless both `--execute` and the exact `OTYA_BACKUP_CONFIRM` environment value are supplied, plus a second interactive confirmation. It exports each database, checks for a non-empty SQL-looking dump, computes SHA-256, uploads to the private backup bucket, downloads the object for checksum verification, and writes a manifest. It does not restore, delete objects, schedule jobs, or create off-account copies.
+
+First, review the configured database IDs and run the dry-run from the repository root:
+
+```bash
+node scripts/backup-d1-to-r2.mjs
+```
+
+Do not execute the remote mode until the account owner has enabled and verified 2FA, confirmed the database IDs and current Cloudflare account, created a least-privilege API token with only the necessary D1 export/read and R2 object read/write permissions, selected a quiet window, and arranged secure off-account encryption. Never paste the token into command history or commit it. Remote export is a sensitive production operation and may affect database availability. The script has not yet been run or independently validated against the live account; its presence does not mean backups exist.
+
 Cloudflare's official D1 export command is documented at:
 https://developers.cloudflare.com/d1/best-practices/import-export-data/
 
