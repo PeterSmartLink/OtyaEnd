@@ -2,6 +2,8 @@
 
 Last reviewed: 2026-10-23
 
+> **Current decision (2026-10-29):** GitHub + Cloudflare is the approved foundation. Supabase, Appwrite and Vercel are not approved as OtyaPoint runtime dependencies. Any mention of them below is historical/recovery planning and must not be read as current authorization. Use `docs/OTYA_ECOSYSTEM_EXECUTION_STATUS.md` and `docs/OTYA_END_VERIFIED_INFRASTRUCTURE_REGISTRY.md` for the latest state.
+
 ## Purpose
 
 This is the cross-product readiness register for Otya OS. It coordinates the existing products and infrastructure; it does not replace them or authorize a production cutover. The target is one connected Otya ecosystem with shared identity and platform services, product-specific data boundaries, observable operations, tested recovery, and safe releases.
