@@ -66,9 +66,9 @@ Only binding names and types are recorded. Secret values and user/customer paylo
 The connected GitHub listing confirms these repositories exist and are accessible. This snapshot does not establish workflow health, branch protection, deploy credentials, code security, or release status.
 
 ## Critical gaps before calling the backend ready
-1. `omnipoint-dev` is not observed as bound to an inspected Worker. Confirm intended OtyaPoint API/data ownership before attaching it.
-2. `otya-store-db` is shared by `otya-core` and `otya-next`; table ownership and least-privilege boundaries need code/migration review.
-3. R2 backup bucket exists, but backup cadence, retention, encryption/access controls, checksum validation, and isolated restore evidence are unverified.
+1. `omnipoint-dev` contains the OtyaPoint schema with migrations 0001–0003 recorded, but no inspected live Worker binds it. `request_fingerprint` is absent, so migration 0004 is not applied. Confirm intended environment/ownership and test migration order before deploying or applying anything.
+2. `otya-store-db` is shared by `otya-core` and `otya-next`; read-only inspection found 13 applied migrations through `0013_publish_space_and_next_update.sql`. Table ownership and least-privilege boundaries need code/migration review.
+3. `otya-auth-db` has auth tables but no rows in its `d1_migrations` tracking table; reconcile how this schema was created and how future upgrades are tracked before applying auth migrations. R2 backup bucket exists, but backup cadence, retention, encryption/access controls, checksum validation, and isolated restore evidence are unverified.
 4. OtyaPoint API routes, auth contract, tenant/company scoping, D1 migrations, atomic sale/stock/ledger writes, idempotency, concurrency, rollback, and audit tests require verification.
 5. No inspected Worker binding connected the `omnipoint-dev-jobs` queue or `omnipoint-dev-private` bucket; do not assume these are operational.
 6. Pages relay lab has no reported latest/canonical deployment in the API response; do not treat it as deployed/healthy.
@@ -83,4 +83,4 @@ The connected GitHub listing confirms these repositories exist and are accessibl
 6. Request explicit approval before production binding changes, database migrations, DNS changes, deployment, or live payment activation.
 
 ## Safety statement
-This file was prepared from read-only resource-list and Worker-settings requests. No Cloudflare resource, binding, database, queue, bucket, DNS record, secret, or deployment was changed.
+This file was prepared from read-only resource-list, Worker-settings, and D1 schema/migration-metadata queries (only `sqlite_master`, `PRAGMA table_info`, and migration tracking metadata; no customer or financial rows were queried). No Cloudflare resource, binding, database, queue, bucket, DNS record, secret, or deployment was changed.
