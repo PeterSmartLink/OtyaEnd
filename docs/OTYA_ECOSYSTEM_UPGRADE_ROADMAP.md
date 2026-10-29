@@ -153,3 +153,19 @@ The Security workflow for this documentation branch's current head completed wit
 4. Do not merge PRs, deploy, run remote migrations, alter DNS/secrets, send live email or activate payment providers without a separate explicit approval.
 
 This section records repository evidence observed on 2026-10-29. Workflow results are commit-specific and must be refreshed before any release decision.
+
+
+## 8. CI failure triage (2026-10-29)
+
+Fresh checks for the connector branch commit `9c89c2455d0754e85574ba4631ec3e72e076cafa` completed with failures. The logs identify two actionable blockers:
+
+1. **Dependency audit:** `npm audit --omit=dev --audit-level=high` fails on the base lockfile with 3 reported runtime dependency vulnerabilities: Next.js (critical), sharp (high), and source-map-js (high). The complete install reported 11 vulnerabilities across runtime and development dependencies. PR #213 proposes the patch versions noted above; its complete change set still needs review before adoption.
+2. **Existing contract test:** the full test suite reports 314 passed and 1 failed. The failing test is `future explicit core deploys provision the existing Resend API key without weakening deploy authority` in `test/resend-webhook-contract.test.mjs`. It expects the deployment smoke check to match the literal HTTP 405 pattern `'^405$'`, while the current base workflow line is malformed/incomplete. PR #213 changes that smoke-check line to `'^405$'`, which appears to address this mismatch; verify by running the test on the reconciled candidate.
+
+The production deploy and post-deploy verification jobs were skipped, not run. CodeQL and dependency-review checks were also skipped on this PR event; a skipped check is not a pass.
+
+### Next engineering gate
+- Reconcile PR #213's workflow/package/lockfile and migration-guard changes as one reviewed candidate.
+- Run the entire repository check suite and runtime audit on that candidate.
+- Confirm all required checks actually ran and passed; skipped jobs must not be reported as green.
+- Keep all production deployment jobs and remote migration steps blocked until separately approved.
