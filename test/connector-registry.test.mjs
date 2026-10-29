@@ -89,3 +89,20 @@ test("registry output omits internal implementation fields and does not expose m
   listed[0].capabilities[0].requiredScopes.push("admin");
   assert.deepEqual(registry.get("example-status").capabilities[0].requiredScopes, ["service:status:read"]);
 });
+
+test("registry allow-lists contract fields and isolates caller-owned manifest objects", () => {
+  const manifest = structuredClone(readOnlyManifest);
+  manifest.privatePayload = { token: "should-not-be-exposed" };
+  const registry = createConnectorRegistry([manifest]);
+
+  manifest.capabilities[0].requiredScopes.push("admin");
+  manifest.privatePayload.token = "mutated-after-registration";
+
+  const stored = registry.get("example-status");
+  assert.deepEqual(Object.keys(stored).sort(), ["capabilities", "id", "publisher", "state", "version"]);
+  assert.equal("privatePayload" in stored, false);
+  assert.deepEqual(stored.capabilities[0].requiredScopes, ["service:status:read"]);
+  assert.equal(Object.isFrozen(stored), true);
+  assert.equal(Object.isFrozen(stored.capabilities[0]), true);
+});
+
