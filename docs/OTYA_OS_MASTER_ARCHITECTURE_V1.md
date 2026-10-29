@@ -4,6 +4,8 @@ Status: proposed architecture and inventory baseline; not deployment authorizati
 Owner: Otya Hold Ltd
 Review date: 2026-10-23
 
+> **Current decision (2026-10-29):** Cloudflare Workers + D1/R2/Queues and GitHub are the preferred foundation. Supabase, Appwrite and Vercel are not approved runtime dependencies for OtyaPoint. Older hybrid/failover references are historical proposals, not active architecture or authorization. See the current execution status and verified infrastructure registry before implementation.
+
 ## 1. Purpose
 
 Otya OS is the shared ecosystem and operating model for Otya products and services. It should help customers, developers, partners, operators and maintainers discover, use, integrate, support and improve products. It is not one giant application and does not mean every service shares every database or permission.
