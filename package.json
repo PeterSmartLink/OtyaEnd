@@ -12,7 +12,7 @@
     "prebuild": "npm run sync:brand",
     "build": "next build",
     "typecheck": "tsc --noEmit",
-    "test": "node --test test/*.test.mjs",
+    "test": "node --test test/*.test.mjs test/recovery/*.test.mjs",
     "validate:config": "node validate-config.mjs",
     "validate:ecosystem": "node scripts/validate-ecosystem-registry.mjs",
     "verify:migrations": "node scripts/verify-migration-layout.mjs",
