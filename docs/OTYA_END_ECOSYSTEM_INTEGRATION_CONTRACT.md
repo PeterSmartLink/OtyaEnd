@@ -9,7 +9,16 @@ Status: proposed contract for review. It does not change deployed routes, tokens
 - Media player: Otya Media (legacy repository slug `OtyaPlayer`; Android package `com.otyaplayer.app` remains unchanged until a safe app migration is approved).
 - Public developer and partner community: OtyaHub.
 
-## 2. Ownership boundaries
+## 2. First-class ecosystem integrations — Resend
+- **Resend is an official, first-class Otya ecosystem service**, not an optional afterthought. Otya End owns the shared email integration contract and provider adapter; products request approved email capabilities through that contract.
+- Resend is the current transactional email provider for account verification, login/security notifications, recovery flows, receipts/operational notices where approved, support messages and product announcements. Each use case must have an explicit sender identity, template, purpose, owner and delivery/audit policy.
+- Keep Resend API keys and webhook signing secrets in Cloudflare Worker secrets / protected GitHub environment secrets. Never expose them to browser/mobile bundles, commit them, print them in logs, or paste them into chat. Prefer domain-scoped API keys and least privilege.
+- Email delivery must be asynchronous where appropriate, with bounded retries, idempotency, rate limits, structured delivery status and dead-letter handling. Never block a financial transaction on sending email; record the business event first, then send notifications through a durable job.
+- If inbound Resend email is enabled, verify webhook signatures against the **raw request body**, reject replayed/stale events, validate sender and payload, and treat all email content as untrusted. No email may directly authorize payments, change roles, reveal secrets, or execute privileged actions. High-impact requests require authenticated in-app confirmation.
+- Use a stable, brand-aware template system for Otya OS, OtyaPoint, Otya Media and OtyaHub while preserving legal sender identity and existing verified-domain configuration. Do not change DNS, MX, SPF, DKIM, DMARC, sender domains, or live webhooks without explicit approval and a rollback plan.
+- Resend outage must not lose the underlying business event. Persist delivery intent/status without storing unnecessary message bodies or sensitive financial details. Provide a provider-neutral email interface so Resend can be replaced later without rewriting product workflows.
+
+## 3. Ownership boundaries
 - `otya-auth`: identity, login/session validation, token issuance/verification, authentication security events. It must not decide which shop records an identity may access.
 - `otya-core`: shared platform APIs and cross-product orchestration. It must call product-owned services for domain mutations rather than directly bypassing product authorization.
 - `otya-next`: AI/support capabilities and asynchronous job processing. It must not receive broader financial database access than required for a named job.
@@ -19,7 +28,7 @@ Status: proposed contract for review. It does not change deployed routes, tokens
 
 These are target boundaries. Current Worker bindings show `otya-core` and `otya-next` share `otya-store-db`; current OtyaPoint `omnipoint-dev` is not bound in inspected live Worker settings. Do not infer that the target separation is already implemented.
 
-## 3. Authentication and authorization contract
+## 4. Authentication and authorization contract
 1. Authenticate the caller at the trusted edge using Otya Auth or a documented service-to-service identity.
 2. Validate issuer, audience, expiry, not-before, signature/algorithm and key ID; reject missing/invalid claims closed.
 3. Derive the subject from the verified token, never from an arbitrary request field.
@@ -29,7 +38,7 @@ These are target boundaries. Current Worker bindings show `otya-core` and `otya-
 7. Never accept a client-supplied role, company ID, actor ID, balance or authorization decision as authoritative.
 8. Do not log bearer tokens, passwords, OTPs, provider secrets, or complete financial payloads.
 
-## 4. HTTP API conventions
+## 5. HTTP API conventions
 - Prefix new public APIs with `/api/v1/<product>/<resource>`; preserve existing paths through compatibility adapters until consumers are migrated.
 - JSON success and error responses use stable machine-readable codes. Do not expose stack traces or secret/configuration values.
 - Use `Authorization: Bearer <token>` for user identity; use separate, short-lived service credentials for Worker-to-Worker calls.
