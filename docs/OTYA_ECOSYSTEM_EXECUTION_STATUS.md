@@ -129,3 +129,13 @@ Branding PR #41 remains a separate, short-lived UI/docs rebrand PR because it to
 - Current active Otya End PRs should be treated as two coordinated lanes: #229 for code/security/runtime modernization and #231 for canonical architecture, inventory and standards. Do not open additional overlapping foundation PRs.
 - OtyaPoint is still blocked from production cutover by the unfinished Cloudflare-only/Otya Auth UI path, missing isolated private preview endpoint, unapplied D1 migrations `0004`–`0005`, and unverified full backup/restore. PRs #45 and #46 are code-only and must remain unmerged until their current checks, auth compatibility and restore gates are verified.
 - Otya Media CI maintenance PR #167 passed its checked-in workflows on the latest observed head. This does not resolve the known app startup crash; do not publish a release until the crash is reproduced, fixed and regression-tested.
+
+## Consolidation correction — 2026-10-29, latest
+
+This section supersedes earlier status lines in this file that describe PR #231 as active.
+
+- Otya End's canonical architecture, verified infrastructure registry, execution status, cleanup plan, branding runbooks, identity contract, API catalog and MCP standard have been transferred into **PR #229**, the single active backend modernization review lane. PR #231 and standalone docs PRs #204–#208 are closed after transfer; their branches remain for traceability.
+- PR #229 contains the dependency patches, central Resend notification handler/tests, CodeQL workflow, connector registry and explicit remote-D1-migration approval guard. On the latest head, backend validation, security baseline and JavaScript/TypeScript analysis were green before the documentation consolidation; the newest security-baseline run is being rechecked after the final docs/README commit.
+- OtyaPoint PR #40 was consolidated into PR #23. Latest OtyaPoint head `3f01d2f` passed migration validation, isolated SQLite schema tests, lint, dashboard build checkpoint, payment module compilation, payment contract tests, local Worker health/auth smoke tests and synthetic relay HMAC tests.
+- OtyaPoint PR #23 remains based on PR #22. Keep the sequence intact; do not merge it directly to `main` until its base foundation is approved and the Cloudflare-only/Otya Auth cutover is reviewed.
+- No production deployments, remote migrations, DNS/secrets changes, resource deletions, AWS resource creation or live provider/email operations were performed.
