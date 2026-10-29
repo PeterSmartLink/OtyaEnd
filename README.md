@@ -1,10 +1,14 @@
-# OTYA Backend
+# Otya End — Shared Otya Ecosystem Backend
 
-The private production backend for **OTYA** by PeterSmart Link.
+**Otya End** is the shared backend and infrastructure layer for Otya Hold Ltd's connected ecosystem.
+
+This is the canonical service name replacing “Otya Server” in current project documentation. The GitHub repository slug `Otya-Server` is intentionally preserved for now so existing links, workflows, integrations and clones are not broken by an unreviewed rename.
 
 **Official service:** https://petersmartlink.com
 
-This repository contains production infrastructure for the shared OTYA account, OTYA Player APIs, OTYA AI, secure recovery, release delivery, notifications, support and future OTYA products.
+This repository contains the shared identity and API infrastructure, Otya Media release delivery, AI services, secure recovery, notifications, support and future Otya products. It coordinates shared capabilities while keeping each product’s business data separately scoped.
+
+See [the proposed backend foundation](docs/OTYA_BACKEND_FOUNDATION_BLUEPRINT.md) and [the verified infrastructure registry](docs/OTYA_END_VERIFIED_INFRASTRUCTURE_REGISTRY.md) for the current architecture and read-only Cloudflare inventory. The registry is evidence of resource existence/configuration, not certification of production readiness.
 
 ## Production principles
 
