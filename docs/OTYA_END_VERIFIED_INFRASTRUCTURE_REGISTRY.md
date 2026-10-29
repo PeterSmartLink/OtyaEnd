@@ -10,6 +10,14 @@ Status: read-only Cloudflare snapshot; verified 2026-10-29 UTC. This registry re
 - Public developer/partner community: OtyaHub.
 - GitHub repositories remain under their current names until a separate migration plan is reviewed. No repository, Cloudflare resource, DNS record, secret, or production deployment was renamed by this inventory.
 
+## First-class connected services
+
+### Resend — transactional email and email-event provider
+- Resend is a required member of the Otya ecosystem service registry, integrated through Otya End and consumed by products through an approved provider-neutral email interface.
+- Existing observed evidence: the `otya-auth` and `otya-next` Worker configurations include Resend integration bindings/configuration. This confirms configured integration surfaces only; it does not prove delivery, domain verification, webhook correctness, or end-to-end health.
+- Required follow-up: inspect the exact binding names and secret presence without exposing values; inventory sender domains, templates, sending limits, webhooks and event types in the Resend account; test sandbox delivery and failure/retry behavior; verify signature validation for any inbound webhook. Do not alter DNS or live webhooks during inventory.
+- Keep all credentials server-side, prefer scoped API keys, redact recipient/body/secret data from logs, and route notifications through durable queues for retry. Email must never be the sole authorization mechanism for financial or administrative actions.
+
 ## Cloudflare resources verified read-only
 
 ### Workers
