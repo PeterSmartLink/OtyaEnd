@@ -7,6 +7,7 @@ import { deliverNewDeviceAlert, deliverRegistrationEmails } from './production-e
 import { handleSecureOtpRoute, type SecureOtpEnv } from './secure-otp'
 import { handleSecureAccountRoute, type SecureAccountEnv } from './secure-account'
 import { withAuthSecurityEvent } from './security-events'
+import { handleOmniPointNotification, type OmniPointNotificationEnv } from './omnipoint-notifications'
 
 interface GoogleTokenPayload {
   sub?: string
@@ -182,6 +183,9 @@ async function audited(request: Request, response: Response, env: ProductionEnv)
 export default {
   async fetch(request: Request, env: ProductionEnv): Promise<Response> {
     const url = new URL(request.url)
+
+    const notificationResponse = await handleOmniPointNotification(request, env as unknown as OmniPointNotificationEnv)
+    if (notificationResponse) return notificationResponse
 
     if (url.pathname.startsWith('/auth/admin/')) {
       const response = await handleAdminMfa(request, env)
