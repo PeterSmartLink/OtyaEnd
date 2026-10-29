@@ -133,3 +133,23 @@ The ecosystem upgrade is not complete until:
 - every production action has a recorded approval, recovery plan and rollback reference.
 
 **Current state:** staged planning and validation. The existence of this roadmap, a connector contract or passing documentation checks is not proof that the runtime, production data, recovery or financial workflows are ready.
+
+
+## 7. Latest dependency/security reconciliation (2026-10-29)
+
+A fresh review found that the current `main` branch still resolves these versions in its lockfile:
+- `next`: 15.5.25
+- `sharp`: 0.35.4
+- `source-map-js`: 1.2.1
+
+Open PR #213 proposes `next@15.5.28`, `sharp@0.35.5`, and `source-map-js@1.2.2`. The inspected Security workflow run for that PR head completed successfully, but the PR remains unmerged and must be reviewed as a whole before merge. In particular, its workflow diff appears to add a duplicated “Verify core trust surfaces” step; confirm whether that duplication is intentional and whether all production-deploy checks remain correctly gated. Do not merge solely because the dependency audit passed.
+
+The Security workflow for this documentation branch's current head completed with failure because it is evaluated against the still-vulnerable base dependency tree. That failure is not proof that the proposed dependency updates are bad; equally, the successful PR #213 run is not proof that all unrelated changes are safe.
+
+### Required next actions
+1. Review PR #213's complete workflow, package, lockfile and migration-guard changes together; reconcile overlapping dependency PRs before selecting one source of truth.
+2. Run fresh CI and runtime dependency audit on the final reviewed candidate. Do not use `npm audit fix --force` as a substitute for review.
+3. Keep the connector implementation read-only until the shared identity contract, per-product authorization, audit, rate limits, timeout and revocation behavior have passing tests.
+4. Do not merge PRs, deploy, run remote migrations, alter DNS/secrets, send live email or activate payment providers without a separate explicit approval.
+
+This section records repository evidence observed on 2026-10-29. Workflow results are commit-specific and must be refreshed before any release decision.
