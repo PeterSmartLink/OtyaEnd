@@ -119,3 +119,13 @@ Keep no more than two active OtyaPoint implementation PRs for the first delivery
 2. **PR #46** — backup/restore verification and guarded private-preview workflow.
 
 Branding PR #41 remains a separate, short-lived UI/docs rebrand PR because it touches different user-visible files. Provider contracts remain deferred/disabled until the shop/POS/auth/backup foundations pass. Branches are retained for traceability; no branch deletion has been performed.
+
+## Modernization consolidation update — 2026-10-29
+
+- **Canonical code modernization PR:** [#229](https://github.com/PeterSmartLink/Otya-Server/pull/229) now includes patched runtime dependencies (Next.js 15.5.28, sharp 0.35.5, source-map-js 1.2.2), the read-only connector registry, fail-closed registry validation, remote D1 migration approval guard, consolidated trust-surface checks, staged upgrade roadmap, CodeQL workflow, and the central Resend low-stock notification contract.
+- Latest PR #229 head `f96a922`: `Validate complete OTYA backend` passed; `Otya security baseline` passed; JavaScript/TypeScript analysis was still running at last check. Deployment jobs were skipped. Do not merge until all required checks finish successfully and review is complete.
+- Resend PR #218 was closed after transferring its unique handler, route wiring, contract tests and email integration guide to PR #229. Resend remains first-class; no live email was sent and no secrets or DNS were changed.
+- Documentation PRs #204–#208 were closed after their unique readiness, identity, architecture, API-template and MCP-standard documents were transferred into this documentation PR #231. Their branches remain for traceability; no branches were deleted.
+- Current active Otya End PRs should be treated as two coordinated lanes: #229 for code/security/runtime modernization and #231 for canonical architecture, inventory and standards. Do not open additional overlapping foundation PRs.
+- OtyaPoint is still blocked from production cutover by the unfinished Cloudflare-only/Otya Auth UI path, missing isolated private preview endpoint, unapplied D1 migrations `0004`–`0005`, and unverified full backup/restore. PRs #45 and #46 are code-only and must remain unmerged until their current checks, auth compatibility and restore gates are verified.
+- Otya Media CI maintenance PR #167 passed its checked-in workflows on the latest observed head. This does not resolve the known app startup crash; do not publish a release until the crash is reproduced, fixed and regression-tested.
