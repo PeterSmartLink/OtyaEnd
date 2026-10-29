@@ -318,7 +318,12 @@ jobs:
           print('Core public trust surfaces are healthy and privacy-bounded')
           PY
 
-          cp /tmp/otya-smoke-body /tmp/otya-turnstile-config.json
+          turnstile_status="$(curl --silent --show-error --location --output /tmp/otya-turnstile-config.json --write-out '%{http_code}' --connect-timeout 10 --max-time 20 https://petersmartlink.com/api/security/turnstile/config || true)"
+          test "$turnstile_status" = "200" || {
+            echo "::error::Turnstile config endpoint returned ${turnstile_status:-network-error}"
+            head -c 1000 /tmp/otya-turnstile-config.json 2>/dev/null || true
+            exit 1
+          }
           grep -Eq '"turnstile"[[:space:]]*:[[:space:]]*true' /tmp/otya-turnstile-config.json || {
             echo "::error::Turnstile is not enabled after production deploy"
             head -c 1000 /tmp/otya-turnstile-config.json 2>/dev/null || true
