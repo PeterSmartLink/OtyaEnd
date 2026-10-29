@@ -84,3 +84,21 @@ Keep the Android app/release pipeline separate from backend/shop deployments. Th
 ## Explicit no-go gates
 
 No production deploy, DNS/route changes, secret changes, production migration, deletion, live provider activation or live financial transaction without explicit approval. Never claim a feature is ready from code presence or a green build alone.
+
+## Fresh read-only recheck — 2026-10-29
+
+### Cloudflare runtime and data
+- The account's live Worker script list contains only `otya-auth`, `otya-core`, and `otya-next`; there is no deployed `omnipoint-dev-api` Worker.
+- The configured Worker Domains currently point at production services under `petersmartlink.com` (`otya-core`). No OtyaPoint preview hostname/domain was observed. Do not attach an OtyaPoint route to these production domains.
+- `omnipoint-dev` records only `0001_core.sql`, `0002_company_scope.sql`, and `0003_staff_profile.sql`. A read-only `PRAGMA table_info(omni_retail_sales)` confirms the live database does not yet contain `request_fingerprint`; the additive migration `0004_sale_request_fingerprint.sql` is still pending.
+- Separate count queries returned zero rows for `omni_products`, `omni_retail_sales`, `omni_retail_sale_lines`, `omni_stock_movements`, `omni_agency_transactions`, `omni_ledger_entries`, `omni_staff_memberships`, and `omni_audit_events`. These checks did not inspect customer data and performed no writes.
+- `otya-store-db` still has 12 named migration records (`0002`–`0013`) and remains shared by Otya Core/Next. `otya-auth-db` has auth tables but its `d1_migrations` table has no migration records. Do not infer a safe migration sequence until its schema provenance is reconciled.
+
+### OtyaPoint integration blockers
+- The current website still imports Supabase Auth and Prisma for login, staff mapping, product actions and staff invitations; this is not yet a Cloudflare-only UI/API path.
+- The existing same-origin products bridge creates an HMAC JWT with its own issuer/audience. The Cloudflare API Worker instead forwards bearer tokens to Otya Auth's `/auth/verify` service binding and expects a verified Otya Auth identity. Those are different trust contracts. The bridge must not mint an Otya-looking token and treat it as an Otya Auth session.
+- Existing PR #45's updated isolated test suite passed its recorded GitHub Actions checks (schema/migration tests, Worker type-check, Wrangler dry-run, lint, and dashboard build) on the current PR head. That is code validation only: the live D1 migration remains pending and no route-level replay/concurrency/rollback tests have yet proven the financial behavior.
+- Existing PR #46 now fails closed before deployment unless an explicit route and a verified isolated HTTPS preview endpoint are configured. It has not been dispatched. No Worker, route, DNS record, D1 migration, or secret was changed during this recheck.
+
+### Recovery boundary
+The presence of `omnipoint-dev-backups` does not prove an export is current or restorable. D1 export can temporarily make a database unavailable during export; do not run an export against a live database without scheduling/approval. Before any migration, create a verified export, checksum it, restore into a separate isolated database, and run integrity/schema checks. Do not apply migration `0004` or deploy the Worker until the endpoint and Otya Auth trust contract are resolved.
