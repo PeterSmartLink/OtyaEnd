@@ -102,3 +102,20 @@ No production deploy, DNS/route changes, secret changes, production migration, d
 
 ### Recovery boundary
 The presence of `omnipoint-dev-backups` does not prove an export is current or restorable. D1 export can temporarily make a database unavailable during export; do not run an export against a live database without scheduling/approval. Before any migration, create a verified export, checksum it, restore into a separate isolated database, and run integrity/schema checks. Do not apply migration `0004` or deploy the Worker until the endpoint and Otya Auth trust contract are resolved.
+
+## Implementation/consolidation progress — 2026-10-29
+
+- OtyaPoint PR #45 now contains sale idempotency fingerprint migration `0004`, append-only financial/audit history migration `0005`, a health-readiness gate for the fingerprint column, normalized replay responses, route-contract tests, and the Cloudflare-first build gates. Its current reviewed head passed the full Verify OmniPoint workflow and tracked-secret scan. The PR remains a draft; the remote migrations are not applied.
+- OtyaPoint PR #46 now has two manual modes: `verify-backup` (default) exports only the isolated D1 database and restores/checks the dump locally in an ephemeral runner, while `deploy-preview` remains blocked until an isolated HTTPS route and verified Cloudflare Access protection exist. It has not been dispatched.
+- OtyaPoint PR #41 is the canonical product-branding branch: it uses OtyaPoint in the UI, fixes the incorrect “OmniPoint UG Limited” labels, preserves legal wording pending owner confirmation, and does not claim that the API is live. Its CI is still running at the latest check.
+- Superseded/deferred OtyaPoint PRs were closed after comments preserved the reason and branches were retained: #27, #28 (deferred bridge), #29, #32, #34, #35, #42, #16, #17, #18 (deferred savings feature), #19, #20, and #28/#29/#35 as described in their PR discussions. Earlier cleanup also closed Otya End #199, #201, #227, and #230 after preserving their useful changes/findings.
+- OtyaPoint PR #31 was reopened and explicitly marked blocked after full review showed it includes unique production-boundary audit work as well as a ledger-journal migration that is incompatible with the current direct ledger inserts. Do not merge it or apply its journal migration until the sales route is updated to create/post journals atomically.
+- A schema-only export of `omnipoint-dev` completed through Cloudflare's D1 export API. The execution environment could not retrieve the temporary signed download URL, so checksum and local restore were **not** verified by that attempt. PR #46 now provides a manual GitHub Actions path to perform a complete export-and-restore check without uploading the dump or writing to R2.
+
+## Current consolidation target
+
+Keep no more than two active OtyaPoint implementation PRs for the first delivery phase:
+1. **PR #45** — D1 financial integrity and route-contract tests.
+2. **PR #46** — backup/restore verification and guarded private-preview workflow.
+
+Branding PR #41 remains a separate, short-lived UI/docs rebrand PR because it touches different user-visible files. Provider contracts remain deferred/disabled until the shop/POS/auth/backup foundations pass. Branches are retained for traceability; no branch deletion has been performed.
