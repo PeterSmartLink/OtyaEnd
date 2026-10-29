@@ -106,3 +106,50 @@ test("registry allow-lists contract fields and isolates caller-owned manifest ob
   assert.equal(Object.isFrozen(stored.capabilities[0]), true);
 });
 
+test("rejects duplicate capability names and malformed scope declarations", () => {
+  const duplicate = structuredClone(readOnlyManifest);
+  duplicate.capabilities.push(structuredClone(duplicate.capabilities[0]));
+  assert.equal(validateConnectorManifest(duplicate).ok, false);
+
+  const malformedScopes = structuredClone(readOnlyManifest);
+  malformedScopes.capabilities[0].requiredScopes = ["service:status:read", ""];
+  assert.equal(validateConnectorManifest(malformedScopes).ok, false);
+});
+
+test("fails closed for missing registry, missing connector, and unsupported modes", () => {
+  assert.deepEqual(authorizeConnectorCapability({ registry: null, connectorId: "x", capabilityName: "x" }), {
+    allowed: false, code: "registry_unavailable",
+  });
+
+  const registry = createConnectorRegistry([readOnlyManifest]);
+  assert.equal(authorizeConnectorCapability({
+    registry, connectorId: "not-registered", capabilityName: "service.status.read",
+  }).code, "connector_not_found");
+
+  assert.equal(authorizeConnectorCapability({
+    registry, connectorId: "example-status", capabilityName: "service.status.read",
+    grantedScopes: ["service:status:read"], mode: "execute",
+  }).code, "mode_not_supported");
+});
+
+test("retired and draft connectors cannot be authorized", () => {
+  for (const state of ["draft", "retired"]) {
+    const registry = createConnectorRegistry([{ ...readOnlyManifest, state }]);
+    assert.equal(authorizeConnectorCapability({
+      registry, connectorId: "example-status", capabilityName: "service.status.read",
+      grantedScopes: ["service:status:read"],
+    }).code, "connector_not_enabled");
+  }
+});
+
+test("registry metadata is isolated from mutable nested input objects", () => {
+  const manifest = structuredClone(readOnlyManifest);
+  const registry = createConnectorRegistry([manifest]);
+  manifest.capabilities[0].name = "service.admin.write";
+  manifest.capabilities[0].requiredScopes[0] = "admin";
+
+  const stored = registry.get("example-status");
+  assert.equal(stored.capabilities[0].name, "service.status.read");
+  assert.deepEqual(stored.capabilities[0].requiredScopes, ["service:status:read"]);
+});
+
