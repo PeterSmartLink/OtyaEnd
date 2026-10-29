@@ -23,7 +23,8 @@
     "predeploy": "npm run sync:brand && npm run verify:migrations",
     "deploy": "node scripts/ensure-admin-session-secret.mjs && opennextjs-cloudflare build && node scripts/deploy-core-version.mjs && node scripts/verify-admin-mfa.mjs",
     "maintenance:edge-csp": "bash scripts/remove-legacy-edge-csp.sh",
-    "cf-typegen": "wrangler types"
+    "cf-typegen": "wrangler types",
+    "migrate:remote:apply": "node scripts/require-remote-d1-migration-approval.mjs && npx wrangler d1 migrations apply DB --remote"
   },
   "dependencies": {
     "next": "15.5.28",
