@@ -8,7 +8,7 @@
 
 - **Otya Hold Ltd:** parent company.
 - **Otya OS:** unified platform and ecosystem management.
-- **Otya End:** shared backend, integration contracts, identity coordination, operational controls.
+- **Otya End:** the official name of the shared backend, integration layer, identity coordination, and operational controls. “Otya Server” is not the product name.
 - **OtyaPoint:** own-shop retail and financial-agency application (legacy repository slug: `OmniPoint`).
 - **Otya Media:** media player (repository: `OtyaPlayer`).
 - **OtyaHub:** public developer/partner community.
@@ -21,7 +21,7 @@ The authenticated GitHub connection listed these repositories under `PeterSmartL
 
 | Repository | Default branch | Intended role |
 |---|---|---|
-| `Otya-Server` | `main` | Shared Otya backend and infrastructure |
+| `Otya-Server` | `main` | Existing GitHub repository slug for Otya End; preserve slug until a separately reviewed repository rename |
 | `OmniPoint` | `main` | OtyaPoint shop and agency application |
 | `OtyaPlayer` | `main` | Otya Media application |
 | `OtyaHub` | `main` | Public developer community |
@@ -63,7 +63,7 @@ These are existence findings only. Queue consumers, access policies, lifecycle s
 
 ## Configuration comparisons
 
-### Otya End / `Otya-Server`
+### Otya End (existing repository slug: `Otya-Server`)
 
 The root `wrangler.toml` configures Worker `otya-core`, binds D1 `otya-store-db`, R2 `otya-player-releases`, KV, queues and service bindings to `otya-auth` and `otya-next`. Its routes include `petersmartlink.com` and subdomains. Treat this as production-sensitive.
 
