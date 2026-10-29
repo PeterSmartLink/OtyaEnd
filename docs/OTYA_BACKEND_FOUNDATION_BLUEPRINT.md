@@ -7,7 +7,7 @@ Prepare the shared backend before adding more product features. One connected ec
 ## Canonical identity
 - Otya Hold Ltd: parent company.
 - Otya OS: unified platform.
-- Otya Server: shared backend/infrastructure.
+- Otya End: shared backend/infrastructure.
 - OtyaPoint: shop and retail/agency application.
 - Otya Media: media player.
 - OtyaHub: public developer/partner community.
