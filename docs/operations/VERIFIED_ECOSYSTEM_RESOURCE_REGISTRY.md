@@ -97,3 +97,15 @@ The repository README states that the development stack was created and core/com
 ## Verification scope and limitations
 
 Verified by read-only calls on 2026-10-29: repository listing, root Wrangler configuration files, package manifests, Worker script listing, Worker settings/binding names, D1 database listing, R2 bucket listing, and queue listing. No secret values, customer rows, financial rows, or payment credentials were read. No resource was changed by the inventory calls.
+
+
+## Additional live verification — OtyaPoint D1
+
+A read-only D1 query was run against database `omnipoint-dev` (ID `2c4de5d4-6898-4768-9a60-091bca7779b5`) on 2026-10-29.
+
+- The `d1_migrations` table exists.
+- The recorded migration names are `0001_core.sql`, `0002_company_scope.sql`, and `0003_staff_profile.sql`, all recorded at `2026-10-28 09:37:58`.
+- SQLite metadata lists the expected nine core `omni_*` tables: products, retail sales, sale lines, stock movements, agency transactions, ledger entries, reconciliation sessions, audit events, and staff memberships.
+- Queries read only schema metadata and migration names/timestamps; no business rows were queried or changed.
+
+This strengthens confidence that the isolated development schema is present and has its three expected migrations recorded. It does **not** prove a Worker is deployed, the frontend is connected, auth is end-to-end tested, backups can be restored, or payment operations are production-ready.
