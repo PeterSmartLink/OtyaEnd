@@ -19,6 +19,15 @@ test('Resend webhook verifies the exact raw Svix message before JSON parsing', (
   assert.ok(route.indexOf('const rawBody = await req.text()') < route.indexOf('JSON.parse(rawBody)'))
 })
 
+test('Resend webhook rejects malformed JSON shapes before accessing event fields', () => {
+  assert.match(route, /if \(!parsed \|\| typeof parsed !== 'object' \|\| Array\.isArray\(parsed\)\)/)
+  assert.match(route, /Invalid webhook event shape/)
+  assert.match(route, /typeof event\.type !== 'string' \|\| !event\.type\.trim\(\)/)
+  assert.match(route, /Invalid webhook event type/)
+  assert.match(route, /event\.data !== undefined && \(!event\.data \|\| typeof event\.data !== 'object' \|\| Array\.isArray\(event\.data\)\)/)
+  assert.match(route, /Invalid webhook event data/)
+})
+
 test('Resend signing secret stays out of source and is resolved server-side', () => {
   assert.match(config, /RESEND_WEBHOOK_ID = "ed1c9372-22ec-4f85-931d-14826a07b3cb"/)
   assert.doesNotMatch(config, /RESEND_WEBHOOK_SECRET|whsec_/)
