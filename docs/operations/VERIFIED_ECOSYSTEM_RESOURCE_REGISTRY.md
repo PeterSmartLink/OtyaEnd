@@ -109,3 +109,45 @@ A read-only D1 query was run against database `omnipoint-dev` (ID `2c4de5d4-6898
 - Queries read only schema metadata and migration names/timestamps; no business rows were queried or changed.
 
 This strengthens confidence that the isolated development schema is present and has its three expected migrations recorded. It does **not** prove a Worker is deployed, the frontend is connected, auth is end-to-end tested, backups can be restored, or payment operations are production-ready.
+
+
+## Reconciliation addendum — 2026-10-30
+
+This addendum supersedes earlier inventory statements where they conflict with the later read-only account and repository checks. The 2026-10-29 sections above are retained as historical observations, not as the current resource map.
+
+### Current OtyaPoint D1 configuration and recovery evidence
+
+The current OtyaPoint repository configuration targets D1 database `otyapoint-db` (ID `65cc4aee-154a-474f-9ed4-aabea0924c98`), not `omnipoint-dev`. Preserve both databases until a separate data ownership and migration review explicitly authorizes a change.
+
+Current repository migration sequence:
+- `0001_core.sql`
+- `0002_company_scope.sql`
+- `0003_staff_profile.sql`
+- `0004_sale_request_fingerprint.sql`
+- `0005_company_scoped_sale_idempotency.sql`
+
+The configured OtyaPoint Worker entry is `cloudflare-api/src/index.ts`, with script name `otyapoint-api`; its live deployment is still **unconfirmed**. The Wrangler config targets `otyapoint-db`, R2 buckets `otyapoint-private` and `otyapoint-backups`, KV namespace ID `69ca8a463e60410d907749d4e863faf4`, queue `otyapoint-dev-jobs`, and service binding `AUTH` to `otya-auth`. Configuration is not evidence that the Worker is deployed or that the auth bridge is trusted.
+
+The read-only inventory identified the additional D1 database `otyapoint-db`; the earlier `omnipoint-dev` database remains a distinct legacy/development resource. Although the core schema objects were similar in both databases during the inspection, their `d1_migrations` history differs. Do not copy data, point a Worker at the other database, or assume the two databases are interchangeable.
+
+### Recovery evidence
+
+Point-in-time SQL snapshots were stored in R2 and read back:
+- `d1/otyapoint-db/2026-10-30-recovery.sql` — 11,241 bytes; SHA-256 `21051eee120339be5eec44255a2944e596b34af299590cd9cf62f85b51bd564a`.
+- `d1/omnipoint-dev/2026-10-30-recovery.sql` — 11,175 bytes; SHA-256 `b44fc62409ba6381229c3d3dfa227b0084545649bc79f07c7053a73a34bae93e`.
+
+Both snapshots were restored into isolated EU verification databases `otyapoint-restore-verify-20261030` and `omnipoint-restore-verify-20261030`. Verification reproduced 35 schema objects, three migration records, and the observed core row counts. These are point-in-time snapshots and isolated restore tests; **they do not establish a recurring backup schedule, current data freshness, or production disaster-recovery readiness**. Retain the snapshots and verification databases until a separate retention review.
+
+### Current OtyaPoint application status and blockers
+
+- Merged sale idempotency and D1 atomicity regression tests now cover retry conflicts, concurrent requests, rollback, foreign keys, stock-trigger conflicts, and balanced ledger behavior using isolated test databases.
+- New non-cash sale/payment processing remains disabled; these changes do not authorize or perform live payments.
+- Supabase and Prisma dependencies/scripts remain in the current `main` package manifest. Do not remove them until active imports and routes are migrated and build/test checks prove the Cloudflare path works independently.
+- The local dashboard-to-Otya Auth bridge remains unverified: it mints an HS256 token with a different secret and a local staff identifier, while Otya Auth validates with its own configured secret. Do not enable this bridge in production until the identity, signing, audience/issuer, expiry, and authorization contract is corrected and tested end to end.
+- No verified deployment of `otyapoint-api` has been established by this reconciliation.
+
+### Current preservation and safety rules
+
+- Keep `otya-auth-db`, `otya-store-db`, `otyapoint-db`, and `omnipoint-dev` distinct until schema ownership and migration history are reviewed.
+- Keep R2 release assets and both OtyaPoint recovery snapshots. Do not clean up legacy resources solely because a newer canonical name exists.
+- No production deployment, DNS/secrets change, remote migration, resource deletion, or payment activation is authorized by this registry update.
