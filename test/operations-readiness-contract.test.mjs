@@ -57,11 +57,13 @@ test('production health records incident and recovery transitions without heartb
   assert.match(entry, /if\(signature===previousIncident\)return/)
 })
 
-test('explicit Core deploy validates and applies repository D1 migrations', () => {
+test('normal Core deploy validates migrations but never applies remote D1 automatically', () => {
   const pkg = JSON.parse(read('package.json'))
   assert.match(pkg.scripts.check, /verify:migrations/)
   assert.match(pkg.scripts.predeploy, /verify:migrations/)
-  assert.match(pkg.scripts.predeploy, /wrangler d1 migrations apply DB --remote/)
+  assert.doesNotMatch(pkg.scripts.predeploy, /migrations apply|--remote/)
+  assert.match(pkg.scripts['migrate:remote:apply'], /require-remote-d1-migration-approval/)
+  assert.match(pkg.scripts['migrate:remote:apply'], /wrangler d1 migrations apply DB --remote/)
 })
 
 test('operations readiness is non-destructive and checks production recovery primitives', () => {

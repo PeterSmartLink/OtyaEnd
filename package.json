@@ -20,13 +20,14 @@
     "audit:all": "npm audit --audit-level=high",
     "prepreview": "npm run sync:brand",
     "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
-    "predeploy": "npm run sync:brand && npm run verify:migrations && npx wrangler d1 migrations apply DB --remote",
+    "predeploy": "npm run sync:brand && npm run verify:migrations",
     "deploy": "node scripts/ensure-admin-session-secret.mjs && opennextjs-cloudflare build && node scripts/deploy-core-version.mjs && node scripts/verify-admin-mfa.mjs",
     "maintenance:edge-csp": "bash scripts/remove-legacy-edge-csp.sh",
-    "cf-typegen": "wrangler types"
+    "cf-typegen": "wrangler types",
+    "migrate:remote:apply": "node scripts/require-remote-d1-migration-approval.mjs && npx wrangler d1 migrations apply DB --remote"
   },
   "dependencies": {
-    "next": "15.5.25",
+    "next": "15.5.28",
     "react": "19.2.8",
     "react-dom": "19.2.8"
   },
@@ -50,6 +51,7 @@
   },
   "overrides": {
     "postcss": "8.5.25",
-    "sharp": "0.35.4"
+    "sharp": "0.35.5",
+    "source-map-js": "1.2.2"
   }
 }
