@@ -230,14 +230,26 @@ export async function POST(req: NextRequest) {
     return errorJson('Invalid webhook signature', 401)
   }
 
-  let event: ResendWebhookEvent
+  let parsed: unknown
   try {
-    event = JSON.parse(rawBody) as ResendWebhookEvent
+    parsed = JSON.parse(rawBody) as unknown
   } catch {
     return errorJson('Invalid webhook JSON', 400)
   }
 
-  const eventType = typeof event.type === 'string' ? event.type : ''
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    return errorJson('Invalid webhook event shape', 400)
+  }
+
+  const event = parsed as ResendWebhookEvent
+  if (typeof event.type !== 'string' || !event.type.trim()) {
+    return errorJson('Invalid webhook event type', 400)
+  }
+  if (event.data !== undefined && (!event.data || typeof event.data !== 'object' || Array.isArray(event.data))) {
+    return errorJson('Invalid webhook event data', 400)
+  }
+
+  const eventType = event.type
   if (!OPERATIONAL_EVENTS.has(eventType)) {
     return secureJson({ ok: true, ignored: true })
   }
