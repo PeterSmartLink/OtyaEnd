@@ -5,7 +5,7 @@ on:
     paths-ignore: ['**/*.md', 'docs/**']
   pull_request:
     branches: [main]
-    paths-ignore: ['**/*.md', 'docs/**', '.github/**']
+    paths-ignore: ['**/*.md', 'docs/**']
   workflow_dispatch:
     inputs:
       component:
@@ -21,6 +21,11 @@ on:
           - all
       confirm:
         description: 'Type DEPLOY to authorize a production deployment'
+        required: false
+        default: ''
+        type: string
+      confirm_auth_db_repair:
+        description: 'For auth/all only: type REPAIR_AUTH_DB:otya-auth-db:b05595f6-260a-4720-acca-4f8b13f5c43e to authorize remote auth D1 schema repair'
         required: false
         default: ''
         type: string
@@ -68,6 +73,7 @@ jobs:
         env:
           COMPONENT: ${{ inputs.component }}
           CONFIRM: ${{ inputs.confirm }}
+          AUTH_DB_REPAIR_CONFIRM: ${{ inputs.confirm_auth_db_repair }}
           TARGET_REF: ${{ github.ref }}
         run: |
           set -euo pipefail
@@ -83,6 +89,12 @@ jobs:
             auth|next|core|all) ;;
             *) echo "ERROR: unsupported production component $COMPONENT"; exit 1 ;;
           esac
+          if [ "$COMPONENT" = 'auth' ] || [ "$COMPONENT" = 'all' ]; then
+            test "$AUTH_DB_REPAIR_CONFIRM" = 'REPAIR_AUTH_DB:otya-auth-db:b05595f6-260a-4720-acca-4f8b13f5c43e' || {
+              echo "ERROR: auth deployment includes remote D1 schema repair; separate exact database approval is required"
+              exit 1
+            }
+          fi
           echo "Production deploy authorized for component: $COMPONENT"
 
   plan-deploy:
@@ -143,9 +155,13 @@ jobs:
         env:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          AUTH_DB_REPAIR_CONFIRM: ${{ inputs.confirm_auth_db_repair }}
         run: |
           set -euo pipefail
           test -n "$CLOUDFLARE_ACCOUNT_ID" && test -n "$CLOUDFLARE_API_TOKEN"
+          test "$AUTH_DB_REPAIR_CONFIRM" = 'REPAIR_AUTH_DB:otya-auth-db:b05595f6-260a-4720-acca-4f8b13f5c43e'
+          grep -Fq 'database_name = "otya-auth-db"' wrangler.toml
+          grep -Fq 'database_id   = "b05595f6-260a-4720-acca-4f8b13f5c43e"' wrangler.toml
           bash scripts/repair-remote-schema.sh
       - name: Configure and deploy auth
         working-directory: auth-worker
