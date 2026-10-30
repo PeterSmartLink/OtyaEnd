@@ -64,7 +64,7 @@ jobs:
             echo '::error::Possible AI/provider secret key committed to source.'
             exit 1
           fi
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         if: github.event_name != 'push'
         with: { node-version: '22', package-manager-cache: false }
       - name: Validate and audit web/backend runtime
@@ -128,7 +128,7 @@ jobs:
       - uses: actions/checkout@v6
       - uses: github/codeql-action/init@v3
         with: { languages: javascript-typescript }
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with: { node-version: '22', package-manager-cache: false }
       - run: npm ci --ignore-scripts
       - working-directory: auth-worker

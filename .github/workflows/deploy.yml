@@ -35,7 +35,7 @@ jobs:
     timeout-minutes: 18
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with: { node-version: '22', package-manager-cache: false }
       - name: Validate OTYA core/web
         run: |
@@ -134,7 +134,7 @@ jobs:
     environment: production
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with: { node-version: '22', package-manager-cache: false }
       - working-directory: auth-worker
         run: npm ci --ignore-scripts
@@ -181,7 +181,7 @@ jobs:
     environment: production
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with: { node-version: '22', package-manager-cache: false }
       - working-directory: ai-worker
         run: npm ci --ignore-scripts
@@ -215,7 +215,7 @@ jobs:
     environment: production
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with: { node-version: '22', package-manager-cache: false }
       - run: npm ci --ignore-scripts
       - name: Build and deploy OTYA core
