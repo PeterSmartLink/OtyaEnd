@@ -138,34 +138,8 @@ async function verifySignature(
   return false
 }
 
-async function ensureSchema(env: WebhookEnv): Promise<void> {
-  if (!schemaPromise) {
-    schemaPromise = (async () => {
-      const db = getDB(env)
-      await db.prepare(`
-        CREATE TABLE IF NOT EXISTS resend_webhook_events (
-          svix_id TEXT PRIMARY KEY,
-          event_type TEXT NOT NULL,
-          email_id TEXT,
-          message_id TEXT,
-          event_created_at TEXT,
-          received_at TEXT NOT NULL DEFAULT (datetime('now'))
-        )
-      `).run()
-      await db.prepare(`
-        CREATE INDEX IF NOT EXISTS idx_resend_webhook_events_type_received
-        ON resend_webhook_events(event_type, received_at DESC)
-      `).run()
-    })().catch((error) => {
-      schemaPromise = null
-      throw error
-    })
-  }
-  await schemaPromise
-}
-
 async function claimEvent(env: WebhookEnv, svixId: string, event: ResendWebhookEvent): Promise<boolean> {
-  await ensureSchema(env)
+  // Schema is provisioned only by the versioned migration; webhook requests never mutate DDL.
   const db = getDB(env)
   const eventType = typeof event.type === 'string' ? event.type.slice(0, 80) : 'unknown'
   const emailId = typeof event.data?.email_id === 'string' ? event.data.email_id.slice(0, 128) : null
