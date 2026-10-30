@@ -32,8 +32,8 @@ Use lowercase kebab-case for Cloudflare resource names. Prefix shared services w
 | Worker | `otya-auth` | `otya-auth` | Keep; powers Otya Account shared identity. |
 | Worker | `otya-next` | `otya-next` | Keep; owner assistant workload. |
 | Worker | `otyapoint-api` | Proposed in OtyaPoint branch; not deployed | Validate source config before any deployment. |
-| D1 | `otyapoint-db` | Newly created, zero tables so far | Apply migrations and verify before use. |
-| D1 | `otya-auth-db` | `otya-auth-db` | Identity store. Never combine with product business records; inspect actual tables/rows before changes. |
+| D1 | `otyapoint-db` | Newly created; only internal `_cf_KV` table observed | Apply application migrations and verify before use. |
+| D1 | `otya-auth-db` | `otya-auth-db`; read-only query confirms users, linked identities, two-factor and security-event tables | Identity store has application schema/data; preserve and verify row counts/backup before changes. Never combine with product business records. |
 | D1 | `otya-core-db` | `otya-store-db` | Proposed target only; inspect schema and Worker bindings before replacement. |
 | R2 | `otyapoint-private` | Newly created | Verify private access; migrate data only after object inventory. |
 | R2 | `otyapoint-backups` | Newly created | Prove export and restore; an empty bucket is not a verified backup. |
@@ -51,12 +51,12 @@ Use lowercase kebab-case for Cloudflare resource names. Prefix shared services w
 
 Observed on 2026-10-30:
 - Workers: `otya-auth`, `otya-core`, `otya-next`.
-- D1: `otyapoint-db` (new; zero tables), `omnipoint-dev` (legacy; keep for rollback), `otya-auth-db`, `otya-store-db`.
+- D1: `otyapoint-db` (new; only internal `_cf_KV` table), `omnipoint-dev` (10 application tables plus migration metadata), `otya-auth-db` (users/identity/2FA/security tables), `otya-store-db` (release/device/notification/audit/owner tables).
 - R2: `otyapoint-private`, `otyapoint-backups`, `omnipoint-dev-private`, `omnipoint-dev-backups`, `otya-assets`, `otya-player-releases`.
 - KV titles: `otya-core-kv`, `otyapoint-dev-cache`, `otya-auth-kv`.
 - Queues: `otyapoint-dev-jobs`, `otyapoint-dev-jobs-dlq`, `omnipoint-dev-jobs`, `omnipoint-dev-jobs-dlq`, `otya-next-jobs`, `otya-next-jobs-dlq`, `otya-push`, `otya-push-dlq`, `otya-release-events`, `otya-release-events-dlq`.
 
-Cloudflare's account-level D1 list reports `num_tables: 0` for multiple existing databases, but reported file sizes differ materially. Treat that metadata as insufficient to prove a database is empty. Query actual schema and data safely before any copy, rename migration, or deletion.
+Direct read-only SQL queries of `sqlite_master` showed that Cloudflare's account-level D1 list `num_tables: 0` metadata was insufficient and misleading for existing databases. Application tables exist in `omnipoint-dev`, `otya-auth-db`, and `otya-store-db`. Treat these databases as containing valuable data; do not delete, replace, or rename them until row counts, export integrity, restore tests, and bindings are verified.
 
 ## Resend inventory and rules
 
