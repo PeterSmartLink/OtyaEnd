@@ -126,7 +126,7 @@ jobs:
       security-events: write
     steps:
       - uses: actions/checkout@v6
-      - uses: github/codeql-action/init@v3
+      - uses: github/codeql-action/init@v4
         with: { languages: javascript-typescript }
       - uses: actions/setup-node@v6
         with: { node-version: '22', package-manager-cache: false }
@@ -136,4 +136,4 @@ jobs:
       - working-directory: ai-worker
         run: npm ci --ignore-scripts
       - run: npm run build
-      - uses: github/codeql-action/analyze@v3
+      - uses: github/codeql-action/analyze@v4
