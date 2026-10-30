@@ -2,7 +2,7 @@ name: Deploy OTYA to Cloudflare
 on:
   push:
     branches: [main]
-    paths-ignore: ['**/*.md', 'docs/**', '.github/**']
+    paths-ignore: ['**/*.md', 'docs/**']
   pull_request:
     branches: [main]
     paths-ignore: ['**/*.md', 'docs/**', '.github/**']
